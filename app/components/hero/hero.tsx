@@ -1,10 +1,6 @@
 import classNames from 'classnames';
-import Link from 'next/link';
 import { merryWeather } from '../../fonts';
-import { AtSignIcon } from '../layouts/icons/at-sign-icon';
-import { GithubIcon } from '../layouts/icons/github-icon';
-import { LinkedinIcon } from '../layouts/icons/linkedin-icon';
-import { XIcon } from '../layouts/icons/x-icon';
+import Footer from '../layouts/footer/footer';
 import SplashCursor from '../splash-cursor';
 import ArrowDown from './arrow-down';
 
@@ -18,6 +14,9 @@ export default function Hero() {
 				<div
 					className={classNames('relative min-h-svh', merryWeather.className)}
 				>
+					<div className='absolute bottom-16 left-0 right-0 z-10'>
+						<Footer variant='hero' />
+					</div>
 					<ArrowDown />
 					<div className='absolute top-[20%] md:top-[40%] max-w-5xl flex-col space-y-4 justify-center px-8 md:px-24 lg:ml-14'>
 						<h1 className='text-2xl font-medium md:mr-4 md:text-4xl'>
@@ -45,57 +44,6 @@ export default function Hero() {
 								</a>
 								.
 							</p>
-						</section>
-						<section className='relative z-10 flex space-x-4 items-center text-sm'>
-							<div>
-								<p>More about me: </p>
-								<div className='flex -ml-2'>
-									<Link
-										href='https://www.linkedin.com/in/dale-larroder/'
-										target='_blank'
-										rel='noreferrer'
-										aria-label='linkedin'
-										data-skip-splash-cursor
-									>
-										<LinkedinIcon className='h-9 w-9' />
-									</Link>
-									<Link
-										href='https://github.com/dlarroder'
-										target='_blank'
-										rel='noreferrer'
-										aria-label='github'
-										data-skip-splash-cursor
-									>
-										<GithubIcon className='h-9 w-9' />
-									</Link>
-									<Link
-										href='https://x.com/dalelarroder'
-										target='_blank'
-										rel='noreferrer'
-										aria-label='twitter'
-										data-skip-splash-cursor
-									>
-										<XIcon className='h-9 w-9' />
-									</Link>
-									<Link
-										href='mailto:hi@dalelarroder.com'
-										aria-label='email'
-										rel='noreferrer'
-										data-skip-splash-cursor
-									>
-										<AtSignIcon className='h-9 w-9' />
-									</Link>
-								</div>
-							</div>
-							<div className='h-14 border-l border-gray-300' />
-							<div
-								className='flex flex-wrap space-x-3 space-y-1'
-								data-skip-splash-cursor
-							>
-								<Link href='/projects'>/projects</Link>
-								<Link href='/thoughts'>/thoughts</Link>
-								<Link href='/uses'>/uses</Link>
-							</div>
 						</section>
 					</div>
 				</div>
