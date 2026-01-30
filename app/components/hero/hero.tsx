@@ -95,7 +95,6 @@ export default function Hero() {
 								<Link href='/projects'>/projects</Link>
 								<Link href='/thoughts'>/thoughts</Link>
 								<Link href='/uses'>/uses</Link>
-								<Link href='/stats'>/stats</Link>
 							</div>
 						</section>
 					</div>
