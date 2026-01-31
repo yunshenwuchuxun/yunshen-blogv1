@@ -1,23 +1,23 @@
 import path from 'node:path';
 import { Fragment } from 'react';
+import { readMDXFile } from '../blog/utils';
 import Header from '../components/header';
 import { CustomMDX } from '../components/mdx';
-import { readMDXFile } from '../thoughts/utils';
-import UsesTitle from './uses-title';
+import AboutTitle from './about-title';
 
-const contentPath = path.join(process.cwd(), 'app', 'uses', 'content.mdx');
+const contentPath = path.join(process.cwd(), 'app', 'about', 'content.mdx');
 const { content } = readMDXFile(contentPath);
 
 export const metadata = {
-	title: 'Uses',
-	description: 'What I use',
+	title: 'About',
+	description: 'About me',
 };
 
 export default function Page() {
 	return (
 		<Fragment>
-			<Header title='Uses' />
-			<UsesTitle />
+			<Header title='About' />
+			<AboutTitle />
 			<CustomMDX source={content} />
 		</Fragment>
 	);

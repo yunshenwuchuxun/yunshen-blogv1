@@ -4,8 +4,8 @@ import { Thoughts } from '../components/thoughts';
 import { getPosts } from './utils';
 
 export const metadata = {
-	title: 'Thoughts',
-	description: 'My Thoughts - Dale Larroder',
+	title: 'Blog',
+	description: 'My Blog - Dale Larroder',
 };
 
 export default function ThoughtsPage() {
@@ -13,7 +13,7 @@ export default function ThoughtsPage() {
 
 	return (
 		<PageContainer>
-			<Header title='Thoughts' />
+			<Header title='Blog' />
 			<Thoughts posts={posts} />
 		</PageContainer>
 	);

@@ -16,6 +16,7 @@ type Metadata = {
 	summary: string;
 	draft: boolean;
 	image?: string;
+	tags?: string[];
 };
 
 function parseFrontmatter(fileContent: string) {
@@ -27,14 +28,31 @@ function parseFrontmatter(fileContent: string) {
 	const metadata: Partial<Metadata> = {};
 
 	frontMatterLines?.forEach((line) => {
-		const [key, ...valueArr] = line.split(': ');
-		let value = valueArr.join(': ').trim();
-		value = value.replace(/^['"](.*)['"]$/, '$1'); // Remove quotes
-		const trimmedKey = key.trim() as keyof Metadata;
-		if (trimmedKey === 'draft') {
-			metadata[trimmedKey] = value === 'true';
+		const separatorIndex = line.indexOf(':');
+		if (separatorIndex === -1) return;
+
+		const key = line.slice(0, separatorIndex).trim();
+		const value = line.slice(separatorIndex + 1).trim();
+
+		if (key === 'tags') {
+			if (value.startsWith('[') && value.endsWith(']')) {
+				const inner = value.slice(1, -1).trim();
+				const rawTags = inner
+					? inner.split(',').map((t) => {
+							const trimmed = t.trim();
+							return trimmed.replace(/^["']|["']$/g, '');
+						})
+					: [];
+				metadata.tags = rawTags
+					.map((t) => t.trim())
+					.filter((t) => t.length > 0)
+					.filter((t, i, arr) => arr.indexOf(t) === i);
+			}
+		} else if (key === 'draft') {
+			metadata.draft = value === 'true';
 		} else {
-			metadata[trimmedKey] = value;
+			const cleaned = value.replace(/^["']|["']$/g, '');
+			metadata[key as keyof Metadata] = cleaned;
 		}
 	});
 
@@ -65,7 +83,7 @@ function getMDXData(dir: string): BlogPost[] {
 }
 
 export function getPosts(): BlogPost[] {
-	const posts = getMDXData(path.join(process.cwd(), 'app/thoughts/posts'));
+	const posts = getMDXData(path.join(process.cwd(), 'app/blog/posts'));
 
 	return posts
 		.filter((post) => !post.metadata.draft)
@@ -75,6 +93,31 @@ export function getPosts(): BlogPost[] {
 				new Date(a.metadata.publishedAt).getTime()
 			);
 		});
+}
+
+export function getAllTags(): Array<{ tag: string; count: number }> {
+	const posts = getPosts();
+	const tagMap = new Map<string, number>();
+
+	for (const post of posts) {
+		const tags = post.metadata.tags;
+		if (tags && Array.isArray(tags)) {
+			for (const tag of tags) {
+				tagMap.set(tag, (tagMap.get(tag) || 0) + 1);
+			}
+		}
+	}
+
+	return Array.from(tagMap.entries())
+		.map(([tag, count]) => ({ tag, count }))
+		.sort((a, b) => {
+			if (b.count !== a.count) return b.count - a.count;
+			return a.tag.localeCompare(b.tag);
+		});
+}
+
+export function getPostsByTag(tag: string): BlogPost[] {
+	return getPosts().filter((post) => post.metadata.tags?.includes(tag));
 }
 
 export function formatDate(date: string, includeRelative = false) {
@@ -93,7 +136,7 @@ export function formatDate(date: string, includeRelative = false) {
 	if (yearsAgo > 0) {
 		formattedDate = `${yearsAgo}y ago`;
 	} else if (monthsAgo > 0) {
-		formattedDate = `${monthsAgo}mo ago`;
+		formattedDate = `${yearsAgo}mo ago`;
 	} else if (daysAgo > 0) {
 		formattedDate = `${daysAgo}d ago`;
 	} else {
@@ -115,7 +158,7 @@ export function formatDate(date: string, includeRelative = false) {
 
 export async function getPostFromSlug(slug: string) {
 	const source = await fs.promises.readFile(
-		path.join(process.cwd(), 'app/thoughts/posts', `${slug}.mdx`),
+		path.join(process.cwd(), 'app/blog/posts', `${slug}.mdx`),
 		'utf-8',
 	);
 

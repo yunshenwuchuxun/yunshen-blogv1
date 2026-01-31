@@ -2,41 +2,75 @@
 
 import { format } from 'date-fns';
 import { motion } from 'motion/react';
+import Image from 'next/image';
 import Link from 'next/link';
-import type { BlogPost } from '../thoughts/utils';
+import { useState } from 'react';
+import type { BlogPost } from '../blog/utils';
+import { TagBadge } from './tag-badge';
 
 export function Thoughts({ posts }: { posts: BlogPost[] }) {
 	return (
 		<ul>
 			{posts.map((post, index) => (
-				<motion.li
-					key={post.slug}
-					className='border-b border-gray-300 dark:border-gray-800 dark:hover:border-gray-700 hover:border-gray-400 transition-colors duration-500'
-					initial={{ scale: 0.8, opacity: 0, filter: 'blur(2px)' }}
-					animate={{ scale: 1, opacity: 1, filter: 'blur(0px)' }}
-					transition={{ duration: 0.6, delay: index / 10 }}
-				>
-					<Link
-						href={`/thoughts/${post.slug}`}
-						aria-label={`Read "${post.metadata.title}"`}
-					>
-						<article className='space-y-2 py-5 border-b border-gray-300/20'>
+				<ThoughtItem key={post.slug} post={post} index={index} />
+			))}
+		</ul>
+	);
+}
+
+function ThoughtItem({ post, index }: { post: BlogPost; index: number }) {
+	const [hideImage, setHideImage] = useState(false);
+	const { title, publishedAt, summary, image, tags } = post.metadata;
+
+	return (
+		<motion.li
+			className='border-b border-gray-300 dark:border-gray-800 dark:hover:border-gray-700 hover:border-gray-400 transition-colors duration-500'
+			initial={{ scale: 0.8, opacity: 0, filter: 'blur(2px)' }}
+			animate={{ scale: 1, opacity: 1, filter: 'blur(0px)' }}
+			transition={{ duration: 0.6, delay: index / 10 }}
+		>
+			<Link href={`/blog/${post.slug}`} aria-label={`Read "${title}"`}>
+				<article className='py-5'>
+					<div className='flex flex-col md:flex-row gap-6 items-start'>
+						<div className='flex-1 space-y-3'>
 							<div className='flex w-full items-center justify-between'>
 								<h2 className='text-md w-full max-w-2xl truncate whitespace-nowrap pr-2 font-medium text-black dark:text-white group-hover:underline md:w-auto md:flex-none md:text-xl'>
-									{post.metadata.title}
+									{title}
 								</h2>
 								<div className='mx-1 flex flex-1 border-b border-primary-500' />
 								<time className='w-max whitespace-nowrap text-sm pl-2 text-gray-500 dark:text-gray-400'>
-									{format(new Date(post.metadata.publishedAt), 'MMMM dd, yyyy')}
+									{format(new Date(publishedAt), 'MMMM dd, yyyy')}
 								</time>
 							</div>
-							<p className='text-gray-500 dark:text-gray-400'>
-								{post.metadata.summary}
-							</p>
-						</article>
-					</Link>
-				</motion.li>
-			))}
-		</ul>
+
+							{tags && tags.length > 0 && (
+								<div className='flex flex-wrap gap-2'>
+									{tags.map((tag) => (
+										<TagBadge key={tag} tag={tag} size='sm' clickable={false} />
+									))}
+								</div>
+							)}
+
+							<p className='text-gray-500 dark:text-gray-400'>{summary}</p>
+						</div>
+
+						{image && !hideImage && (
+							<div className='hidden md:block shrink-0'>
+								<Image
+									src={image}
+									alt={title}
+									width={200}
+									height={200}
+									priority={true}
+									quality={85}
+									className='rounded-lg object-cover'
+									onError={() => setHideImage(true)}
+								/>
+							</div>
+						)}
+					</div>
+				</article>
+			</Link>
+		</motion.li>
 	);
 }
