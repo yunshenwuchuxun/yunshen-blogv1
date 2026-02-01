@@ -50,9 +50,13 @@ function parseFrontmatter(fileContent: string) {
 			}
 		} else if (key === 'draft') {
 			metadata.draft = value === 'true';
-		} else {
-			const cleaned = value.replace(/^["']|["']$/g, '');
-			metadata[key as keyof Metadata] = cleaned;
+		} else if (
+			key === 'title' ||
+			key === 'publishedAt' ||
+			key === 'summary' ||
+			key === 'image'
+		) {
+			metadata[key] = value.replace(/^["']|["']$/g, '');
 		}
 	});
 

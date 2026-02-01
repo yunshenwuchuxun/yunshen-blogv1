@@ -1,62 +1,80 @@
-# dalelarroder.com ⚡️
+# Yun Shen Blog
 
-- **Framework**: [Next.js](https://nextjs.org/)
-- **Deployment**: [Vercel](https://vercel.com)
-- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
-- **Analytics**: [Logrocket](https://logrocket.com/)
+A personal blog built with Next.js 16, React 19, and Tailwind CSS v4.
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/yunshenwuchuxun/yunshen-blog)
+
+## Tech Stack
+
+- **Framework**: [Next.js 16](https://nextjs.org/) (App Router)
+- **UI**: [React 19](https://react.dev/)
+- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/)
 - **Content**: [MDX](https://mdxjs.com/)
+- **Animation**: [GSAP](https://greensock.com/gsap/) & [Motion](https://motion.dev/)
+- **Smooth Scroll**: [Lenis](https://lenis.darkroom.engineering/)
+- **Deployment**: [Vercel](https://vercel.com)
+- **Analytics**: [Vercel Analytics](https://vercel.com/analytics)
 
-## Running Locally
+## Features
+
+- Smooth scrolling with Lenis
+- Dark/Light theme toggle with View Transition API
+- MDX blog posts with syntax highlighting
+- Responsive design
+- SEO optimized
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 18+
+- Yarn or Bun
 
 ### Installation
 
 1. Clone this repo
 
 ```bash
-git clone git@github.com:dlarroder/dalelarroder.git
+git clone https://github.com/yunshenwuchuxun/yunshen-blog.git
 ```
 
-2. Change directory
-
-```sh
-cd dalelarroder
-```
-
-3. Install dependencies
+2. Install dependencies
 
 ```bash
+yarn install
+# or
 bun install
 ```
 
-1. Create a `.env.local` file following the `.env.example`
+3. Run the development server
 
 ```bash
-cp .env.example .env.local
+yarn dev
 ```
 
-5. Add your environment variables to `.env.local`
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-```txt
-SPOTIFY_REFRESH_TOKEN=<Your env>
-SPOTIFY_CLIENT_SECRET=<Your env>
-SPOTIFY_CLIENT_ID=<Your env>
-// ...
-```
-
-6. Run the development server
+## Scripts
 
 ```bash
-bun run dev
+yarn dev      # Start development server
+yarn build    # Production build
+yarn serve    # Start production server
+yarn lint     # Run linter
+yarn format   # Format code
 ```
 
-## Previous Version
+## Project Structure
 
-This is the second version of my website.
+```
+app/
+├── blog/           # Blog pages and posts
+├── about/          # About page
+├── projects/       # Projects showcase
+├── components/     # Reusable components
+└── layout.tsx      # Root layout
+```
 
-Prevoius v1 version:
+## License
 
-- https://v1.dalelarroder.com/
-
-## Licence
-
-[MIT](https://github.com/dlarroder/dalelarroder/blob/master/LICENSE) © [Dale Larroder](https://www.dalelarroder.com)
+[MIT](LICENSE) © [Yun Shen](https://yunshen.eu.cc)

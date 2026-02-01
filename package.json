@@ -1,5 +1,5 @@
 {
-  "name": "dalelarroder.com",
+  "name": "yunshen-blog",
   "version": "2.0.0",
   "private": true,
   "scripts": {
@@ -20,6 +20,7 @@
     "@vercel/speed-insights": "^1.0.2",
     "classnames": "2.5.1",
     "date-fns": "^4.1.0",
+    "fuse.js": "^7.1.0",
     "gsap": "3.13.0",
     "husky": "9.1.7",
     "lenis": "^1.2.3",

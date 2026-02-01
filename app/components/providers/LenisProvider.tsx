@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactLenis } from 'lenis/dist/lenis-react';
+import { ReactLenis } from 'lenis/react';
 import type { ReactNode } from 'react';
 
 interface Props {
@@ -8,5 +8,15 @@ interface Props {
 }
 
 export default function LenisProvider({ children }: Props) {
-	return <ReactLenis root>{children}</ReactLenis>;
+	return (
+		<ReactLenis
+			root
+			options={{
+				autoRaf: true,
+				smoothWheel: true,
+			}}
+		>
+			{children}
+		</ReactLenis>
+	);
 }

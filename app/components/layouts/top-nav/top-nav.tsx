@@ -27,6 +27,26 @@ export default function TopNav() {
 
 	useEffect(() => setMounted(true), []);
 
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+				const target = e.target as HTMLElement;
+				const tagName = target.tagName.toLowerCase();
+				if (
+					tagName === 'input' ||
+					tagName === 'textarea' ||
+					target.isContentEditable
+				) {
+					return;
+				}
+				e.preventDefault();
+				setSearchOpen(true);
+			}
+		};
+		document.addEventListener('keydown', handleKeyDown);
+		return () => document.removeEventListener('keydown', handleKeyDown);
+	}, []);
+
 	const toggleTheme = () => {
 		const newTheme = resolvedTheme === 'dark' ? 'light' : 'dark';
 
@@ -49,6 +69,8 @@ export default function TopNav() {
 		return pathname === href;
 	};
 
+	const isDark = mounted && (theme === 'dark' || resolvedTheme === 'dark');
+
 	return (
 		<>
 			<nav
@@ -57,15 +79,16 @@ export default function TopNav() {
 					mukta.className,
 				)}
 			>
-				<div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
-					<div className='flex items-center justify-end h-16'>
+				<div className='mx-auto w-full max-w-5xl px-8 md:px-18'>
+					<div className='relative flex items-center justify-center h-16'>
+						{/* Desktop: Nav links - centered */}
 						<div className='hidden md:flex items-center gap-1'>
 							{navItems.map((item) => (
 								<Link
 									key={item.href}
 									href={item.href}
 									className={classNames(
-										'px-3 py-2 text-base font-medium rounded-md transition-colors relative',
+										'px-3 py-2 text-base font-semibold rounded-md transition-colors relative',
 										isActive(item.href)
 											? 'text-primary-500'
 											: 'text-gray-700 dark:text-gray-300 hover:text-primary-500 dark:hover:text-primary-500',
@@ -81,39 +104,37 @@ export default function TopNav() {
 									)}
 								</Link>
 							))}
-
-							<div className='ml-2 flex items-center gap-1'>
-								<button
-									type='button'
-									onClick={() => setSearchOpen(true)}
-									aria-label='Search'
-									className='text-gray-700 dark:text-gray-300 hover:text-primary-500 dark:hover:text-primary-500'
-								>
-									<SearchIcon size={20} />
-								</button>
-
-								<motion.button
-									aria-label='Toggle Dark Mode'
-									type='button'
-									whileTap={{
-										scale: 0.7,
-										rotate: 360,
-										transition: { duration: 0.2 },
-									}}
-									whileHover={{ scale: 1.1 }}
-									onClick={toggleTheme}
-									className='text-gray-700 dark:text-gray-300 hover:text-primary-500 dark:hover:text-primary-500'
-								>
-									{mounted && (theme === 'dark' || resolvedTheme === 'dark') ? (
-										<SunMediumIcon size={20} />
-									) : (
-										<MoonIcon size={20} />
-									)}
-								</motion.button>
-							</div>
 						</div>
 
-						<div className='md:hidden flex items-center gap-1'>
+						{/* Desktop: Utility - right aligned */}
+						<div className='hidden md:flex items-center gap-1 absolute right-0'>
+							<button
+								type='button'
+								onClick={() => setSearchOpen(true)}
+								aria-label='Search (⌘K)'
+								className='text-gray-700 dark:text-gray-300 hover:text-primary-500 dark:hover:text-primary-500'
+							>
+								<SearchIcon size={20} />
+							</button>
+
+							<motion.button
+								aria-label='Toggle Dark Mode'
+								type='button'
+								whileTap={{
+									scale: 0.7,
+									rotate: 360,
+									transition: { duration: 0.2 },
+								}}
+								whileHover={{ scale: 1.1 }}
+								onClick={toggleTheme}
+								className='text-gray-700 dark:text-gray-300 hover:text-primary-500 dark:hover:text-primary-500'
+							>
+								{isDark ? <SunMediumIcon size={20} /> : <MoonIcon size={20} />}
+							</motion.button>
+						</div>
+
+						{/* Mobile: Utility - right aligned */}
+						<div className='md:hidden flex items-center gap-1 absolute right-0'>
 							<button
 								type='button'
 								onClick={() => setSearchOpen(true)}
@@ -134,11 +155,7 @@ export default function TopNav() {
 								onClick={toggleTheme}
 								className='text-gray-700 dark:text-gray-300'
 							>
-								{mounted && (theme === 'dark' || resolvedTheme === 'dark') ? (
-									<SunMediumIcon size={20} />
-								) : (
-									<MoonIcon size={20} />
-								)}
+								{isDark ? <SunMediumIcon size={20} /> : <MoonIcon size={20} />}
 							</motion.button>
 						</div>
 					</div>
@@ -149,7 +166,7 @@ export default function TopNav() {
 								key={item.href}
 								href={item.href}
 								className={classNames(
-									'text-sm font-medium whitespace-nowrap px-2 py-1 rounded transition-colors',
+									'text-sm font-semibold whitespace-nowrap px-2 py-1 rounded transition-colors',
 									isActive(item.href)
 										? 'text-primary-500 bg-primary-500/10'
 										: 'text-gray-700 dark:text-gray-300',

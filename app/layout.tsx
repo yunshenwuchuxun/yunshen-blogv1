@@ -1,3 +1,4 @@
+import 'lenis/dist/lenis.css';
 import Analytics from 'app/components/analytics/analytics';
 import LenisProvider from 'app/components/providers/LenisProvider';
 import ThemeProvider from 'app/components/providers/ThemeProvider';
@@ -9,11 +10,11 @@ import './tailwind.css';
 
 export const metadata: Metadata = {
 	title: {
-		template: '%s | Dale Larroder',
-		default: 'Dale Larroder',
+		template: '%s | Yun Shen',
+		default: 'Yun Shen',
 	},
-	description: 'I build things for the web.',
-	metadataBase: new URL('https://dalelarroder.com'),
+	description: '记录思考、感悟与成长',
+	metadataBase: new URL('https://yunshen.eu.cc'),
 };
 
 interface RootLayoutProps {
