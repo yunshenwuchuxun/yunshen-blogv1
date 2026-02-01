@@ -1,8 +1,7 @@
 'use client';
 
-import type { Transition, Variants } from 'motion/react';
+import type { SVGMotionProps, Transition, Variants } from 'motion/react';
 import { motion, useAnimation } from 'motion/react';
-import type { SVGProps } from 'react';
 import { forwardRef, useImperativeHandle, useRef } from 'react';
 
 interface SearchIconHandle {
@@ -10,7 +9,7 @@ interface SearchIconHandle {
 	stopAnimation: () => void;
 }
 
-interface SearchIconProps extends SVGProps<SVGSVGElement> {
+interface SearchIconProps extends SVGMotionProps<SVGSVGElement> {
 	size?: number;
 }
 
@@ -29,7 +28,7 @@ const svgTransition: Transition = {
 };
 
 const SearchIcon = forwardRef<SearchIconHandle, SearchIconProps>(
-	({ onMouseEnter, onMouseLeave, size = 28, ...props }, ref) => {
+	({ size = 28, ...props }, ref) => {
 		const controls = useAnimation();
 		const isControlledRef = useRef(false);
 
@@ -41,22 +40,6 @@ const SearchIcon = forwardRef<SearchIconHandle, SearchIconProps>(
 				stopAnimation: () => controls.start('normal'),
 			};
 		});
-
-		const handleMouseEnter = (e: React.MouseEvent<SVGSVGElement>) => {
-			if (!isControlledRef.current) {
-				controls.start('animate');
-			} else {
-				onMouseEnter?.(e);
-			}
-		};
-
-		const handleMouseLeave = (e: React.MouseEvent<SVGSVGElement>) => {
-			if (!isControlledRef.current) {
-				controls.start('normal');
-			} else {
-				onMouseLeave?.(e);
-			}
-		};
 
 		return (
 			<motion.svg
@@ -72,8 +55,12 @@ const SearchIcon = forwardRef<SearchIconHandle, SearchIconProps>(
 				variants={svgVariants}
 				animate={controls}
 				transition={svgTransition}
-				onMouseEnter={handleMouseEnter}
-				onMouseLeave={handleMouseLeave}
+				onMouseEnter={() => {
+					if (!isControlledRef.current) controls.start('animate');
+				}}
+				onMouseLeave={() => {
+					if (!isControlledRef.current) controls.start('normal');
+				}}
 				role='img'
 				aria-label='Search'
 				{...props}
