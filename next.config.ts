@@ -1,4 +1,3 @@
-import path from 'node:path';
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
@@ -6,9 +5,6 @@ const nextConfig: NextConfig = {
 	pageExtensions: ['ts', 'tsx'],
 	transpilePackages: ['next-mdx-remote'],
 	reactCompiler: true,
-	turbopack: {
-		root: path.join(__dirname, '..'),
-	},
 	experimental: {
 		turbopackFileSystemCacheForDev: true,
 	},
