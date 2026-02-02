@@ -57,7 +57,7 @@ export default function Footer({
 				{!isHero && (
 					<>
 						<div className='text-center text-sm text-gray-600 dark:text-gray-400'>
-							<p>© 2025 • Dale Larroder | Blog • RSS</p>
+							<p>© 2025 • Yun Shen | Blog • RSS</p>
 						</div>
 
 						<div className='text-center text-xs text-gray-500 dark:text-gray-500 opacity-70'>

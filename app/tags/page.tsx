@@ -5,7 +5,7 @@ import { TagCloud } from '../components/tag-cloud';
 
 export const metadata = {
 	title: 'Tags',
-	description: 'Browse articles by tags - Dale Larroder',
+	description: 'Browse articles by tags - Yun Shen',
 };
 
 export default function TagsPage() {

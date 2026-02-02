@@ -2,7 +2,9 @@
 
 A personal blog built with Next.js 16, React 19, and Tailwind CSS v4.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/yunshenwuchuxun/yunshen-blog)
+🌐 **Live Demo**: [https://uestc.de5.net/](https://uestc.de5.net/)
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/yunshenwuchuxun/yunshen-blogv1)
 
 ## Tech Stack
 
@@ -35,7 +37,7 @@ A personal blog built with Next.js 16, React 19, and Tailwind CSS v4.
 1. Clone this repo
 
 ```bash
-git clone https://github.com/yunshenwuchuxun/yunshen-blog.git
+git clone https://github.com/yunshenwuchuxun/yunshen-blogv1.git
 ```
 
 2. Install dependencies
@@ -77,4 +79,4 @@ app/
 
 ## License
 
-[MIT](LICENSE) © [Yun Shen](https://yunshen.eu.cc)
+[MIT](LICENSE) © [Yun Shen](https://uestc.de5.net)

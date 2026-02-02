@@ -5,7 +5,7 @@ import { getPosts } from './utils';
 
 export const metadata = {
 	title: 'Blog',
-	description: 'My Blog - Dale Larroder',
+	description: 'My Blog - Yun Shen',
 };
 
 export default function ThoughtsPage() {

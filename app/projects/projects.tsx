@@ -27,6 +27,7 @@ export default function Projects() {
 						index={index}
 						title={project.title}
 						url={project.url}
+						slug={project.slug}
 						role={project.role}
 						setModal={setModal}
 					/>

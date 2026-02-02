@@ -9,7 +9,7 @@ export async function generateMetadata(props: {
 	const params = await props.params;
 	const { metadata } = await getPostFromSlug(params.slug);
 
-	const url = `https://dalelarroder.com/blog/${params.slug}`;
+	const url = `https://uestc.de5.net/blog/${params.slug}`;
 	const ogImage = metadata.image || '/static/og-image.png';
 
 	return {
@@ -21,7 +21,7 @@ export async function generateMetadata(props: {
 			type: 'article',
 			url: url,
 			publishedTime: metadata.publishedAt,
-			authors: ['Dale Larroder'],
+			authors: ['Yun Shen'],
 			images: [
 				{
 					url: ogImage,

@@ -19,7 +19,7 @@ export async function generateMetadata(props: {
 
 	return {
 		title: `${tag} - Tags`,
-		description: `Articles tagged with ${tag} - Dale Larroder`,
+		description: `Articles tagged with ${tag} - Yun Shen`,
 	};
 }
 

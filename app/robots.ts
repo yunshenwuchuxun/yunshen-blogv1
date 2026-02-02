@@ -6,7 +6,7 @@ export default function robots(): MetadataRoute.Robots {
 			userAgent: '*',
 			allow: '/',
 		},
-		sitemap: `https://dalelarroder.com/sitemap.xml`,
-		host: `https://dalelarroder.com`,
+		sitemap: `https://uestc.de5.net/sitemap.xml`,
+		host: `https://uestc.de5.net`,
 	};
 }
