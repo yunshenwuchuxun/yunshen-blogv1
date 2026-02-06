@@ -12,13 +12,12 @@ export default function Hero() {
 				usePrimaryColors={true}
 			>
 				<div
-					className={classNames('relative min-h-svh', merryWeather.className)}
+					className={classNames(
+						'relative min-h-svh md:block flex flex-col',
+						merryWeather.className,
+					)}
 				>
-					<div className='absolute bottom-20 left-0 right-0 z-10'>
-						<Footer variant='hero' />
-					</div>
-					<ArrowDown />
-					<div className='absolute top-[12%] md:top-[20%] max-w-4xl flex-col space-y-8 md:space-y-10 justify-center px-8 md:px-24 lg:ml-14'>
+					<div className='md:absolute md:top-[20%] max-w-4xl flex-col space-y-8 md:space-y-10 justify-center px-8 md:px-24 lg:ml-14 flex-1 flex md:flex-none pt-28 md:pt-0 pb-8 md:pb-0'>
 						<header className='space-y-3'>
 							<h1 className='text-3xl font-bold md:text-5xl tracking-tight'>
 								我是 Yun Shen
@@ -53,6 +52,10 @@ export default function Hero() {
 							</p>
 						</section>
 					</div>
+					<div className='md:absolute md:bottom-20 left-0 right-0 z-10 pb-10 md:pb-0'>
+						<Footer variant='hero' />
+					</div>
+					<ArrowDown />
 				</div>
 			</SplashCursor>
 		</main>

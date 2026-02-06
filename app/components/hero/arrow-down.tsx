@@ -12,7 +12,7 @@ export default function ArrowDown() {
 
 				intro?.scrollIntoView({ behavior: 'smooth' });
 			}}
-			className='z-10 absolute bottom-7 left-1/2 transform -translate-x-1/2 cursor-pointer dark:text-white animate-bounce'
+			className='z-10 absolute bottom-7 left-1/2 transform -translate-x-1/2 cursor-pointer dark:text-white animate-bounce hidden md:block'
 		>
 			<ArrowDownIcon size={22} />
 		</button>

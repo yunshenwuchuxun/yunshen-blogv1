@@ -32,13 +32,13 @@ function ThoughtItem({ post, index }: { post: BlogPost; index: number }) {
 			<Link href={`/blog/${post.slug}`} aria-label={`Read "${title}"`}>
 				<article className='py-5'>
 					<div className='flex flex-col md:flex-row gap-6 items-start'>
-						<div className='flex-1 space-y-3'>
-							<div className='flex w-full items-center justify-between'>
-								<h2 className='text-md w-full max-w-2xl truncate whitespace-nowrap pr-2 font-medium text-black dark:text-white group-hover:underline md:w-auto md:flex-none md:text-xl'>
+						<div className='flex-1 space-y-3 min-w-0'>
+							<div className='flex flex-col gap-1 md:flex-row md:w-full md:items-center'>
+								<h2 className='text-md font-medium text-black dark:text-white md:max-w-2xl md:truncate md:whitespace-nowrap md:pr-2 md:text-xl'>
 									{title}
 								</h2>
-								<div className='mx-1 flex flex-1 border-b border-primary-500' />
-								<time className='w-max whitespace-nowrap text-sm pl-2 text-gray-500 dark:text-gray-400'>
+								<div className='hidden md:flex mx-1 flex-1 border-b border-primary-500' />
+								<time className='whitespace-nowrap text-sm text-gray-500 dark:text-gray-400'>
 									{format(new Date(publishedAt), 'MMMM dd, yyyy')}
 								</time>
 							</div>
