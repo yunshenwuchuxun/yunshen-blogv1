@@ -224,7 +224,10 @@ export const projectDetails: Record<string, ProjectDetail> = {
 			{ category: '设计风格', items: ['Neobrutalism 设计系统', 'Vanilla JS'] },
 		],
 		links: [
-			{ label: '在线体验', url: 'https://uestc.nyc.mn/' },
+			{
+				label: '在线体验',
+				url: 'https://dynamical-system-analyzer.onrender.com/',
+			},
 			{
 				label: 'GitHub',
 				url: 'https://github.com/yunshenwuchuxun/dynamical-system-analyzer',

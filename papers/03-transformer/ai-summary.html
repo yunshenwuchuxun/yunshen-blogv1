@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attention Is All You Need - 深度解读</title>
+    
+    <!-- 引入 MathJax 用于渲染 LaTeX -->
+    <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        processEscapes: true
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #F5F5F7;
+            --card-bg: #FFFFFF;
+            --text-primary: #1D1D1F;
+            --text-secondary: #86868B;
+            --accent-blue: #0071E3;
+            --accent-blue-hover: #0077ED;
+            --border-color: #D2D2D7;
+            --section-spacing: 60px;
+            --nav-height: 54px;
+            --font-stack: "SF Pro Text", "SF Pro Icons", "Helvetica Neue", "Helvetica", "Arial", sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            font-family: var(--font-stack);
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            line-height: 1.6;
+            letter-spacing: -0.01em;
+        }
+
+        /* --- 导航栏 --- */
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            height: var(--nav-height);
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .nav-content {
+            max-width: 980px;
+            width: 100%;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .nav-title {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            margin-left: 24px;
+            transition: color 0.3s ease;
+            cursor: pointer;
+        }
+
+        .nav-links a:hover, .nav-links a.active {
+            color: var(--accent-blue);
+        }
+
+        /* --- 布局 --- */
+        .container {
+            max-width: 980px;
+            margin: 0 auto;
+            padding-top: calc(var(--nav-height) + 40px);
+            padding-bottom: 80px;
+            padding-left: 20px;
+            padding-right: 20px;
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            gap: 60px;
+        }
+
+        /* --- 侧边目录 --- */
+        aside {
+            position: sticky;
+            top: 120px;
+            height: fit-content;
+        }
+
+        .toc-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .toc-list {
+            list-style: none;
+        }
+
+        .toc-list li {
+            margin-bottom: 12px;
+        }
+
+        .toc-list a {
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-size: 14px;
+            font-weight: 500;
+            transition: color 0.2s;
+            display: block;
+            padding-left: 10px;
+            border-left: 2px solid transparent;
+        }
+
+        .toc-list a:hover {
+            color: var(--text-primary);
+        }
+
+        .toc-list a.active {
+            color: var(--accent-blue);
+            border-left-color: var(--accent-blue);
+        }
+
+        /* --- 主内容区 --- */
+        main {
+            min-width: 0; /* 防止 LaTeX 撑破布局 */
+        }
+
+        section {
+            margin-bottom: var(--section-spacing);
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeInUp 0.8s ease forwards;
+        }
+
+        @keyframes fadeInUp {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h1.hero-title {
+            font-size: 56px;
+            line-height: 1.05;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin-bottom: 24px;
+            background: linear-gradient(135deg, #000000 0%, #434343 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        h2 {
+            font-size: 32px;
+            font-weight: 600;
+            margin-bottom: 24px;
+            margin-top: 40px;
+            letter-spacing: -0.015em;
+        }
+
+        h3 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            margin-top: 24px;
+        }
+
+        p {
+            margin-bottom: 16px;
+            color: #333;
+            font-size: 17px;
+            line-height: 1.65;
+        }
+
+        /* --- 卡片风格 --- */
+        .card {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+            margin-bottom: 24px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 24px rgba(0,0,0,0.08);
+        }
+
+        /* --- 标签 --- */
+        .tag-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .tag {
+            background-color: #E8F2FF;
+            color: var(--accent-blue);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .tag.sota {
+            background-color: #34C759;
+            color: white;
+        }
+
+        /* --- 列表与代码 --- */
+        ul, ol {
+            padding-left: 24px;
+            margin-bottom: 16px;
+            color: #333;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        code {
+            font-family: "SF Mono", "Menlo", monospace;
+            background-color: #F0F0F5;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: #E03E3E;
+        }
+
+        /* --- 表格 --- */
+        .table-wrapper {
+            overflow-x: auto;
+            border-radius: 12px;
+            border: 1px solid #E5E5E5;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+            background: white;
+        }
+
+        th, td {
+            padding: 14px 20px;
+            text-align: left;
+            border-bottom: 1px solid #E5E5E5;
+        }
+
+        th {
+            background-color: #FAFAFA;
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover td {
+            background-color: #F5F5F7;
+        }
+
+        /* --- 作者网格 --- */
+        .author-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .author-name {
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        .author-aff {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        /* --- 伪代码块 --- */
+        .algorithm {
+            background: #1D1D1F;
+            color: #FFFFFF;
+            padding: 24px;
+            border-radius: 18px;
+            font-family: "SF Mono", "Menlo", monospace;
+            font-size: 14px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        
+        .algorithm-title {
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+
+        .step {
+            margin-bottom: 12px;
+            display: flex;
+        }
+        
+        .step-num {
+            color: var(--accent-blue);
+            min-width: 30px;
+            user-select: none;
+        }
+
+        /* --- Callout / One More Thing --- */
+        .callout {
+            background: linear-gradient(135deg, #E0F7FA 0%, #FFFFFF 100%);
+            border-left: 4px solid var(--accent-blue);
+            padding: 24px;
+            border-radius: 12px;
+        }
+
+        .omt-section {
+            background: #000;
+            color: #fff;
+            padding: 40px;
+            border-radius: 24px;
+        }
+        .omt-section h2, .omt-section p, .omt-section h3 {
+            color: #fff;
+        }
+
+        /* --- 响应式调整 --- */
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+                padding-top: 80px;
+            }
+            aside {
+                display: none; /* 移动端隐藏侧边栏 */
+            }
+            h1.hero-title {
+                font-size: 40px;
+            }
+            .nav-links {
+                display: none; /* 移动端简化导航 */
+            }
+            .nav-content {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<!-- 导航栏 -->
+<nav>
+    <div class="nav-content">
+        <div class="nav-title">Transformer</div>
+        <div class="nav-links">
+            <a href="#hero" class="active">概览</a>
+            <a href="#motivation">动机</a>
+            <a href="#modeling">建模</a>
+            <a href="#experiments">实验</a>
+            <a href="#results">结果</a>
+            <a href="#review">评论</a>
+        </div>
+    </div>
+</nav>
+
+<div class="container">
+    <!-- 侧边目录 -->
+    <aside>
+        <div class="toc-title">Table of Contents</div>
+        <ul class="toc-list">
+            <li><a href="#hero" class="active">Paper Overview</a></li>
+            <li><a href="#motivation">Motivation & Background</a></li>
+            <li><a href="#modeling">Model Architecture</a></li>
+            <li><a href="#experiments">Experimental Setup</a></li>
+            <li><a href="#results">Results & Analysis</a></li>
+            <li><a href="#review">Critical Review</a></li>
+            <li><a href="#omt">One More Thing</a></li>
+        </ul>
+    </aside>
+
+    <!-- 主要内容 -->
+    <main>
+        <!-- 1. Hero Section -->
+        <section id="hero">
+            <div class="tag-container">
+                <span class="tag">NIPS 2017</span>
+                <span class="tag">NLP</span>
+                <span class="tag">Machine Translation</span>
+                <span class="tag sota">Legendary Paper</span>
+            </div>
+            <h1 class="hero-title">Attention Is All You Need</h1>
+            
+            <div class="author-grid">
+                <div>
+                    <div class="author-name">Ashish Vaswani</div>
+                    <div class="author-aff">Google Brain</div>
+                </div>
+                <div>
+                    <div class="author-name">Noam Shazeer</div>
+                    <div class="author-aff">Google Brain</div>
+                </div>
+                <div>
+                    <div class="author-name">Niki Parmar</div>
+                    <div class="author-aff">Google Research</div>
+                </div>
+                <div>
+                    <div class="author-name">Jakob Uszkoreit</div>
+                    <div class="author-aff">Google Research</div>
+                </div>
+                <div>
+                    <div class="author-name">Llion Jones</div>
+                    <div class="author-aff">Google Research</div>
+                </div>
+                <div>
+                    <div class="author-name">Aidan N. Gomez</div>
+                    <div class="author-aff">University of Toronto</div>
+                </div>
+                <div>
+                    <div class="author-name">Łukasz Kaiser</div>
+                    <div class="author-aff">Google Brain</div>
+                </div>
+                <div>
+                    <div class="author-name">Illia Polosukhin</div>
+                    <div class="author-aff">Independent</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>摘要 (Abstract)</h3>
+                <p>
+                    主流的序列转导模型（Sequence Transduction Models）通常基于复杂的循环神经网络（RNN）或卷积神经网络（CNN），并结合注意力机制。本文提出了一种全新的简单网络架构——<strong>Transformer</strong>。它完全摒弃了递归和卷积，仅基于注意力机制（Attention Mechanisms）。
+                </p>
+                <p>
+                    在两个机器翻译任务上的实验表明，Transformer 在质量上更优，且并行化程度更高，所需的训练时间显著减少。我们的模型在 WMT 2014 英德翻译任务上达到了 <strong>28.4 BLEU</strong>，确立了当时的 SOTA。
+                </p>
+            </div>
+        </section>
+
+        <!-- 2. Motivation -->
+        <section id="motivation">
+            <h2>研究动机与背景</h2>
+            
+            <div class="card">
+                <h3>痛点：序列计算的局限性</h3>
+                <p>在 Transformer 出现之前，RNN、LSTM 和 GRU 是序列建模的统治者。它们存在显著缺陷：</p>
+                <ul>
+                    <li><strong>无法并行计算</strong>：RNN 必须按顺序生成隐藏状态 $h_t$，即 $h_t = f(h_{t-1}, x_t)$。这意味着处理第 $t$ 个词必须等待第 $t-1$ 个词处理完毕。</li>
+                    <li><strong>长距离依赖困难</strong>：虽然 LSTM 缓解了梯度消失，但在极长序列中，信息仍然会随距离衰减。</li>
+                    <li><strong>计算瓶颈</strong>：对于高分辨率图像或长文本，内存和算力开销巨大。</li>
+                </ul>
+            </div>
+
+            <div class="card" style="border-left: 4px solid var(--accent-blue);">
+                <h3>本文核心洞见</h3>
+                <p>
+                    能否抛弃 RNN 的循环结构，仅靠 Attention 机制来捕捉输入输出之间的全局依赖？
+                    <br><br>
+                    <strong>Transformer 的答案是肯定的。</strong> 通过 Self-Attention（自注意力），模型可以一次性看到序列中的所有词，无论它们相距多远，计算复杂度为常数级 $O(1)$ 的路径长度。这不仅解决了长距离依赖问题，更使得在 GPU 上进行大规模并行计算成为可能。
+                </p>
+            </div>
+        </section>
+
+        <!-- 3. Modeling -->
+        <section id="modeling">
+            <h2>数学建模与架构</h2>
+            <p>Transformer 采用经典的 <strong>Encoder-Decoder</strong> 架构，但内部组件完全不同。</p>
+
+            <div class="table-wrapper" style="margin-bottom: 30px;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>符号</th>
+                            <th>含义</th>
+                            <th>默认值 (Base)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>$d_{model}$</td><td>嵌入向量及各层输出的维度</td><td>512</td></tr>
+                        <tr><td>$N$</td><td>Encoder 和 Decoder 的堆叠层数</td><td>6</td></tr>
+                        <tr><td>$h$</td><td>Multi-Head Attention 的头数</td><td>8</td></tr>
+                        <tr><td>$d_k, d_v$</td><td>Key 和 Value 的维度 ($d_{model}/h$)</td><td>64</td></tr>
+                        <tr><td>$d_{ff}$</td><td>前馈网络中间层的维度</td><td>2048</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>1. Scaled Dot-Product Attention</h3>
+            <p>这是 Transformer 的核心引擎。输入包括 Query ($Q$)、Key ($K$) 和 Value ($V$)。</p>
+            <div class="card" style="text-align: center; padding: 40px;">
+                $$ \text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V $$
+            </div>
+            <p><strong>关键点解读：</strong></p>
+            <ul>
+                <li><strong>点积 ($QK^T$)</strong>：计算 Query 和 Key 的相似度。</li>
+                <li><strong>缩放 ($\frac{1}{\sqrt{d_k}}$)</strong>：防止点积结果过大导致 Softmax 梯度极其微小（梯度消失）。</li>
+                <li><strong>Masking</strong>：在 Decoder 中，为了防止位置 $i$ 看到 $i$ 之后的信息，会将 $QK^T$ 矩阵右上三角区域设为 $-\infty$。</li>
+            </ul>
+
+            <h3>2. Multi-Head Attention</h3>
+            <p>单一的 Attention 只能关注一个侧面。Multi-Head 机制允许模型在不同的子空间（Subspaces）中关注不同的信息（如句法依赖、语义关联）。</p>
+            <div class="card">
+                $$ \text{MultiHead}(Q, K, V) = \text{Concat}(\text{head}_1, ..., \text{head}_h)W^O $$
+                $$ \text{where } \text{head}_i = \text{Attention}(QW_i^Q, KW_i^K, VW_i^V) $$
+            </div>
+            <p>最后通过线性变换 $W^O$ 将拼接后的结果映射回 $d_{model}$ 维度。</p>
+
+            <h3>3. Position-wise Feed-Forward Networks</h3>
+            <p>每个 Attention 层之后接一个全连接前馈网络，应用于每个位置（Position-wise）：</p>
+            <div class="card">
+                $$ \text{FFN}(x) = \max(0, xW_1 + b_1)W_2 + b_2 $$
+            </div>
+            <p>这实际上是两个线性变换中间夹一个 ReLU 激活函数。</p>
+
+            <h3>4. Positional Encoding</h3>
+            <p>因为没有了 RNN 的时序性，模型必须显式地感知“位置”。论文使用正弦和余弦函数：</p>
+            <div class="card">
+                $$ PE_{(pos, 2i)} = \sin(pos / 10000^{2i/d_{model}}) $$
+                $$ PE_{(pos, 2i+1)} = \cos(pos / 10000^{2i/d_{model}}) $$
+            </div>
+            <p>这种编码方式允许模型学习相对位置，因为 $PE_{pos+k}$ 可以表示为 $PE_{pos}$ 的线性函数。</p>
+        </section>
+
+        <!-- 4. Experiments -->
+        <section id="experiments">
+            <h2>实验设置与复现细节</h2>
+            
+            <div class="card">
+                <h3>数据集 (Datasets)</h3>
+                <ul>
+                    <li><strong>WMT 2014 English-German (EN-DE)</strong>: 450 万句对。使用 Byte-Pair Encoding (BPE)，词表大小约 37k。</li>
+                    <li><strong>WMT 2014 English-French (EN-FR)</strong>: 3600 万句对。词表大小 32k。</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h3>训练硬件与时长</h3>
+                <ul>
+                    <li><strong>硬件</strong>: 8 块 NVIDIA P100 GPU。</li>
+                    <li><strong>Base Model</strong>: 每步 0.4 秒，训练 100,000 步（约 12 小时）。</li>
+                    <li><strong>Big Model</strong>: 每步 1.0 秒，训练 300,000 步（约 3.5 天）。</li>
+                </ul>
+                <p style="font-size: 14px; color: var(--text-secondary); margin-top: 10px;">注：相比当时的 SOTA 模型（如 GNMT 需训练数周），这是巨大的效率提升。</p>
+            </div>
+
+            <h3>优化器与正则化 (Optimizer & Regularization)</h3>
+            <p>使用 <strong>Adam</strong> 优化器 ($\beta_1=0.9, \beta_2=0.98, \epsilon=10^{-9}$)。</p>
+            <p><strong>Learning Rate Schedule (Warmup)</strong> 是训练成功的关键：</p>
+            <div class="algorithm">
+                $$ lrate = d_{model}^{-0.5} \cdot \min(step\_num^{-0.5}, step\_num \cdot warmup\_steps^{-1.5}) $$
+            </div>
+            <ul>
+                <li><strong>Warmup Steps</strong>: 4000。先线性增加学习率，后按反平方根衰减。</li>
+                <li><strong>Residual Dropout</strong>: $P_{drop}=0.1$。</li>
+                <li><strong>Label Smoothing</strong>: $\epsilon_{ls}=0.1$。虽然增加了困惑度（Perplexity），但提升了准确率和 BLEU。</li>
+            </ul>
+        </section>
+
+        <!-- 5. Results -->
+        <section id="results">
+            <h2>结果与核心结论</h2>
+            
+            <div class="card">
+                <h3>机器翻译性能对比 (WMT 2014)</h3>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th rowspan="2" style="vertical-align: middle;">Model</th>
+                                <th colspan="2" style="text-align: center;">BLEU Score</th>
+                                <th rowspan="2" style="vertical-align: middle;">Training Cost (FLOPs)</th>
+                            </tr>
+                            <tr>
+                                <th>EN-DE</th>
+                                <th>EN-FR</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>ByteNet [18]</td>
+                                <td>23.75</td>
+                                <td>-</td>
+                                <td>-</td>
+                            </tr>
+                            <tr>
+                                <td>Deep-Att + PosUnk [39]</td>
+                                <td>-</td>
+                                <td>39.2</td>
+                                <td>$1.0 \times 10^{20}$</td>
+                            </tr>
+                            <tr>
+                                <td>GNMT + RL [38]</td>
+                                <td>24.6</td>
+                                <td>39.92</td>
+                                <td>$2.3 \times 10^{19}$</td>
+                            </tr>
+                            <tr>
+                                <td>ConvS2S Ensemble [9]</td>
+                                <td>26.36</td>
+                                <td>41.29</td>
+                                <td>$1.2 \times 10^{21}$</td>
+                            </tr>
+                            <tr style="background-color: #F0F8FF; font-weight: 600;">
+                                <td>Transformer (base)</td>
+                                <td>27.3</td>
+                                <td>38.1</td>
+                                <td><strong>$3.3 \times 10^{18}$</strong></td>
+                            </tr>
+                            <tr style="background-color: #E8F2FF; font-weight: 700; color: var(--accent-blue);">
+                                <td>Transformer (big)</td>
+                                <td>28.4 (SOTA)</td>
+                                <td>41.8 (SOTA)</td>
+                                <td>$2.3 \times 10^{19}$</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p style="margin-top: 20px;">
+                    <strong>结论：</strong> Transformer (Big) 在英德翻译上超过了之前的最佳模型（包括集成模型）2.0 BLEU 以上，且训练成本仅为 ConvS2S 的 1/4 甚至更低。
+                </p>
+            </div>
+
+            <h3>消融实验发现 (Ablation Studies)</h3>
+            <ul>
+                <li><strong>Head 数量</strong>: 单头 Attention 效果最差 (24.9 BLEU)，但头数过多 (16 heads) 质量也会下降。8 heads 是最佳平衡点。</li>
+                <li><strong>Key 维度 ($d_k$)</strong>: 减小 $d_k$ 会损害模型质量，这表明点积作为一种兼容性函数可能还不够复杂。</li>
+                <li><strong>模型规模</strong>: 更大的模型 ($N=6, d_{model}=1024$) 效果更好，Dropout 对防止过拟合极其重要。</li>
+            </ul>
+        </section>
+
+        <!-- 6. Critical Review -->
+        <section id="review">
+            <h2>顶级会议审稿人视角 (Critical Review)</h2>
+            
+            <div class="card">
+                <h3>✅ 优点 (Strengths)</h3>
+                <ul>
+                    <li><strong>范式转移 (Paradigm Shift)</strong>: 彻底证明了 RNN 对于序列建模并非必须，Attention Is All You Need。</li>
+                    <li><strong>计算效率</strong>: 极大地释放了硬件并行计算的潜力，使得训练更大规模模型（后来的 BERT, GPT）成为可能。</li>
+                    <li><strong>可解释性</strong>: Attention 分布图提供了查看模型“关注点”的直观窗口（见论文附录的可视化）。</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h3>❌ 不足与局限 (Limitations)</h3>
+                <ul>
+                    <li><strong>复杂度问题</strong>: Self-Attention 的计算复杂度是 $O(n^2)$（其中 $n$ 是序列长度）。这使得处理超长文本（如书籍）变得极其昂贵，不如 RNN 的 $O(n)$ 高效。</li>
+                    <li><strong>位置信息脆弱</strong>: 仅靠相加的 Positional Encoding，模型对相对位置的捕捉能力是否真的优于 RNN 的内在时序性？（后续研究如 RoPE 对此进行了改进）。</li>
+                    <li><strong>训练敏感</strong>: Transformer 对超参数（尤其是学习率预热和初始化）非常敏感，训练不稳容易导致梯度爆炸或不收敛。</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- 7. One More Thing -->
+        <section id="omt">
+            <div class="omt-section">
+                <h2>One More Thing...</h2>
+                <h3>可解释性的魅力 (Explainability)</h3>
+                <p>
+                    论文中最令人着迷的部分之一是 Attention 的可视化（Figure 3, 4, 5）。
+                    <br><br>
+                    作者发现，不同的 Attention Head 似乎学会了执行不同的句法或语义任务。例如，第 5 层的一个 Head 显然学会了解决<strong>指代消解 (Anaphora Resolution)</strong> 问题。
+                </p>
+                <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 12px; margin-top: 20px; font-style: italic;">
+                    "The Law will never be perfect, but <strong>its</strong> application should be just."
+                </div>
+                <p style="margin-top: 15px;">
+                    可视化显示，单词 "its" 的 Attention 权重极其清晰地指向了 "The Law"。这种无监督学习到的语言结构知识，正是 Transformer 后来横扫 NLP 的基石。
+                </p>
+            </div>
+        </section>
+
+    </main>
+</div>
+
+<!-- 页脚 -->
+<footer style="text-align: center; padding: 40px; color: var(--text-secondary); font-size: 12px; border-top: 1px solid #E5E5E5;">
+    <p>Based on "Attention Is All You Need" (Vaswani et al., 2017)</p>
+    <p>Re-designed for Deep Understanding</p>
+</footer>
+
+<script>
+    // 简单的滚动监听与目录高亮脚本
+    const sections = document.querySelectorAll('section');
+    const navLinks = document.querySelectorAll('.toc-list a, .nav-links a');
+
+    window.addEventListener('scroll', () => {
+        let current = '';
+        const offset = 150; // 偏移量，适应导航栏高度
+
+        sections.forEach(section => {
+            const sectionTop = section.offsetTop;
+            const sectionHeight = section.clientHeight;
+            if (pageYOffset >= (sectionTop - offset)) {
+                current = section.getAttribute('id');
+            }
+        });
+
+        navLinks.forEach(link => {
+            link.classList.remove('active');
+            if (link.getAttribute('href').includes(current)) {
+                link.classList.add('active');
+            }
+        });
+    });
+
+    // 平滑滚动覆盖
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            const targetId = this.getAttribute('href');
+            const targetSection = document.querySelector(targetId);
+            
+            if (targetSection) {
+                const navHeight = 60;
+                const targetPosition = targetSection.getBoundingClientRect().top + window.pageYOffset - navHeight;
+                
+                window.scrollTo({
+                    top: targetPosition,
+                    behavior: 'smooth'
+                });
+            }
+        });
+    });
+</script>
+
+</body>
+</html>

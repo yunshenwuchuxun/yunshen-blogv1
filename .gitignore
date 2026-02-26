@@ -40,3 +40,18 @@ yarn-error.log*
 # Contentlayer
 .contentlayer
 .env*.local
+
+# IDE
+.idea/
+
+# Build cache
+tsconfig.tsbuildinfo
+
+# Paper reading - large binary assets only
+/papers/media/
+/papers/*/nmt_data/
+
+# Redundant lock files (project uses yarn)
+package-lock.json
+pnpm-lock.yaml
+bun.lock

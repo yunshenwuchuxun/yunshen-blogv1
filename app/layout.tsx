@@ -1,3 +1,4 @@
+import 'katex/dist/katex.min.css';
 import 'lenis/dist/lenis.css';
 import Analytics from 'app/components/analytics/analytics';
 import LenisProvider from 'app/components/providers/LenisProvider';

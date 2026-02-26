@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { MDXRemote, type MDXRemoteProps } from 'next-mdx-remote/rsc';
 import type { ComponentPropsWithoutRef } from 'react';
+import { PaperCard } from './paper-card';
 
 type HeadingProps = ComponentPropsWithoutRef<'h1'>;
 type ParagraphProps = ComponentPropsWithoutRef<'p'>;
@@ -13,7 +14,7 @@ function slugify(text: string): string {
 	return text
 		.toLowerCase()
 		.trim()
-		.replace(/[^\w\s-]/g, '')
+		.replace(/[^\p{L}\p{N}\s-]/gu, '')
 		.replace(/[\s_-]+/g, '-')
 		.replace(/^-+|-+$/g, '');
 }
@@ -131,12 +132,41 @@ export const components = {
 			{...props}
 		/>
 	),
+	img: (props: ComponentPropsWithoutRef<'img'>) => (
+		// biome-ignore lint/a11y/useAltText: alt is passed via ...props from markdown ![alt](src)
+		// biome-ignore lint/performance/noImgElement: MDX images lack width/height required by next/image
+		<img className='mx-auto block' {...props} />
+	),
+	table: (props: ComponentPropsWithoutRef<'table'>) => (
+		<div className='overflow-x-auto my-4'>
+			<table
+				className='w-full text-sm text-left text-gray-900 dark:text-gray-100 border-collapse'
+				{...props}
+			/>
+		</div>
+	),
+	thead: (props: ComponentPropsWithoutRef<'thead'>) => (
+		<thead
+			className='border-b border-gray-300 dark:border-gray-700'
+			{...props}
+		/>
+	),
+	th: (props: ComponentPropsWithoutRef<'th'>) => (
+		<th className='px-4 py-2 font-bold' {...props} />
+	),
+	td: (props: ComponentPropsWithoutRef<'td'>) => (
+		<td
+			className='px-4 py-2 border-b border-gray-200 dark:border-gray-800'
+			{...props}
+		/>
+	),
 	blockquote: (props: BlockquoteProps) => (
 		<blockquote
 			className='ml-[0.075em] border-l-3 border-gray-300 pl-4 text-gray-700'
 			{...props}
 		/>
 	),
+	PaperCard,
 };
 
 export function CustomMDX(props: MDXRemoteProps) {

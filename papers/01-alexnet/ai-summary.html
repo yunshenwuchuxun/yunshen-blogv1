@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AlexNet: ImageNet Classification with Deep CNNs</title>
+    
+    <!-- MathJax for LaTeX Rendering -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$']],
+                displayMath: [['$$', '$$']],
+                processEscapes: true,
+                tags: 'ams'
+            },
+            svg: { fontCache: 'global' },
+            options: { renderActions: { addMenu: [] } }
+        };
+    </script>
+    <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        /* ==========================================================================
+           Apple-style CSS Variables & Reset
+           ========================================================================== */
+        :root {
+            --apple-bg: #fbfbfd;
+            --apple-text-main: #1d1d1f;
+            --apple-text-muted: #86868b;
+            --apple-link: #06c;
+            --apple-card-bg: #ffffff;
+            --apple-border: rgba(0, 0, 0, 0.08);
+            --apple-shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.04);
+            --apple-shadow-md: 0 10px 30px rgba(0, 0, 0, 0.08);
+            --apple-shadow-hover: 0 14px 40px rgba(0, 0, 0, 0.12);
+            --font-stack: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+            --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: var(--font-stack);
+            background-color: var(--apple-bg);
+            color: var(--apple-text-main);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* ==========================================================================
+           Typography
+           ========================================================================== */
+        h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.015em; color: var(--apple-text-main); }
+        h1 { font-size: 44px; line-height: 1.1; margin-bottom: 16px; font-weight: 700; letter-spacing: -0.02em; }
+        h2 { font-size: 32px; margin: 48px 0 24px; padding-bottom: 12px; border-bottom: 1px solid var(--apple-border); }
+        h3 { font-size: 22px; margin: 32px 0 16px; }
+        p { font-size: 17px; margin-bottom: 20px; color: #333336; }
+        ul, ol { margin-bottom: 24px; padding-left: 24px; font-size: 17px; }
+        li { margin-bottom: 10px; }
+        code { font-family: var(--font-mono); background: #f5f5f7; padding: 2px 6px; border-radius: 6px; font-size: 0.85em; color: #c11574; }
+
+        /* ==========================================================================
+           Layout & Navigation
+           ========================================================================== */
+        .navbar {
+            position: fixed; top: 0; width: 100%; height: 52px;
+            background: rgba(251, 251, 253, 0.8); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px);
+            border-bottom: 1px solid var(--apple-border); z-index: 9999;
+            display: flex; justify-content: center; align-items: center; gap: 32px;
+        }
+        .navbar a {
+            color: var(--apple-text-main); text-decoration: none; font-size: 12px;
+            opacity: 0.8; transition: opacity 0.2s, color 0.2s;
+        }
+        .navbar a:hover { opacity: 1; color: var(--apple-link); }
+
+        .layout-grid {
+            max-width: 1200px; margin: 0 auto; padding: 100px 24px 60px;
+            display: grid; grid-template-columns: 1fr 300px; gap: 60px;
+        }
+        @media (max-width: 960px) {
+            .layout-grid { grid-template-columns: 1fr; }
+            .sidebar { display: none; }
+        }
+
+        /* ==========================================================================
+           Components
+           ========================================================================== */
+        .hero-section { text-align: center; padding: 80px 20px 60px; background: #fff; border-bottom: 1px solid var(--apple-border); }
+        .meta-tags { display: flex; justify-content: center; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+        .tag { font-size: 12px; font-weight: 500; background: #f5f5f7; padding: 6px 14px; border-radius: 20px; color: var(--apple-text-muted); }
+        .hero-abstract { max-width: 800px; margin: 0 auto; font-size: 20px; line-height: 1.5; color: var(--apple-text-muted); font-weight: 400; }
+
+        .card { background: var(--apple-card-bg); border-radius: 24px; padding: 48px; margin-bottom: 40px; box-shadow: var(--apple-shadow-sm); transition: box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s; }
+        .card:hover { box-shadow: var(--apple-shadow-hover); transform: translateY(-2px); }
+
+        .callout { background: #f5f5f7; border-radius: 16px; padding: 24px; margin: 32px 0; display: flex; gap: 16px; align-items: flex-start; }
+        .callout-icon { font-size: 24px; line-height: 1; }
+        .callout-content p { margin: 0; font-size: 16px; }
+
+        /* Tables (LaTeX Booktabs Style) */
+        .table-wrapper { overflow-x: auto; margin: 32px 0; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 15px; }
+        th, td { padding: 14px 16px; }
+        th { font-weight: 600; border-top: 2px solid var(--apple-text-main); border-bottom: 1px solid var(--apple-text-main); }
+        tr:last-child td { border-bottom: 2px solid var(--apple-text-main); }
+        tbody tr { border-bottom: 1px solid var(--apple-border); }
+        .caption { text-align: left; font-size: 14px; color: var(--apple-text-muted); margin-bottom: 12px; font-weight: 500; }
+
+        /* Sidebar TOC */
+        .sidebar-inner { position: sticky; top: 90px; }
+        .toc-title { font-size: 12px; text-transform: uppercase; color: var(--apple-text-muted); font-weight: 600; margin-bottom: 16px; letter-spacing: 0.05em; }
+        .toc-link { display: block; font-size: 14px; color: var(--apple-text-muted); text-decoration: none; padding: 8px 0; border-left: 2px solid transparent; padding-left: 12px; transition: all 0.2s; }
+        .toc-link:hover { color: var(--apple-text-main); }
+        .toc-link.active { color: var(--apple-link); border-left-color: var(--apple-link); font-weight: 500; background: linear-gradient(90deg, rgba(0,102,204,0.05) 0%, transparent 100%); }
+
+        /* Image Placeholders */
+        .figure { margin: 40px 0; text-align: center; }
+        .img-placeholder { width: 100%; height: 260px; background: linear-gradient(135deg, #f5f5f7 0%, #ebebeb 100%); border-radius: 16px; display: flex; align-items: center; justify-content: center; color: var(--apple-text-muted); font-size: 15px; font-style: italic; margin-bottom: 16px; border: 1px dashed #d2d2d7; }
+        .figure-caption { font-size: 14px; color: var(--apple-text-muted); max-width: 80% ; margin: 0 auto; line-height: 1.5; }
+
+        /* Collapsible */
+        details { background: #f5f5f7; border-radius: 16px; padding: 20px; margin: 24px 0; }
+        summary { font-weight: 600; cursor: pointer; outline: none; list-style: none; display: flex; justify-content: space-between; align-items: center; }
+        summary::-webkit-details-marker { display: none; }
+        summary::after { content: '+'; font-size: 20px; color: var(--apple-link); transition: transform 0.3s; }
+        details[open] summary::after { transform: rotate(45deg); }
+        details p { margin-top: 16px; font-size: 15px; }
+
+        /* Back to top */
+        .back-to-top { position: fixed; bottom: 40px; right: 40px; width: 44px; height: 44px; border-radius: 50%; background: rgba(0,0,0,0.5); color: #fff; border: none; font-size: 20px; cursor: pointer; opacity: 0; visibility: hidden; transition: all 0.3s; backdrop-filter: blur(10px); z-index: 100; display: flex; align-items: center; justify-content: center; }
+        .back-to-top.visible { opacity: 1; visibility: visible; }
+        .back-to-top:hover { background: var(--apple-text-main); transform: scale(1.1); }
+    </style>
+</head>
+<body>
+
+    <!-- Sticky Navigation -->
+    <nav class="navbar">
+        <a href="#hero">概览</a>
+        <a href="#motivation">研究动机</a>
+        <a href="#modeling">数学建模</a>
+        <a href="#experiments">实验设置</a>
+        <a href="#results">实验结果</a>
+        <a href="#review">犀利短评</a>
+        <a href="#onemorething">One More Thing</a>
+    </nav>
+
+    <!-- Hero Section -->
+    <header id="hero" class="hero-section">
+        <div class="meta-tags">
+            <span class="tag">NIPS 2012</span>
+            <span class="tag">Deep Learning Pioneer</span>
+            <span class="tag">ImageNet SOTA</span>
+            <span class="tag">Citations: 140,000+</span>
+        </div>
+        <h1>ImageNet Classification with Deep Convolutional Neural Networks</h1>
+        <p style="color: var(--apple-text-muted); font-size: 18px; margin-bottom: 32px;">
+            Alex Krizhevsky, Ilya Sutskever, Geoffrey E. Hinton | University of Toronto
+        </p>
+        <p class="hero-abstract">
+            <strong>摘要：</strong>本文是深度学习发展史上的绝对里程碑（即著名的 <strong>AlexNet</strong>）。作者训练了一个包含 6000 万参数、65 万个神经元的深层卷积神经网络，以巨大的优势打破了 ILSVRC 图像分类任务的历史记录。文章首次将 ReLU、Dropout、数据增强及 GPU 并行计算整合在一个庞大的网络中，向世界证明了“大数据 + 深层模型 + 算力”的无尽潜力，正式拉开了深度学习时代的帷幕。
+        </p>
+    </header>
+
+    <div class="layout-grid">
+        <!-- Main Content Column -->
+        <main>
+            <!-- 1. Motivation -->
+            <section id="motivation" class="card">
+                <h2>1. 研究动机与问题背景 (Motivation)</h2>
+                <p>在 2012 年之前，计算机视觉领域的对象识别主要依赖于手工设计的特征提取器（如 SIFT、HOG）配合传统的机器学习方法。但是，这一范式面临着严重的瓶颈。</p>
+                
+                <h3>痛点与局限性</h3>
+                <ul>
+                    <li><strong>数据集规模的限制：</strong> 早期的图像数据集（如 CIFAR, Caltech-101）规模太小（仅数万张图片）。在小数据集上，简单的模型就能解决问题，但现实世界中的物体具有极高的复杂性和可变性，这就需要更庞大的数据集。</li>
+                    <li><strong>模型容量的限制：</strong> 随着 ImageNet（包含超过 1500 万张高分辨率图像）的出现，传统的浅层模型无法吸收如此巨大的信息量。我们需要具有巨大“学习容量”的模型。</li>
+                    <li><strong>算力与计算成本：</strong> 卷积神经网络 (CNN) 虽然可以通过改变深度和宽度来控制容量，并且对图像特性（局部性、平移不变性）做出了强有力的正确假设，但在高分辨率图像的大规模应用上，计算成本高得令人望而却步。</li>
+                </ul>
+
+                <div class="callout">
+                    <div class="callout-icon">💡</div>
+                    <div class="callout-content">
+                        <p><strong>核心目标与意义：</strong> 作者抓住了时代的三个红利：<strong>大规模数据集 (ImageNet)</strong> + <strong>强大模型先验 (CNN)</strong> + <strong>并行计算硬件 (GPU)</strong>。本文试图证明，只要计算资源和数据到位，一个足够深、没有太多人工干预的纯粹神经网络，就能击败所有耗费数十年心血设计的人工特征工程。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. Modeling -->
+            <section id="modeling" class="card">
+                <h2>2. 数学表示与建模 (Formulation & Modeling)</h2>
+                <p>AlexNet 并不是在数学理论上的完全革新，而是多种有效机制的集大成者。它引入了几个后来统治深度学习界的关键模块。</p>
+
+                <h3>2.1 ReLU 非线性激活函数</h3>
+                <p>传统神经网络习惯使用饱和激活函数，如 $\tanh(x)$ 或 $(1+e^{-x})^{-1}$。而在梯度下降训练中，这些饱和函数会引发严重的梯度消失问题，导致训练极慢。AlexNet 率先大规模使用了<strong>非饱和激活函数 ReLU (Rectified Linear Units)</strong>：</p>
+                <p>$$f(x) = \max(0, x)$$</p>
+                <p><strong>机制解释：</strong> 在 CIFAR-10 的实验中，使用 ReLU 的网络达到 25% 训练误差的速度，比使用 $\tanh$ 快了 <strong>6 倍</strong>。这是深层网络能够在大规模数据集上完成训练的关键基石。</p>
+
+                <h3>2.2 局部响应归一化 (Local Response Normalization, LRN)</h3>
+                <p>尽管 ReLU 不需要对输入进行归一化来防止饱和，但作者发现，引入一种受真实生物神经元“侧抑制”机制启发的局部归一化方案，有助于提升模型的泛化能力：</p>
+                <p>$$b_{x,y}^{i} = a_{x,y}^{i} / \left( k + \alpha \sum_{j=\max(0,i-n/2)}^{\min(N-1,i+n/2)}(a_{x,y}^{j})^{2} \right)^{\beta}$$</p>
+                <p>其中，$a_{x,y}^{i}$ 表示在 $(x,y)$ 处使用第 $i$ 个内核计算并应用 ReLU 后的活动输出，$n$ 是同一空间位置的相邻内核映射的数量。这种机制在不同通道的相邻神经元间产生了竞争。</p>
+
+                <h3>2.3 丢弃法 (Dropout)</h3>
+                <p>面对 6000 万参数的过拟合风险，AlexNet 在全连接层引入了 Dropout 技术。以 $p=0.5$ 的概率将隐藏神经元的输出随机置为零。这些神经元既不参与前向传播，也不参与反向传播。这迫使网络不依赖于某些特定神经元的共同出现，从而学到更加鲁棒的特征。</p>
+
+                <h3>2.4 总体架构设计 (Architecture)</h3>
+                <div class="figure">
+                    <div class="img-placeholder"></div>
+                    <p class="figure-caption">Figure 2：AlexNet 包含 8 个带权重的层：5 个卷积层 + 3 个全连接层。为了突破单张 3GB GTX 580 显存的限制，模型被巧妙地切分在两块 GPU 上并行训练，只在特定层级（如第 3 卷积层和全连接层）进行 GPU 间的跨卡通信。</p>
+                </div>
+
+                <details>
+                    <summary>详细层级拆解</summary>
+                    <ul>
+                        <li><strong>Input:</strong> $224 \times 224 \times 3$ 的 RGB 图像。</li>
+                        <li><strong>Conv1:</strong> 96 个 $11 \times 11 \times 3$ 的卷积核，步长(stride)=4。后接 LRN 与 $3 \times 3$ 重叠最大池化(步长=2)。</li>
+                        <li><strong>Conv2:</strong> 256 个 $5 \times 5 \times 48$ 的卷积核。后接 LRN 与池化。</li>
+                        <li><strong>Conv3, Conv4:</strong> 均为 384 个连续的 $3 \times 3$ 卷积核，无池化或 LRN。</li>
+                        <li><strong>Conv5:</strong> 256 个 $3 \times 3$ 卷积核。后接最大池化。</li>
+                        <li><strong>FC6, FC7:</strong> 全连接层，各 4096 个神经元，均使用 Dropout。</li>
+                        <li><strong>FC8:</strong> 1000 维 Softmax 分类输出。</li>
+                    </ul>
+                </details>
+            </section>
+
+            <!-- 3. Experiments -->
+            <section id="experiments" class="card">
+                <h2>3. 实验设置与复现细节 (Experiments & Reproducibility)</h2>
+                <p>为了让庞大的网络在 120 万张图像上收敛且不过拟合，作者使用了非常极客（geek）且精妙的训练技巧。</p>
+
+                <h3>数据集与预处理</h3>
+                <ul>
+                    <li><strong>数据集：</strong> ImageNet LSVRC-2010 (含测试集标签) 与 2012 分支，约 120 万训练集，1000 个类别。</li>
+                    <li><strong>预处理：</strong> 由于图片尺寸不一，先缩放图片使短边等于 256，然后从中心裁剪出 $256 \times 256$ 的区域。在输入网络前，每个像素<strong>仅减去整个训练集的均值</strong>。</li>
+                </ul>
+
+                <h3>数据增强 (Data Augmentation)</h3>
+                <p>数据增强代码是在 CPU 上用 Python 实时生成的，不产生额外的磁盘读写。主要有两种手段：</p>
+                <ol>
+                    <li><strong>平移与翻转：</strong> 训练时，从 $256 \times 256$ 图像中随机裁剪出 $224 \times 224$ 图像块及其水平翻转。这使训练集扩大了 2048 倍。测试时，取 10 个 crops（4 个角 + 中心 + 各自翻转）求平均。</li>
+                    <li><strong>PCA 颜色增强（Fancy PCA）：</strong> 对训练集 RGB 像素进行主成分分析。在训练时，为图像加上主成分的倍数，大小成正比于其特征值乘以一个 $\mathcal{N}(0, 0.1)$ 的高斯随机数。具体加入的值为：
+                        $$[p_{1},p_{2},p_{3}][\alpha_{1}\lambda_{1},\alpha_{2}\lambda_{2},\alpha_{3}\lambda_{3}]^{T}$$
+                        此举模拟了自然光照强度和颜色的变化，使 Top-1 错误率降低了 1% 以上。
+                    </li>
+                </ol>
+
+                <h3>超参数与优化器配置</h3>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>超参数</th>
+                                <th>设定值与说明</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>优化器</strong></td>
+                                <td>SGD (Stochastic Gradient Descent)。Batch Size = 128。动量 (Momentum) = 0.9。</td>
+                            </tr>
+                            <tr>
+                                <td><strong>权重衰减 (Weight Decay)</strong></td>
+                                <td>0.0005。作者特别指出，这不是单纯的正则化，它切实降低了训练误差。</td>
+                            </tr>
+                            <tr>
+                                <td><strong>参数更新规则</strong></td>
+                                <td>
+                                    $$v_{i+1} = 0.9 \cdot v_i - 0.0005 \cdot \epsilon \cdot w_i - \epsilon \cdot \left\langle \left. \frac{\partial L}{\partial w} \right|_{w_i} \right\rangle_{D_i}$$<br>
+                                    $$w_{i+1} = w_i + v_{i+1}$$
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>权重初始化</strong></td>
+                                <td>从 $\mathcal{N}(0, 0.01^2)$ 中采样初始化权重。第2、4、5卷积层以及全连接层的偏置 (bias) 初始化为 1（加速 ReLU 的早期学习）。其余层偏置为 0。</td>
+                            </tr>
+                            <tr>
+                                <td><strong>学习率策略</strong></td>
+                                <td>初始 $\epsilon = 0.01$。当验证集误差不再改善时除以 10。共降低 3 次。训练约 90 个 epoch，耗时 5-6 天。</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 4. Results -->
+            <section id="results" class="card">
+                <h2>4. 实验结果与核心结论 (Results & Findings)</h2>
+                <p>AlexNet 的横空出世，是以一种“降维打击”的姿态粉碎了当时所有的传统视觉方法。</p>
+                
+                <div class="table-wrapper">
+                    <div class="caption">表1: ILSVRC-2010 测试集结果对比</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>模型 / 方法</th>
+                                <th>Top-1 误差 (%)</th>
+                                <th>Top-5 误差 (%)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Sparse coding [2]</td>
+                                <td>47.1</td>
+                                <td>28.2</td>
+                            </tr>
+                            <tr>
+                                <td>SIFT + FVs [24]</td>
+                                <td>45.7</td>
+                                <td>25.7</td>
+                            </tr>
+                            <tr>
+                                <td><strong>CNN (AlexNet)</strong></td>
+                                <td><strong>37.5</strong></td>
+                                <td><strong>17.0</strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="table-wrapper">
+                    <div class="caption">表2: ILSVRC-2012 测试/验证集结果对比</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>模型 / 方法</th>
+                                <th>Top-5 (验证集)</th>
+                                <th>Top-5 (测试集)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>传统方法第二名 (SIFT + FVs)</td>
+                                <td>-</td>
+                                <td>26.2%</td>
+                            </tr>
+                            <tr>
+                                <td>1 CNN (单模型)</td>
+                                <td>18.2%</td>
+                                <td>-</td>
+                            </tr>
+                            <tr>
+                                <td><strong>7 CNNs Ensemble (网络集成)</strong></td>
+                                <td><strong>15.4%</strong></td>
+                                <td><strong>15.3%</strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p><strong>核心结论：</strong>一个完全依靠数据驱动、端到端训练的大型深层卷积网络，能够在极具挑战的数据集上取得破纪录的成绩。只要移除这 5 个卷积层中的任意一个，性能就会下降近 2%。<strong>深度真的非常重要。</strong></p>
+            </section>
+
+            <!-- 5. Review -->
+            <section id="review" class="card">
+                <h2>5. 犀利短评 (Critical Review)</h2>
+                
+                <h3>优点 (Strengths)</h3>
+                <ul>
+                    <li><strong>范式更替的信号枪：</strong> 这是一篇改变人工智能轨迹的论文。它证明了不需要研究者去费尽心力设计图像的 Gabor 滤波器或 SIFT 特征，只要用反向传播在大量数据上猛烈更新参数，网络自己学到的表征远超人类设计。</li>
+                    <li><strong>工程上的拓荒者：</strong> ReLU 和 Dropout 的规模化应用，直接奠定了未来十年的网络标配。同时，在显存仅有 3GB 的条件下写出极致优化的 CUDA 并行计算代码，展现了作者顶级的工程能力。</li>
+                </ul>
+
+                <h3>不足与时代局限 (Weaknesses & Limitations)</h3>
+                <ul>
+                    <li><strong>LRN 模块的过度迷信：</strong> 论文花了很大篇幅解释局部响应归一化 (LRN) 带来的 1.2% 提升。但后来的研究证明，LRN 计算繁琐且用处不大，几年后就被更优雅强大的 Batch Normalization 完全扫入历史的垃圾堆。</li>
+                    <li><strong>超大卷积核的低效：</strong> AlexNet 第一层使用了极其夸张的 $11 \times 11$ 卷积核，不仅参数量大且计算极慢。仅仅两年后，VGGNet 就证明了连续堆叠几个 $3 \times 3$ 卷积核可以在获得相同感受野的同时，大幅减少参数量并增加非线性。</li>
+                    <li><strong>结构的不优美：</strong> 为了适配两块 GPU 的显存，网络被强行劈成两半，并在中间交汇。这种“物理约束倒逼架构设计”的方式虽然在当时很有效，但在理论上缺乏优美感（尽管带来了一个有趣的副产物，见下文）。</li>
+                </ul>
+            </section>
+
+            <!-- 6. One More Thing -->
+            <section id="onemorething" class="card" style="background: linear-gradient(135deg, #ffffff 0%, #fff0f5 100%);">
+                <h2>6. One More Thing: 隐藏的彩蛋与未解之谜</h2>
+                
+                <h3>🥚 彩蛋一：著名的“尺寸笔误”</h3>
+                <p>如果你仔细用卷积公式推导，会发现论文里存在一个流传千古的笔误。作者写道输入是 $224 \times 224$，第一层用 $11 \times 11$ 步长为 4 的卷积。但套入公式：<br>
+                <code>(Input - Filter) / Stride + 1 = (224 - 11) / 4 + 1 = 54.25</code>。<br>
+                显然，54.25 并不是一个整数！实际上，当时代码实现中真实的裁剪尺寸应该是 <strong>$227 \times 227$</strong>：<br>
+                <code>(227 - 11) / 4 + 1 = 55</code>。这个微小的笔误，困扰了无数后来复现代码的初学者。</p>
+
+                <h3>🧠 彩蛋二：“被迫分居”引发的特征特化涌现</h3>
+                <p>因为显存不够，作者迫不得已将网络切分到两块 GPU（GPU 1 和 GPU 2）上。有趣的是，在没有任何特定诱导指令的情况下，网络自己进化出了“器官分化”（见论文 Figure 3）：</p>
+                <ul>
+                    <li><strong>GPU 1 的神经元</strong>，全部变成了<strong>与颜色无关（Color-agnostic）</strong>的特征提取器，专注于黑白的边缘、方向和纹理。</li>
+                    <li><strong>GPU 2 的神经元</strong>，则全部进化为<strong>高度依赖颜色（Color-specific）</strong>的斑点检测器。</li>
+                </ul>
+                <div class="callout" style="background: rgba(193, 21, 116, 0.08); border-left: 4px solid #c11574;">
+                    <div class="callout-icon">🌌</div>
+                    <div class="callout-content">
+                        <p><strong>深刻洞见：</strong> 这种独立权重的初始化每次都会稳定复现（模块化的自动分工）。这说明在深度网络的优化流形（Optimization Manifold）中，将形状/纹理与色彩解耦，是一种极其自然的、能量最低的最优表征状态。这个因硬件限制而出现的偶然现象，至今仍是可解释 AI (XAI) 领域津津乐道的经典案例。</p>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Sidebar (Table of Contents) -->
+        <aside class="sidebar">
+            <div class="sidebar-inner">
+                <div class="toc-title">目录导航 (TOC)</div>
+                <div id="toc"></div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Back to top button -->
+    <button class="back-to-top" id="backToTop" aria-label="返回顶部">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+    </button>
+
+    <!-- JavaScript Interactions -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // 1. Generate TOC dynamically based on h2 sections
+            const sections = document.querySelectorAll('main section');
+            const tocContainer = document.getElementById('toc');
+            
+            sections.forEach(section => {
+                const heading = section.querySelector('h2');
+                if (heading) {
+                    const link = document.createElement('a');
+                    link.href = `#${section.id}`;
+                    link.className = 'toc-link';
+                    // Strip the number prefix from heading text for cleaner TOC
+                    let text = heading.textContent;
+                    text = text.replace(/^[0-9.]+\s*/, ''); 
+                    link.textContent = text;
+                    tocContainer.appendChild(link);
+                }
+            });
+
+            // 2. Intersection Observer for highlighting TOC links
+            const observerOptions = {
+                root: null,
+                rootMargin: '-20% 0px -60% 0px',
+                threshold: 0
+            };
+
+            const observer = new IntersectionObserver(entries => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        document.querySelectorAll('.toc-link').forEach(link => {
+                            link.classList.remove('active');
+                            if (link.getAttribute('href') === `#${entry.target.id}`) {
+                                link.classList.add('active');
+                            }
+                        });
+                    }
+                });
+            }, observerOptions);
+
+            sections.forEach(section => observer.observe(section));
+
+            // 3. Back to Top logic
+            const backToTopBtn = document.getElementById('backToTop');
+            window.addEventListener('scroll', () => {
+                if (window.scrollY > 400) {
+                    backToTopBtn.classList.add('visible');
+                } else {
+                    backToTopBtn.classList.remove('visible');
+                }
+            });
+
+            backToTopBtn.addEventListener('click', () => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+
+            // 4. Smooth scroll for anchor links
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    const targetId = this.getAttribute('href');
+                    const targetElement = document.querySelector(targetId);
+                    if (targetElement) {
+                        // Account for fixed navbar height
+                        const offsetTop = targetElement.getBoundingClientRect().top + window.scrollY - 80;
+                        window.scrollTo({
+                            top: offsetTop,
+                            behavior: 'smooth'
+                        });
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

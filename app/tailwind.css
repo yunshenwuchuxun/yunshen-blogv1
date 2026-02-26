@@ -123,6 +123,18 @@ input:-webkit-autofill:focus {
   transition: opacity 0.4s;
 }
 
+/* KaTeX math overflow fix for mobile */
+.katex-display {
+  display: block;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.katex-display > .katex {
+  white-space: nowrap;
+}
+
 /* ViewTransition API Animations for Theme Toggle */
 html {
   view-transition-name: theme;

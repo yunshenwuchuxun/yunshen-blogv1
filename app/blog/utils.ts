@@ -1,7 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { compileMDX } from 'next-mdx-remote/rsc';
+import rehypeKatex from 'rehype-katex';
 import rehypePrettyCode from 'rehype-pretty-code';
+import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
 import { components } from '../components/mdx';
 
 export interface BlogPost {
@@ -172,8 +175,9 @@ export async function getPostFromSlug(slug: string) {
 			parseFrontmatter: true,
 			scope: {},
 			mdxOptions: {
-				remarkPlugins: [],
+				remarkPlugins: [remarkGfm, remarkMath],
 				rehypePlugins: [
+					rehypeKatex,
 					[
 						rehypePrettyCode,
 						{
