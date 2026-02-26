@@ -173,6 +173,7 @@ export async function getPostFromSlug(slug: string) {
 		source,
 		options: {
 			parseFrontmatter: true,
+			blockJS: false,
 			scope: {},
 			mdxOptions: {
 				remarkPlugins: [remarkGfm, remarkMath],
