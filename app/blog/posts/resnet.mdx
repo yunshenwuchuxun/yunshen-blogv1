@@ -1,0 +1,233 @@
+---
+title: 'ResNet 论文精读'
+publishedAt: '2026-02-27'
+summary: 'ResNet 深度残差学习论文精读笔记：残差连接如何解决深度网络退化问题，解析 BasicBlock、Bottleneck、梯度传播等核心设计。'
+draft: false
+image: '/static/blog/resnet/image10.png'
+tags: [Deep Learning, CNN, ResNet, Paper Reading]
+---
+
+<PaperCard
+	title="Deep Residual Learning for Image Recognition"
+	description="Kaiming He, Xiangyu Zhang, Shaoqing Ren, Jian Sun — CVPR 2016 (Microsoft Research)"
+	links={[
+		{ label: "论文原文", url: "https://arxiv.org/abs/1512.03385" },
+		{ label: "AI 总结", url: "/static/blog/resnet/ai-summary.html" },
+		{ label: "代码实战", url: "https://github.com/yunshenwuchuxun/yunshen-blogv1/blob/main/papers/02-resnet/code.ipynb" },
+	]}
+/>
+
+ResNet（Deep Residual Learning）由何恺明等人于 2015 年提出，通过引入残差连接解决了深度网络的退化问题，在 ImageNet 分类竞赛中以 152 层网络夺冠，是深度学习发展史上的里程碑工作。残差连接这一思想后来深刻影响了 DenseNet、Transformer 等后续架构，已成为现代深度学习的标准组件。
+
+## 研究动机
+
+深度神经网络在层数增加时面临两个关键障碍：
+
+- <strong>梯度消失/爆炸</strong>：反向传播中梯度经过多层连乘后趋近于零或发散，导致网络难以训练。
+- <strong>退化问题（Degradation）</strong>：更深的网络反而比浅层网络表现更差——训练误差和测试误差同时增大。这并非过拟合（过拟合的特征是训练误差低、测试误差高），而是优化本身出了问题。
+
+理论上，一个更深的网络至少可以通过让新增层学习恒等映射来达到与浅层网络相同的效果，但实际中优化器很难做到这一点。ResNet 的目标正是：<strong>让网络深度的增加不会导致性能下降</strong>。
+
+## 残差学习框架
+
+### 残差块的设计思想
+
+设网络某几层需要学习的目标映射为 $\mathcal{H}(x)$，ResNet 不直接学习 $\mathcal{H}(x)$，而是让这些层学习<strong>残差映射</strong>：
+
+$$
+\mathcal{F}(x) = \mathcal{H}(x) - x
+$$
+
+最终输出通过<strong>跳跃连接（shortcut connection）</strong>将输入直接加回：
+
+$$
+\mathcal{H}(x) = \mathcal{F}(x) + x
+$$
+
+![残差学习基本构建块](/static/blog/resnet/image10.png)
+
+其中 $x$ 通过跳跃连接直接传递到输出端，与经过两层权重层的 $\mathcal{F}(x)$ 相加后再通过 ReLU 激活。
+
+<strong>为什么这样更容易优化？</strong> 如果恒等映射是最优解，网络只需将残差 $\mathcal{F}(x)$ 推向零即可——这比从头学习一个恒等函数要容易得多。
+
+## 网络架构
+
+### 基本残差块（BasicBlock）
+
+基本残差块由两层 $3 \times 3$ 卷积组成，每层卷积后接 Batch Normalization 和 ReLU 激活。适用于较浅的网络（ResNet-18、ResNet-34）。
+
+### 瓶颈残差块（Bottleneck）
+
+对于更深的网络（ResNet-50/101/152），直接使用 $3 \times 3$ 卷积会导致计算量过大。瓶颈设计采用三层结构：
+
+1. $1 \times 1$ <strong>卷积</strong>：降低通道数（如 256 → 64），减少计算量
+2. $3 \times 3$ <strong>卷积</strong>：在低维空间进行空间卷积
+3. $1 \times 1$ <strong>卷积</strong>：恢复通道数（如 64 → 256），保证输入输出维度一致以便相加
+
+![基本残差块与瓶颈残差块对比](/static/blog/resnet/image12.png)
+
+这种设计使得块的输入和输出通道数保持一致（如均为 256），同时大幅减少了中间层的计算开销。
+
+### 架构配置
+
+下表展示了 ResNet 各版本的具体配置。当特征图尺寸减半时，通道数加倍，以保持每层的计算复杂度大致相当。
+
+![ResNet 架构配置表](/static/blog/resnet/image13.png)
+
+卷积层 FLOPs 计算公式：
+
+$$
+\text{FLOPs} = H_{\text{out}} \times W_{\text{out}} \times C_{\text{in}} \times C_{\text{out}} \times K_h \times K_w
+$$
+
+其中 $H_{\text{out}}, W_{\text{out}}$ 为输出特征图尺寸，$C_{\text{in}}, C_{\text{out}}$ 为输入输出通道数，$K_h, K_w$ 为卷积核大小。$1 \times 1$ 卷积仅改变通道维度而不改变空间维度；通常在下采样阶段设置 stride=2，使空间尺寸减半、通道数翻倍。
+
+## 实验结果
+
+### Plain 网络 vs ResNet
+
+![Plain 网络与 ResNet 的训练曲线对比](/static/blog/resnet/image11.png)
+
+- <strong>左图（Plain 网络）</strong>：34 层网络的误差<strong>高于</strong> 18 层网络，验证了退化问题的存在。
+- <strong>右图（ResNet）</strong>：34 层 ResNet 的误差<strong>低于</strong> 18 层 ResNet，残差连接成功解决了退化问题。
+
+曲线中的阶梯式下降是由学习率衰减造成的——每次学习率乘以 0.1 时误差会出现一次跳跃式下降。现代训练中更多采用余弦退火等平滑的学习率调度策略来替代这种阶梯式衰减。
+
+### CIFAR-10 上的结果
+
+| 方法 | 层数 | 参数量 | 错误率（%） |
+|------|------|--------|------------|
+| Maxout | - | - | 9.38 |
+| NIN | - | - | 8.81 |
+| DSN | - | - | 8.22 |
+| FitNet | 19 | 2.5M | 8.39 |
+| Highway | 19 | 2.3M | 7.54 |
+| ResNet | 110 | 1.7M | <strong>6.43</strong> |
+| ResNet | 1202 | 19.4M | 7.93 |
+
+ResNet-110 以仅 1.7M 参数取得了 6.43% 的最佳错误率。值得注意的是，1202 层的 ResNet 性能略有下降（7.93%），可能存在过拟合。但关键在于：<strong>即使网络深度远超必要，残差连接也能保证模型不会严重退化</strong>——多余的层只是学不到有用的东西，而不会破坏已有的表征。
+
+## 残差连接与梯度传播
+
+残差连接之所以有效，可以从梯度传播的角度理解。
+
+<strong>无残差连接</strong>时，梯度通过链式法则逐层相乘：
+
+$$
+\frac{\partial f(g(x))}{\partial x} = \frac{\partial f(g(x))}{\partial g(x)} \cdot \frac{\partial g(x)}{\partial x}
+$$
+
+每一项梯度通常小于 1，多层连乘后梯度趋近于零——这就是梯度消失问题。
+
+<strong>有残差连接</strong>时，输出为 $f(g(x)) + g(x)$，梯度变为：
+
+$$
+\frac{\partial [f(g(x)) + g(x)]}{\partial x} = \frac{\partial f(g(x))}{\partial g(x)} \cdot \frac{\partial g(x)}{\partial x} + \frac{\partial g(x)}{\partial x}
+$$
+
+梯度中多了一个加性项 $\frac{\partial g(x)}{\partial x}$，即使乘性项趋近于零，梯度仍然不会消失。这解释了两个现象：
+
+- <strong>深层网络可以训练</strong>：梯度不会消失
+- <strong>收敛更快</strong>：梯度信号更强，参数更新更有效
+
+## 总结
+
+ResNet 通过简洁的残差连接设计，从根本上解决了深度网络的退化问题和梯度消失问题。其核心洞察——让网络学习残差而非完整映射——使得训练上百层甚至上千层的网络成为可能。这一思想深刻影响了后续的网络设计（如 DenseNet、Transformer 等），残差连接已成为现代深度学习架构的标准组件。
+
+## 代码实战
+
+以下展示 ResNet-18 在 CIFAR-10 上的核心实现。完整代码包含手写实现与 torchvision 简洁实现两种方式的对比。
+
+<strong>BasicBlock — 残差块核心实现</strong>：
+
+```python
+class BasicBlock(nn.Module):
+    """基本残差块：两层 3×3 卷积 + 快捷连接。"""
+    expansion = 1
+
+    def __init__(self, in_channels, out_channels, stride=1, downsample=None):
+        super().__init__()
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3,
+                               stride=stride, padding=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(out_channels)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3,
+                               stride=1, padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(out_channels)
+        self.relu = nn.ReLU(inplace=True)
+        self.downsample = downsample
+
+    def forward(self, x):
+        identity = x
+        out = self.relu(self.bn1(self.conv1(x)))
+        out = self.bn2(self.conv2(out))
+        if self.downsample is not None:
+            identity = self.downsample(x)
+        out += identity                       # H(x) = F(x) + x
+        out = self.relu(out)
+        return out
+```
+
+<strong>ResNet-18 完整组装</strong>（CIFAR-10 适配版，将 conv1 从 7×7/stride=2 改为 3×3/stride=1，移除 maxpool）：
+
+```python
+class ResNet18Scratch(nn.Module):
+    def __init__(self, block=BasicBlock, layers=(2, 2, 2, 2),
+                 in_channels=3, num_classes=10):
+        super().__init__()
+        self.in_channels = 64
+
+        # Stem：3×3 Conv（替代 ImageNet 版的 7×7）
+        self.conv1 = nn.Conv2d(in_channels, 64, kernel_size=3,
+                               stride=1, padding=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(64)
+        self.relu = nn.ReLU(inplace=True)
+
+        # 4 个 Stage
+        self.layer1 = self._make_layer(block, 64,  layers[0], stride=1)
+        self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
+        self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
+        self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
+
+        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        self.fc = nn.Linear(512 * block.expansion, num_classes)
+
+    def _make_layer(self, block, out_channels, num_blocks, stride):
+        downsample = None
+        if stride != 1 or self.in_channels != out_channels * block.expansion:
+            downsample = nn.Sequential(
+                nn.Conv2d(self.in_channels, out_channels * block.expansion,
+                          kernel_size=1, stride=stride, bias=False),
+                nn.BatchNorm2d(out_channels * block.expansion),
+            )
+        layers = [block(self.in_channels, out_channels, stride, downsample)]
+        self.in_channels = out_channels * block.expansion
+        for _ in range(1, num_blocks):
+            layers.append(block(self.in_channels, out_channels))
+        return nn.Sequential(*layers)
+
+    def forward(self, x):
+        x = self.relu(self.bn1(self.conv1(x)))
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
+        x = self.avgpool(x)
+        x = torch.flatten(x, 1)
+        x = self.fc(x)
+        return x
+```
+
+<strong>torchvision 简洁实现</strong>（等价架构，仅需修改 conv1 和 maxpool）：
+
+```python
+from torchvision import models
+
+net = models.resnet18(num_classes=10)
+net.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
+net.maxpool = nn.Identity()
+```
+
+## 参考文献
+
+- He, K., Zhang, X., Ren, S., & Sun, J. (2016). [Deep Residual Learning for Image Recognition](https://arxiv.org/abs/1512.03385). *CVPR 2016*.
+- Mu Li. [ResNet 论文逐段精读](https://www.bilibili.com/video/BV1P3411y7nn/). *沐神论文精读系列*.
