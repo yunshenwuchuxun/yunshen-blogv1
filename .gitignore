@@ -51,7 +51,4 @@ tsconfig.tsbuildinfo
 /papers/media/
 /papers/*/nmt_data/
 
-# Redundant lock files (project uses yarn)
-package-lock.json
-pnpm-lock.yaml
-bun.lock
+# Lockfiles are intentionally tracked in git.

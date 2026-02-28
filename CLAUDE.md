@@ -6,23 +6,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Development Server**
 ```bash
-yarn dev          # Start Next.js development server (uses turbopack)
+pnpm dev          # Start Next.js development server (uses webpack)
 ```
 
 **Build & Production**
 ```bash
-yarn build        # Production build
-yarn serve        # Start production server
+pnpm build        # Production build
+pnpm serve        # Start production server
 ```
 
 **Code Quality**
 ```bash
-yarn lint         # Run Biome linter and auto-fix issues
-yarn format       # Format code with Biome
-yarn check        # Check code without auto-fixing
+pnpm lint         # Run Biome linter and auto-fix issues
+pnpm format       # Format code with Biome
+pnpm check        # Check code without auto-fixing
 ```
 
-**Note**: Use `yarn` (v1.22.22) as the package manager, though `bun` can also be used for installation.
+**Note**: Use `pnpm` as the package manager.
 
 ## Architecture Overview
 

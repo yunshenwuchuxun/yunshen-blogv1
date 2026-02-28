@@ -30,7 +30,7 @@ A personal blog built with Next.js 16, React 19, and Tailwind CSS v4.
 ### Prerequisites
 
 - Node.js 18+
-- Yarn or Bun
+- pnpm 10+
 
 ### Installation
 
@@ -43,15 +43,13 @@ git clone https://github.com/yunshenwuchuxun/yunshen-blogv1.git
 2. Install dependencies
 
 ```bash
-yarn install
-# or
-bun install
+pnpm install
 ```
 
 3. Run the development server
 
 ```bash
-yarn dev
+pnpm dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
@@ -59,11 +57,11 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ## Scripts
 
 ```bash
-yarn dev      # Start development server
-yarn build    # Production build
-yarn serve    # Start production server
-yarn lint     # Run linter
-yarn format   # Format code
+pnpm dev      # Start development server
+pnpm build    # Production build
+pnpm serve    # Start production server
+pnpm lint     # Run linter
+pnpm format   # Format code
 ```
 
 ## Project Structure

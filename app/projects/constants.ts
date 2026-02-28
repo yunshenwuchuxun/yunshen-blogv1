@@ -309,8 +309,8 @@ export const projectDetails: Record<string, ProjectDetail> = {
 		],
 		usage: [
 			'克隆仓库：git clone https://github.com/yunshenwuchuxun/yunshen-blogv1.git',
-			'安装依赖：yarn install',
-			'启动开发服务器：yarn dev',
+			'安装依赖：pnpm install',
+			'启动开发服务器：pnpm dev',
 			'访问 http://localhost:3000 即可体验',
 		],
 		targetUsers: [

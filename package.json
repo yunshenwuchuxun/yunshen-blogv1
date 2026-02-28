@@ -2,8 +2,9 @@
   "name": "yunshen-blog",
   "version": "2.0.0",
   "private": true,
+  "packageManager": "pnpm@10.20.0",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack",
     "build": "next build",
     "serve": "next start",
     "lint": "biome check --write .",
