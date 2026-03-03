@@ -1,0 +1,251 @@
+---
+title: 'AlexNet 论文精读'
+publishedAt: '2026-02-28'
+summary: 'AlexNet 论文精读笔记：首次在大规模图像分类中成功应用深度 CNN，解析 ReLU、Dropout、双 GPU 并行、数据增强等核心创新。'
+draft: false
+tags: [Deep Learning, CNN, AlexNet, Paper Reading]
+---
+
+<PaperCard
+	title="ImageNet Classification with Deep Convolutional Neural Networks"
+	description="Alex Krizhevsky, Ilya Sutskever, Geoffrey E. Hinton — NIPS 2012 (University of Toronto)"
+	links={[
+		{ label: "论文原文", url: "https://arxiv.org/abs/1209.0145" },
+		{ label: "AI 总结", url: "/static/blog/alexnet/ai-summary.html" },
+		{ label: "代码实战", url: "https://colab.research.google.com/github/yunshenwuchuxun/yunshen-blogv1/blob/main/papers/01-alexnet/code.ipynb" },
+	]}
+/>
+
+AlexNet 由 Alex Krizhevsky 等人于 2012 年提出，在 ILSVRC-2012 竞赛中以 top-5 错误率 15.3% 大幅领先第二名（26.2%），碾压了所有基于手工特征的传统方法。这篇论文首次将 ReLU、Dropout、数据增强及 GPU 并行计算整合到一个 6000 万参数的深层卷积网络中，向世界证明了"大数据 + 深层模型 + 算力"的巨大潜力，正式拉开了深度学习时代的帷幕。
+
+## 研究动机
+
+在 2012 年之前，计算机视觉主要依赖手工设计的特征提取器（SIFT、HOG）配合传统机器学习方法，面临三重瓶颈：
+
+- <strong>数据集规模</strong>：早期数据集（CIFAR、Caltech-101）仅数万张图片，简单模型即可应对，但无法覆盖现实世界中物体的复杂性和多样性。
+- <strong>模型容量</strong>：ImageNet（超 1500 万张高分辨率图像）的出现要求模型具备巨大的"学习容量"，传统浅层模型无法吸收如此大的信息量。
+- <strong>算力限制</strong>：CNN 虽对图像特性（局部性、平移不变性）做出了正确的先验假设，但在高分辨率图像上的大规模训练计算成本极高。
+
+AlexNet 抓住了时代的三个红利：<strong>大规模数据集（ImageNet）</strong> + <strong>强大模型先验（CNN）</strong> + <strong>并行计算硬件（GPU）</strong>，证明了一个足够深的纯粹神经网络可以击败所有手工特征工程。
+
+## 网络架构
+
+AlexNet 由 <strong>8 个可学习层</strong>组成：5 个卷积层 + 3 个全连接层，最后接 softmax 输出 1000 类。
+
+网络被拆分到两块 GPU 上并行训练：
+
+- <strong>第 1、2 层</strong>：两块 GPU 各自独立工作，互不通信
+- <strong>第 3 层</strong>：两块 GPU 开始交互，交换特征信息
+- <strong>第 4、5 层</strong>：继续各自卷积
+- <strong>全连接层</strong>：两路各输出 2048 维，拼接为 4096 维，最终映射到 1000 类
+
+<strong>卷积的直觉理解</strong>：通过逐层卷积，特征图的空间尺寸不断缩小（一个小像素对应原图的一大块区域），而通道数不断增加——可以理解为每个通道负责识别物体的一种模式（如猫的爪子、猫的眼睛）。
+
+### 逐层尺寸推导
+
+卷积输出尺寸公式：给定输入 $H_{in}$，卷积核 $k$，步长 $s$，填充 $p$：
+
+$$
+H_{out} = \left\lfloor \frac{H_{in} + 2p - k}{s} \right\rfloor + 1
+$$
+
+特征提取器逐层变化（输入 $1 \times 224 \times 224$）：
+
+| 层 | 操作 | 参数 | 输出尺寸 | 推导 |
+|---|---|---|---|---|
+| Conv1 | Conv2d | k=11, s=4, p=2 | 64x55x55 | (224+4-11)/4+1=55 |
+| Pool1 | MaxPool2d | k=3, s=2 | 64x27x27 | (55-3)/2+1=27 |
+| Conv2 | Conv2d | k=5, s=1, p=2 | 192x27x27 | (27+4-5)/1+1=27 |
+| Pool2 | MaxPool2d | k=3, s=2 | 192x13x13 | (27-3)/2+1=13 |
+| Conv3 | Conv2d | k=3, s=1, p=1 | 384x13x13 | (13+2-3)/1+1=13 |
+| Conv4 | Conv2d | k=3, s=1, p=1 | 256x13x13 | (13+2-3)/1+1=13 |
+| Conv5 | Conv2d | k=3, s=1, p=1 | 256x13x13 | (13+2-3)/1+1=13 |
+| Pool5 | MaxPool2d | k=3, s=2 | 256x6x6 | (13-3)/2+1=6 |
+
+<strong>重叠池化</strong>：Pool 的 kernel=3、stride=2，相邻池化窗口有 1 像素重叠（传统池化 kernel=stride 无重叠）。论文报告这将 top-1 错误率降低了 0.4%。
+
+<strong>关于"尺寸笔误"</strong>：论文写输入为 $224 \times 224$，第一层用 $11 \times 11$ 步长 4 的卷积，但 $(224 - 11) / 4 + 1 = 54.25$ 不是整数。实际代码中真实的裁剪尺寸应为 $227 \times 227$：$(227 - 11) / 4 + 1 = 55$。这个笔误困扰了无数复现者。
+
+## 核心创新
+
+### ReLU 激活函数
+
+$$
+f(x) = \max(0, x)
+$$
+
+用 ReLU 替代传统的 Sigmoid / Tanh，正区间梯度恒为 1，不会出现梯度饱和。实验表明，使用 ReLU 的网络达到 25% 训练误差的速度比 Tanh 快约 <strong>6 倍</strong>。
+
+### Dropout 正则化
+
+面对 6000 万参数的过拟合风险，AlexNet 在全连接层引入 Dropout（$p=0.5$），训练时随机将部分神经元输出置零，推理时使用全部神经元。
+
+| 阶段 | 行为 | 触发方式 |
+|------|------|---------|
+| <strong>训练</strong> | 以 $p=0.5$ 随机置零，剩余值放大 $1/(1-p)$ 倍 | `net.train()` |
+| <strong>推理</strong> | 所有神经元正常工作 | `net.eval()` |
+
+对 Dropout 的理解经历了演变：
+
+- <strong>原始解释</strong>：每次训练得到的是原始模型的一个子模型，最终效果等价于多模型融合（ensemble）
+- <strong>现代理解</strong>：后来学者证明，Dropout 在线性模型上等价于 L2 正则化，本质是减少神经元间的共适应性，迫使每个神经元学习更鲁棒的特征
+
+### 局部响应归一化（LRN）
+
+受生物神经系统"侧抑制"机制启发，对同一空间位置上相邻通道做归一化：
+
+$$
+b_{x,y}^{i} = a_{x,y}^{i} / \left( k + \alpha \sum_{j=\max(0,i-n/2)}^{\min(N-1,i+n/2)}(a_{x,y}^{j})^{2} \right)^{\beta}
+$$
+
+论文报告 LRN 降低了 1.2% top-5 错误率，但 LRN 计算繁琐且收益有限，几年后就被更优雅的 Batch Normalization（2015）完全取代。
+
+### 数据增强
+
+数据增强在 CPU 上实时生成，不产生额外磁盘读写：
+
+1. <strong>平移与翻转</strong>：从 $256 \times 256$ 图像中随机裁剪 $224 \times 224$ 图像块及其水平翻转，训练集扩大 2048 倍。测试时取 10 个 crops（4 个角 + 中心 + 各自翻转）求平均。
+2. <strong>PCA 颜色增强（Fancy PCA）</strong>：对 RGB 像素做主成分分析，训练时加入主成分的倍数（$\alpha_i \sim \mathcal{N}(0, 0.1)$），模拟自然光照变化，降低 top-1 错误率 1% 以上。
+
+### 双 GPU 并行训练
+
+将模型拆分到两块 GTX 580（各 3GB 显存）上并行计算。这一设计在今天已不再必要，但其<strong>模型并行</strong>的思想对后续大模型训练仍有启发。
+
+有趣的是，在没有特定诱导的情况下，两块 GPU 自发进化出了"器官分化"：GPU 1 的神经元变成与颜色无关的边缘/纹理检测器，GPU 2 的神经元则专注于颜色特征。这种模块化的自动分工在每次独立训练中都能稳定复现，说明将形状/纹理与色彩解耦是一种极其自然的最优表征状态，至今仍是可解释 AI（XAI）领域的经典案例。
+
+## 训练细节
+
+### 优化器：带动量的 SGD
+
+$$
+v_{i+1} = 0.9 \cdot v_i - 0.0005 \cdot \epsilon \cdot w_i - \epsilon \cdot \left\langle \frac{\partial L}{\partial w} \bigg|_{w_i} \right\rangle_{D_i}
+$$
+
+$$
+w_{i+1} = w_i + v_{i+1}
+$$
+
+其中 $\epsilon$ 为学习率，$v$ 为动量变量。动量的作用是让参数更新不被当前梯度过度左右，有助于跳出局部最优。
+
+| 超参数 | 设定值 |
+|--------|-------|
+| Batch Size | 128 |
+| 动量（Momentum） | 0.9 |
+| 权重衰减（Weight Decay） | 0.0005（作者特别指出这不仅是正则化，还切实降低了训练误差） |
+| 权重初始化 | $\mathcal{N}(0, 0.01^2)$；第 2、4、5 卷积层及全连接层偏置初始化为 1（加速 ReLU 早期学习） |
+| 训练轮数 | 约 90 epochs，耗时 5-6 天（双 GPU） |
+
+### 学习率策略
+
+| 策略 | 做法 | 使用场景 |
+|------|------|----------|
+| <strong>AlexNet 原文</strong> | 初始 lr=0.01，验证误差停滞时手动缩小 10 倍，共降低 3 次 | 早期常用 |
+| <strong>现代主流（Cosine Annealing + Warmup）</strong> | 先从极小值线性增长到目标 lr（Warmup），再按余弦函数逐步衰减 | Transformer、ResNet 等大模型训练 |
+
+## 实验结果
+
+### ILSVRC-2010 结果
+
+| 模型 / 方法 | Top-1 误差 (%) | Top-5 误差 (%) |
+|------------|---------------|---------------|
+| Sparse coding | 47.1 | 28.2 |
+| SIFT + FVs | 45.7 | 25.7 |
+| <strong>CNN (AlexNet)</strong> | <strong>37.5</strong> | <strong>17.0</strong> |
+
+### ILSVRC-2012 结果
+
+| 模型 / 方法 | Top-5 验证集 | Top-5 测试集 |
+|------------|------------|------------|
+| 传统方法第二名 | - | 26.2% |
+| 1 CNN（单模型） | 18.2% | - |
+| <strong>7 CNNs Ensemble</strong> | <strong>15.4%</strong> | <strong>15.3%</strong> |
+
+AlexNet 以超过 10 个百分点的优势碾压所有传统方法。论文还指出，移除 5 个卷积层中的任意一个，性能就会下降近 2%——<strong>深度真的非常重要</strong>。
+
+## 犀利短评
+
+<strong>优点</strong>：
+
+- <strong>范式更替的信号枪</strong>：证明了不需要手工设计 SIFT 特征，只要用反向传播在大量数据上猛烈更新参数，网络自己学到的表征远超人类设计。
+- <strong>工程上的拓荒者</strong>：ReLU 和 Dropout 的规模化应用直接奠定了未来十年的网络标配。在仅有 3GB 显存的条件下写出极致优化的 CUDA 并行计算代码，展现了作者顶级的工程能力。
+
+<strong>不足与时代局限</strong>：
+
+- <strong>LRN 的过度迷信</strong>：论文花了很大篇幅解释 LRN 带来的 1.2% 提升，但几年后就被 Batch Normalization 完全取代。
+- <strong>超大卷积核的低效</strong>：第一层使用了极其夸张的 $11 \times 11$ 卷积核，参数量大且计算慢。仅两年后，VGGNet 就证明连续堆叠 $3 \times 3$ 卷积核可以在获得相同感受野的同时大幅减少参数并增加非线性。
+- <strong>结构的不优美</strong>：为适配两块 GPU 显存而强行将网络劈成两半，属于"物理约束倒逼架构设计"，在理论上缺乏优美感。
+
+## 历史意义
+
+AlexNet 的成功直接推动了后续一系列经典 CNN 架构的诞生，奠定了现代计算机视觉的基础：
+
+| 对比维度 | AlexNet (2012) | VGG (2014) | ResNet (2015) |
+|---------|----------------|------------|---------------|
+| 核心思想 | 深度 CNN + ReLU + Dropout | 更深 + 统一小核 | 残差连接跨层捷径 |
+| 深度 | 8 层 | 16/19 层 | 50/101/152 层 |
+| 参数量 | 61M | 138M | 25M (ResNet-50) |
+| Top-5 错误率 | 15.3% | 7.3% | 3.57% |
+| 关键贡献 | 证明深度学习可行 | 证明深度有效 | 解决退化问题 |
+
+## 代码实战
+
+以下展示 AlexNet 在 FashionMNIST 上的核心实现。完整代码包含手写实现与 torchvision 简洁实现两种方式的对比。
+
+<strong>AlexNet 手写实现</strong>：
+
+```python
+class AlexNetScratch(nn.Module):
+    def __init__(self, in_channels=1, num_classes=10, dropout=0.5):
+        super().__init__()
+        # 特征提取器：5 个卷积层
+        self.conv1 = nn.Conv2d(in_channels, 64, kernel_size=11, stride=4, padding=2)
+        self.pool1 = nn.MaxPool2d(kernel_size=3, stride=2)
+        self.conv2 = nn.Conv2d(64, 192, kernel_size=5, padding=2)
+        self.pool2 = nn.MaxPool2d(kernel_size=3, stride=2)
+        self.conv3 = nn.Conv2d(192, 384, kernel_size=3, padding=1)
+        self.conv4 = nn.Conv2d(384, 256, kernel_size=3, padding=1)
+        self.conv5 = nn.Conv2d(256, 256, kernel_size=3, padding=1)
+        self.pool5 = nn.MaxPool2d(kernel_size=3, stride=2)
+        self.avgpool = nn.AdaptiveAvgPool2d((6, 6))
+
+        # 分类器：3 个全连接层
+        self.dropout = nn.Dropout(p=dropout)
+        self.fc1 = nn.Linear(256 * 6 * 6, 4096)
+        self.fc2 = nn.Linear(4096, 4096)
+        self.fc3 = nn.Linear(4096, num_classes)
+        self.relu = nn.ReLU(inplace=True)
+
+    def forward(self, x):
+        x = self.relu(self.conv1(x))
+        x = self.pool1(x)
+        x = self.relu(self.conv2(x))
+        x = self.pool2(x)
+        x = self.relu(self.conv3(x))
+        x = self.relu(self.conv4(x))
+        x = self.relu(self.conv5(x))
+        x = self.pool5(x)
+        x = self.avgpool(x)
+        x = torch.flatten(x, 1)
+        x = self.dropout(x)
+        x = self.relu(self.fc1(x))
+        x = self.dropout(x)
+        x = self.relu(self.fc2(x))
+        x = self.fc3(x)
+        return x
+```
+
+<strong>torchvision 简洁实现</strong>（等价架构，修改输入通道和类别数即可）：
+
+```python
+from torchvision import models
+
+net = models.alexnet(num_classes=10)
+net.features[0] = nn.Conv2d(1, 64, kernel_size=11, stride=4, padding=2)
+```
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/yunshenwuchuxun/yunshen-blogv1/blob/main/papers/01-alexnet/code.ipynb)
+
+## 参考文献
+
+- Krizhevsky, A., Sutskever, I., & Hinton, G. E. (2012). [ImageNet Classification with Deep Convolutional Neural Networks](https://arxiv.org/abs/1209.0145). *NIPS 2012*.
+- Mu Li. [AlexNet 论文逐段精读](https://www.bilibili.com/video/BV1hq4y157t1/). *沐神论文精读系列*.

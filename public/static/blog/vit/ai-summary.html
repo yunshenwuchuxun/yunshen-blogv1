@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vision Transformer (ViT) 论文精读与复现指南</title>
+    
+    <!-- 配置 MathJax 支持 LaTeX -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        :root {
+            /* Apple 风格配色 */
+            --bg-color: #f5f5f7;
+            --text-primary: #1d1d1f;
+            --text-secondary: #86868b;
+            --accent-color: #0066cc;
+            --card-bg: #ffffff;
+            --border-color: #d2d2d7;
+            --shadow-light: 0 4px 6px rgba(0, 0, 0, 0.02), 0 10px 15px rgba(0, 0, 0, 0.03);
+            --shadow-hover: 0 10px 20px rgba(0, 0, 0, 0.05), 0 20px 40px rgba(0, 0, 0, 0.06);
+            --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+            --nav-height: 56px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+
+        /* 导航栏 */
+        nav {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: var(--nav-height);
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: saturate(180%) blur(20px);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .nav-content {
+            width: 100%;
+            max-width: 1200px;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 20px;
+        }
+
+        .nav-logo { font-weight: 600; font-size: 18px; color: var(--text-primary); text-decoration: none; }
+        .nav-links { display: flex; gap: 24px; }
+        .nav-links a {
+            color: var(--text-primary);
+            text-decoration: none;
+            font-size: 14px;
+            opacity: 0.8;
+            transition: opacity 0.2s ease;
+        }
+        .nav-links a:hover { opacity: 1; color: var(--accent-color); }
+
+        /* 主体布局 */
+        .container {
+            display: flex;
+            max-width: 1200px;
+            margin: calc(var(--nav-height) + 40px) auto 60px;
+            padding: 0 20px;
+            gap: 40px;
+        }
+
+        /* 左侧目录 */
+        aside {
+            flex: 0 0 240px;
+            position: sticky;
+            top: calc(var(--nav-height) + 40px);
+            height: fit-content;
+            max-height: calc(100vh - 120px);
+            overflow-y: auto;
+        }
+
+        aside ul { list-style: none; border-left: 2px solid var(--border-color); }
+        aside li { margin: 12px 0; }
+        aside a {
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-size: 14px;
+            padding-left: 16px;
+            display: block;
+            transition: all 0.2s ease;
+        }
+        aside a:hover, aside a.active {
+            color: var(--accent-color);
+            font-weight: 500;
+        }
+        aside a.active {
+            border-left: 2px solid var(--accent-color);
+            margin-left: -2px;
+        }
+
+        /* 右侧内容区 */
+        main { flex: 1; min-width: 0; }
+
+        /* 卡片风格 */
+        section {
+            background: var(--card-bg);
+            border-radius: 24px;
+            padding: 48px;
+            margin-bottom: 40px;
+            box-shadow: var(--shadow-light);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        section:hover { box-shadow: var(--shadow-hover); }
+
+        /* 排版细节 */
+        h1 { font-size: 40px; font-weight: 700; letter-spacing: -0.015em; margin-bottom: 16px; line-height: 1.1; }
+        h2 { font-size: 28px; font-weight: 600; margin: 32px 0 20px; letter-spacing: -0.01em; color: #000; }
+        h3 { font-size: 20px; font-weight: 600; margin: 24px 0 12px; }
+        p { margin-bottom: 16px; font-size: 17px; color: #333; }
+        ul, ol { margin-bottom: 16px; padding-left: 24px; font-size: 17px; color: #333; }
+        li { margin-bottom: 8px; }
+        strong { font-weight: 600; color: #000; }
+
+        /* 标签 */
+        .badge-container { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; }
+        .badge {
+            background: #f0f0f5; color: var(--text-primary);
+            padding: 6px 12px; border-radius: 16px; font-size: 13px; font-weight: 500;
+        }
+        .badge.sota { background: #e8f5e9; color: #2e7d32; }
+
+        /* 表格样式 */
+        .table-wrapper { overflow-x: auto; margin: 24px 0; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border-color); }
+        th { font-weight: 600; background: #fafafa; color: #000; }
+        tr:hover { background: #f9f9fb; }
+        
+        /* 代码与公式块 */
+        .math-block {
+            background: #fafafa;
+            border-radius: 12px;
+            padding: 16px;
+            margin: 24px 0;
+            overflow-x: auto;
+            border: 1px solid var(--border-color);
+        }
+        code {
+            font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+            background: #f0f0f5;
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-size: 0.9em;
+            color: #d1208a;
+        }
+        .pseudo-code {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            border-radius: 12px;
+            font-family: Consolas, monospace;
+            font-size: 14px;
+            overflow-x: auto;
+            line-height: 1.5;
+        }
+
+        /* 交互组件：折叠面板 */
+        details {
+            background: #fafafa;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+            margin: 16px 0;
+        }
+        summary {
+            font-weight: 600; cursor: pointer; outline: none; list-style: none;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        summary::-webkit-details-marker { display: none; }
+        summary::after { content: '+'; font-size: 20px; transition: transform 0.2s; }
+        details[open] summary::after { transform: rotate(45deg); }
+        details[open] .details-content { margin-top: 16px; animation: fadeIn 0.3s ease; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* 图片占位符 */
+        .img-placeholder {
+            background: #f0f0f5;
+            border: 2px dashed #c7c7cc;
+            border-radius: 16px;
+            padding: 40px 20px;
+            text-align: center;
+            color: var(--text-secondary);
+            margin: 24px 0;
+        }
+
+        /* 返回顶部按钮 */
+        #back-to-top {
+            position: fixed; bottom: 40px; right: 40px;
+            width: 48px; height: 48px; border-radius: 24px;
+            background: var(--card-bg); box-shadow: var(--shadow-hover);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; opacity: 0; visibility: hidden;
+            transition: all 0.3s ease; border: none; color: var(--accent-color); font-size: 24px; z-index: 1000;
+        }
+        #back-to-top.visible { opacity: 1; visibility: visible; }
+        #back-to-top:hover { transform: translateY(-4px); }
+
+        /* 响应式 */
+        @media (max-width: 860px) {
+            .container { flex-direction: column; }
+            aside { position: static; max-height: none; margin-bottom: 24px; flex: auto; }
+            aside ul { border-left: none; display: flex; flex-wrap: wrap; gap: 12px; }
+            aside li { margin: 0; }
+            aside a { padding: 6px 12px; background: #eee; border-radius: 16px; border-left: none !important; margin: 0 !important; }
+            aside a.active { background: var(--accent-color); color: white; }
+            section { padding: 24px; }
+        }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <div class="nav-content">
+            <a href="#" class="nav-logo">ViT 论文精析</a>
+            <div class="nav-links">
+                <a href="#hero">首页</a>
+                <a href="#motivation">动机</a>
+                <a href="#modeling">模型</a>
+                <a href="#experiments">实验</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- 侧边导航 -->
+        <aside>
+            <ul id="toc">
+                <li><a href="#hero">1. 概览 (Overview)</a></li>
+                <li><a href="#motivation">2. 动机与背景 (Motivation)</a></li>
+                <li><a href="#modeling">3. 数学建模 (Modeling)</a></li>
+                <li><a href="#experiments">4. 实验设置 (Experiments)</a></li>
+                <li><a href="#results">5. 结果结论 (Results)</a></li>
+                <li><a href="#review">6. 审稿人视角的点评 (Review)</a></li>
+                <li><a href="#one-more-thing">7. One More Thing</a></li>
+            </ul>
+        </aside>
+
+        <main>
+            <!-- 1. Hero Section -->
+            <section id="hero">
+                <div class="badge-container">
+                    <span class="badge">ICLR 2021 (Oral)</span>
+                    <span class="badge">Google Research (Brain Team)</span>
+                    <span class="badge sota">计算机视觉 SOTA</span>
+                    <span class="badge">基础模型 (Foundation Model)</span>
+                </div>
+                <h1>An Image is Worth 16x16 Words:<br>Transformers for Image Recognition at Scale</h1>
+                <p style="font-size: 18px; color: var(--text-secondary); margin-bottom: 24px;">
+                    作者：Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov 等
+                </p>
+                <div style="background: #f5f5f7; border-left: 4px solid var(--accent-color); padding: 20px; border-radius: 0 12px 12px 0;">
+                    <strong>核心摘要：</strong><br>
+                    尽管 Transformer 已经成为自然语言处理（NLP）领域的事实标准，但在计算机视觉（CV）中，它的应用仍然受到限制（通常作为 CNN 的辅助组件）。本文证明了这种对 CNN 的依赖并非必要：<strong>一个纯粹的 Transformer 模型，直接应用于图像切块（Image Patches）序列</strong>，在图像分类任务上就能表现得极好。当在大规模数据集（如 JFT-300M）上进行预训练后，Vision Transformer (ViT) 以更少的计算资源达到了惊人的 SOTA 表现。
+                </div>
+            </section>
+
+            <!-- 2. Motivation -->
+            <section id="motivation">
+                <h2>2. 研究动机与问题背景 (Motivation)</h2>
+                <h3>痛点与现状的局限性</h3>
+                <ul>
+                    <li><strong>CNN 主导统治：</strong> 在 CV 领域，从 AlexNet 到 ResNet，由于卷积操作天然自带的“归纳偏置”（Inductive Bias，如平移等变性和局部性），CNN 一直是绝对的主流。</li>
+                    <li><strong>Transformer 跨界遇阻：</strong> 随着 BERT/GPT 展现出超凡的扩展能力（Scalability），大量研究尝试将 Attention 机制引入 CV。但先前的尝试大多是：用 Attention 增强 CNN（如 Non-local block），或者用极其复杂的局部/轴向注意力替换卷积。这些方法虽然理论有效，但在现代硬件（TPU/GPU）上<strong>效率极低，难以像大语言模型那样大规模扩展</strong>。</li>
+                </ul>
+                <h3>本文试图解决的核心问题</h3>
+                <p>
+                    我们能否以<strong>最少量的架构修改</strong>，将标准 NLP 领域的 Transformer 直接应用到图像上？<br>
+                    换句话说，如果打破 CNN 长期以来的垄断，剥离掉预设的“图像归纳偏置”，仅仅依赖大规模数据驱动，纯 Transformer 能否看懂图片？
+                </p>
+                <h3>研究的重要性 (Significance)</h3>
+                <p>
+                    这是计算机视觉走向“大统一”模型架构的开山之作。它证明了：<strong>在大规模数据面前，模型容量和扩展性比人类手工设计的“局部性先验”更加重要。</strong>ViT 的出现彻底改变了 CV 领域的发展轨迹，催生了后续的 Swin Transformer、MAE 等一系列革命性工作。
+                </p>
+            </section>
+
+            <!-- 3. Modeling -->
+            <section id="modeling">
+                <h2>3. 数学表示与建模 (Formulation & Modeling)</h2>
+                <p>ViT 的设计哲学是：尽可能贴近原始的 NLP Transformer 架构（Vaswani et al., 2017），这样就可以直接开箱即用经过高度优化的 NLP 架构实现。</p>
+                
+                <div class="img-placeholder">
+                    <p><strong></strong></p>
+                    <p style="font-size: 14px; margin-top: 8px;">图像被切分为固定大小的 patches，线性投影后加上位置编码，送入标准 Transformer Encoder，最后通过一个专门的 [class] token 输出分类结果。</p>
+                </div>
+
+                <h3>3.1 核心变量定义</h3>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>符号</th>
+                                <th>含义</th>
+                                <th>维度说明</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>$x$</td><td>原始输入图像</td><td>$\mathbb{R}^{H \times W \times C}$</td></tr>
+                            <tr><td>$x_p$</td><td>展平后的图像切块序列 (Patches)</td><td>$\mathbb{R}^{N \times (P^2 \cdot C)}$</td></tr>
+                            <tr><td>$(P, P)$</td><td>每个切块的分辨率</td><td>通常为 16x16 或 32x32</td></tr>
+                            <tr><td>$N$</td><td>切块数量（序列长度）</td><td>$N = HW / P^2$</td></tr>
+                            <tr><td>$D$</td><td>Transformer 的隐层维度</td><td>贯穿所有层的常量（如 768）</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3>3.2 数学形式化与前向传播全流程</h3>
+                
+                <p><strong>Step 1：图像切块与线性投影 (Patch Embedding)</strong></p>
+                <p>标准 Transformer 接收 1D 词向量序列，因此我们将 2D 图像重塑为展平的 2D 切块序列。接着通过一个可学习的线性投影矩阵 $E \in \mathbb{R}^{(P^2 \cdot C) \times D}$ 将其映射到 $D$ 维。</p>
+                
+                <p><strong>Step 2：拼接 Class Token 与添加位置编码 (Prepending & Positional Embedding)</strong></p>
+                <p>借鉴 BERT，在序列开头加入一个可学习的特殊分类向量 $x_{class}$。为了保留空间信息，将标准的可学习 1D 位置编码 $E_{pos} \in \mathbb{R}^{(N+1) \times D}$ 加到切块特征上。初始状态 $z_0$ 表示为：</p>
+                <div class="math-block">
+                    $$ z_0 = [x_{class}; x^1_p E; x^2_p E; \dots; x^N_p E] + E_{pos} $$
+                </div>
+
+                <p><strong>Step 3：Transformer Encoder 计算</strong></p>
+                <p>Transformer 编码器包含 $L$ 层交替的多头自注意力块（MSA）和多层感知机块（MLP）。在每个块之前应用层归一化（LayerNorm, LN），并在之后使用残差连接。MLP 包含两层以及 GELU 激活函数：</p>
+                <div class="math-block">
+                    $$ z'_l = \text{MSA}(\text{LN}(z_{l-1})) + z_{l-1}, \quad l = 1 \dots L $$
+                    $$ z_l = \text{MLP}(\text{LN}(z'_l)) + z'_l, \quad l = 1 \dots L $$
+                </div>
+
+                <p><strong>Step 4：分类头输出 (Classification Head)</strong></p>
+                <p>经过 $L$ 层处理后，提取序列第一个位置（即 `[class]` token 对应的位置）的特征 $z^0_L$，再通过一次 LayerNorm 得到图像的最终表征 $y$，送入分类头（全连接层）：</p>
+                <div class="math-block">
+                    $$ y = \text{LN}(z^0_L) $$
+                </div>
+
+                <details>
+                    <summary>核心逻辑伪代码 (PyTorch 风格)</summary>
+                    <div class="details-content">
+<pre class="pseudo-code">
+# Input x: [batch_size, channels, height, width]
+patches = extract_patches(x, patch_size=16) # shape: [B, N, P*P*C]
+patch_embeds = linear_projection(patches)   # shape: [B, N, D]
+
+# Prepend class token
+cls_tokens = repeat(cls_token_param, B)     # shape: [B, 1, D]
+seq = concat([cls_tokens, patch_embeds], dim=1) # shape: [B, N+1, D]
+
+# Add positional embeddings
+seq = seq + pos_embedding_param             # shape: [B, N+1, D]
+
+# Transformer Encoder
+for i in range(L):
+    seq_norm = LayerNorm(seq)
+    seq = MSA(seq_norm) + seq
+    seq_norm = LayerNorm(seq)
+    seq = MLP(seq_norm) + seq
+
+# Extract class token output
+img_repr = LayerNorm(seq[:, 0])             # shape: [B, D]
+logits = Linear(img_repr)                   # shape: [B, num_classes]
+</pre>
+                    </div>
+                </details>
+            </section>
+
+            <!-- 4. Experiments -->
+            <section id="experiments">
+                <h2>4. 实验设置与复现细节 (Experiments & Reproducibility)</h2>
+                
+                <h3>4.1 模型变体结构</h3>
+                <p>论文严格沿用了 BERT 的配置，主要测试了三种尺寸的模型，后缀数字代表 patch size (如 ViT-L/16 表示 Large 模型，16x16 的切块大小)：</p>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>模型</th>
+                                <th>层数 (Layers)</th>
+                                <th>隐维 (Hidden $D$)</th>
+                                <th>MLP 维度</th>
+                                <th>注意力头数</th>
+                                <th>参数量 (Params)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><strong>ViT-Base (ViT-B)</strong></td><td>12</td><td>768</td><td>3072</td><td>12</td><td>86M</td></tr>
+                            <tr><td><strong>ViT-Large (ViT-L)</strong></td><td>24</td><td>1024</td><td>4096</td><td>16</td><td>307M</td></tr>
+                            <tr><td><strong>ViT-Huge (ViT-H)</strong></td><td>32</td><td>1280</td><td>5120</td><td>16</td><td>632M</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3>4.2 数据集与预处理</h3>
+                <ul>
+                    <li><strong>预训练数据集</strong>：ImageNet-1k (1.3M)、ImageNet-21k (14M)、<strong>JFT-300M (303M 谷歌内部非公开高分辨率数据集)</strong>。</li>
+                    <li><strong>下游评估数据集</strong>：ImageNet、ImageNet-ReaL、CIFAR-10/100、Oxford-IIIT Pets、Oxford Flowers-102 以及 VTAB (19个任务基准)。</li>
+                    <li><strong>分辨率调整技术</strong>：通常在更大分辨率下微调能带来性能提升。当输入分辨率变大但 patch size 保持不变时，序列长度 $N$ 增加。此时<strong>使用 2D 插值</strong>（根据原始图像中的坐标）来对预训练的位置编码 $E_{pos}$ 进行插值扩展。这也是 ViT 唯一手动注入图像 2D 拓扑先验的地方。</li>
+                </ul>
+
+                <details>
+                    <summary>训练超参数细节 (基于 Appendix Table 3 & 4)</summary>
+                    <div class="details-content">
+                        <ul style="font-size: 15px;">
+                            <li><strong>预训练 (Pre-training)：</strong>
+                                <ul>
+                                    <li>优化器：<strong>Adam</strong> ($\beta_1=0.9, \beta_2=0.999$)。这是个反直觉的选择，因为 ResNet 传统使用 SGD。作者发现在他们的设定下 Adam 对 ResNet 也有提升。</li>
+                                    <li>Batch Size：4096。</li>
+                                    <li>Weight Decay：0.1 (很高，对迁移学习有益)。</li>
+                                    <li>Learning Rate：基础学习率约 $8 \times 10^{-4}$，采用 linear warmup (10k steps) + linear decay 策略。</li>
+                                    <li>Dropout：在直接从 ImageNet 头开始训练时设为 0.1，用大容量数据集时不使用 Dropout (0.0)。</li>
+                                </ul>
+                            </li>
+                            <li><strong>微调 (Fine-tuning)：</strong>
+                                <ul>
+                                    <li>优化器：<strong>SGD with momentum (0.9)</strong>。</li>
+                                    <li>Batch Size：512。</li>
+                                    <li>Learning Rate：网格搜索 $\{0.001, 0.003, 0.01, 0.03\}$，cosine 衰减策略。</li>
+                                    <li>微调分辨率：通常高于预训练。比如 ViT-L/16 在 512 分辨率微调，ViT-H/14 在 518 分辨率微调。同时结合了 Polyak & Juditsky (EMA) 平均。</li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </div>
+                </details>
+
+            </section>
+
+            <!-- 5. Results -->
+            <section id="results">
+                <h2>5. 实验结果与核心结论 (Results)</h2>
+
+                <h3>5.1 主流基准 SOTA 对比</h3>
+                <p>将使用 JFT-300M 预训练的 ViT 与 SOTA 的卷积网络（如谷歌自家的 BiT-L 和基于 EfficientNet 架构的 Noisy Student）对比。测试指标为分类 <strong>Top-1 Accuracy (%)</strong>：</p>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>模型与预训练集</th>
+                                <th>ImageNet</th>
+                                <th>ImageNet ReaL</th>
+                                <th>CIFAR-100</th>
+                                <th>VTAB (19 tasks)</th>
+                                <th>TPUv3 Core-days</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="background: #f0f7ff;">
+                                <td><strong>Ours-JFT (ViT-H/14)</strong></td>
+                                <td><strong>88.55 $\pm$ 0.04</strong></td>
+                                <td><strong>90.72 $\pm$ 0.05</strong></td>
+                                <td><strong>94.55 $\pm$ 0.04</strong></td>
+                                <td><strong>77.63 $\pm$ 0.23</strong></td>
+                                <td>2.5k</td>
+                            </tr>
+                            <tr>
+                                <td>Ours-JFT (ViT-L/16)</td>
+                                <td>87.76 $\pm$ 0.03</td>
+                                <td>90.54 $\pm$ 0.03</td>
+                                <td>93.90 $\pm$ 0.05</td>
+                                <td>76.28 $\pm$ 0.46</td>
+                                <td><strong>0.68k</strong></td>
+                            </tr>
+                            <tr>
+                                <td>BiT-L (ResNet152x4)</td>
+                                <td>87.54 $\pm$ 0.02</td>
+                                <td>90.54</td>
+                                <td>93.51 $\pm$ 0.08</td>
+                                <td>76.29 $\pm$ 1.70</td>
+                                <td>9.9k</td>
+                            </tr>
+                            <tr>
+                                <td>Noisy Student (EfficientNet-L2)</td>
+                                <td>88.4 / 88.5</td>
+                                <td>90.55</td>
+                                <td>-</td>
+                                <td>-</td>
+                                <td>12.3k</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p><strong>核心发现：</strong> ViT-H/14 不仅在全面打败了极其强大的 CNN 基线，其<strong>预训练所需算力仅仅是 BiT-L 的 1/4，是 Noisy Student 的 1/5</strong>。这是非常惊人的效率革命。</p>
+
+                <h3>5.2 预训练数据规模的影响 (Data Requirements)</h3>
+                <div class="img-placeholder">
+                    <p><strong></strong></p>
+                    <p style="font-size: 14px; margin-top: 8px;">在 ImageNet (1.3M) 上训练时，ResNet 碾压 ViT。但在 JFT (300M) 上，ViT 大比分超越 ResNet。</p>
+                </div>
+                <p>
+                    论文的一大金句是：<strong>“Large scale training trumps inductive bias” (大规模训练胜过归纳偏置)</strong>。<br>
+                    当在 ImageNet（中等规模）上训练时，由于 ViT 缺乏 CNN 那种自带的平移不变性和局部性，模型很容易过拟合，性能逊于 ResNet。然而，一旦数据量达到千万级（ImageNet-21k）乃至数亿级（JFT-300M），直接从海量数据中“学习”到的规律就能完美填补这些先验缺陷，并因为没有受限于人为设定的感受野而爆发出更强上限。
+                </p>
+
+                <h3>5.3 内部表征可视化：ViT 如何“看”图？</h3>
+                <ul>
+                    <li><strong>位置编码提取了空间几何：</strong> 计算学到的位置编码的余弦相似度，发现模型自发地学到了 2D 的行、列网格结构（同一行/列的 patch 有更高的相似度）。这意味着强加 2D 位置编码是多余的。</li>
+                    <li><strong>注意力距离 (Attention Distance)：</strong> 这是 ViT 里的“感受野”。观察发现，在底层网络中，某些注意力头只看很近的像素（类似小卷积核），而另一些头直接看全图；随着网络加深，注意力距离整体上升，高层几乎完全在做全局信息整合。</li>
+                </ul>
+
+            </section>
+
+            <!-- 6. Critical Review -->
+            <section id="review">
+                <h2>6. 审稿人视角的深度点评 (Critical Review)</h2>
+                
+                <h3>🌟 创新与优点</h3>
+                <ul>
+                    <li><strong>极简之美，大道至简：</strong> 直接把图像切成 16x16 的词汇送进最原始的 NLP Transformer，没有任何花哨的魔改架构（如局部注意力、轴向注意力等）。它在硬件加速器上执行效率极高，证明了只要数据管够，“通用架构”可以抹平模态差异。</li>
+                    <li><strong>惊人的 Scalability (扩展性)：</strong> 论文不仅跑赢了 SOTA，更重要的是展示了一条清晰的“性能与算力成正比且尚未饱和”的 Scaling Law 曲线。</li>
+                </ul>
+
+                <h3>⚠️ 局限与不足</h3>
+                <ul>
+                    <li><strong>对算力和数据的饥渴度极高：</strong> 普通实验室根本没有 JFT-300M 这种规模的数据。在标准的百万级 ImageNet 数据下，原版 ViT 是打不过 ResNet 的（这也是后来为何出现了 DeiT 通过蒸馏来抢救 Data Efficiency 的原因）。</li>
+                    <li><strong>高分辨率下的二次方计算灾难：</strong> Attention 机制的复杂度与序列长度 $N$ 成二次方 $O(N^2)$。面对医疗影像或遥感这种超高分辨率图像，如果强行切成 16x16 的 patch，序列长度会爆炸导致 OOM（这催生了后来的 Swin Transformer 使用局部窗口）。</li>
+                    <li><strong>密集预测任务的短板：</strong> 论文主要做的是分类任务，输出只是一个 `[class]` token。如果在当时做目标检测或像素级分割，单一尺度的特征图显得十分笨拙。</li>
+                </ul>
+
+                <h3>🚀 未来改进方向 (The Future)</h3>
+                <p>历史已经证明，ViT 的缺点都被后人漂亮地解决了：</p>
+                <ol>
+                    <li>针对数据饥渴，引入自监督学习体系：如 MAE (Masked Autoencoders) 将 NLP 中的 BERT 掩码预测任务完美带到 CV 领域，成为 ViT 最佳拍档。</li>
+                    <li>针对超大分辨率与密集任务，引入层级结构与局部注意力机制：如 Swin Transformer 重拾了 CNN 的多尺度特征设计。</li>
+                </ol>
+            </section>
+
+            <!-- 7. One More Thing -->
+            <section id="one-more-thing" style="border: 2px solid var(--accent-color); background: #fdfdff;">
+                <h2 style="color: var(--accent-color); display: flex; align-items: center; gap: 12px;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                    One More Thing
+                </h2>
+                <p><strong>一个极易被忽略的实验细节：CNN 的优化器选择玄学</strong></p>
+                <p>
+                    在附录 D.1 中，作者提到了一个非常有趣的反直觉现象。传统观念里，无论在 PyTorch 官方教程还是何恺明的原论文中，训练 ResNet 的标配永远是 <strong>SGD with momentum</strong>。
+                </p>
+                <p>
+                    但在这篇论文的 JFT 预训练阶段，作者给所有的基线 ResNet（即 BiT）使用的是 <strong>Adam</strong> 优化器。为什么？作者做了一个对照实验，发现在极高训练规模下，用 Adam 预训练的 ResNet152x2 在 ImageNet 微调达到了 84.97%，而传统的 SGD 只有 84.37%。这提示我们：<strong>当你把训练规模（Batch size、数据量）推向极端时，你过去深信不疑的经验法则（Rule of Thumb）可能需要重新审视。</strong>
+                </p>
+                <p>此外，作者尝试了类似 BERT 里的 Masked Patch Prediction 进行自监督预训练，虽然取得了 79.9%（较从头训练有 2% 提升），但离监督学习还有 4% 的差距。这个“半成品”的坑，在一年后被何恺明大神用极简的 MAE 架构彻底填平，完成了大一统拼图的最后一块。</p>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- 交互逻辑 -->
+    <script>
+        // 1. 目录激活状态同步
+        document.addEventListener("DOMContentLoaded", () => {
+            const sections = document.querySelectorAll("main section");
+            const navLinks = document.querySelectorAll("aside a");
+            
+            const observerOptions = {
+                root: null,
+                rootMargin: "-20% 0px -60% 0px", // 调整判定阈值
+                threshold: 0
+            };
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const id = entry.target.getAttribute("id");
+                        navLinks.forEach(link => {
+                            link.classList.remove("active");
+                            if (link.getAttribute("href") === `#${id}`) {
+                                link.classList.add("active");
+                            }
+                        });
+                    }
+                });
+            }, observerOptions);
+
+            sections.forEach(section => observer.observe(section));
+
+            // 2. 平滑滚动
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    const targetId = this.getAttribute('href');
+                    if(targetId === '#') return;
+                    
+                    const targetElement = document.querySelector(targetId);
+                    if (targetElement) {
+                        const headerOffset = 96; // nav height + padding
+                        const elementPosition = targetElement.getBoundingClientRect().top;
+                        const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+  
+                        window.scrollTo({
+                             top: offsetPosition,
+                             behavior: "smooth"
+                        });
+                    }
+                });
+            });
+
+            // 3. 返回顶部功能
+            const backToTopBtn = document.createElement("button");
+            backToTopBtn.id = "back-to-top";
+            backToTopBtn.innerHTML = "↑";
+            backToTopBtn.title = "返回顶部";
+            document.body.appendChild(backToTopBtn);
+
+            window.addEventListener("scroll", () => {
+                if (window.scrollY > 500) {
+                    backToTopBtn.classList.add("visible");
+                } else {
+                    backToTopBtn.classList.remove("visible");
+                }
+            });
+
+            backToTopBtn.addEventListener("click", () => {
+                window.scrollTo({ top: 0, behavior: "smooth" });
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generative Adversarial Nets - Paper Review</title>
+    
+    <!-- Tailwind CSS for rapid Apple-style UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Text"', '"Segoe UI"', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
+                        serif: ['"SF Pro Display"', 'Georgia', 'serif'],
+                        mono: ['"SF Mono"', 'ui-monospace', 'Menlo', 'monospace']
+                    },
+                    colors: {
+                        apple: {
+                            gray: '#f5f5f7',
+                            text: '#1d1d1f',
+                            secondary: '#86868b',
+                            blue: '#0066cc',
+                            card: '#ffffff'
+                        }
+                    },
+                    boxShadow: {
+                        'apple': '0 4px 24px rgba(0,0,0,0.06)',
+                        'apple-hover': '0 10px 40px rgba(0,0,0,0.1)'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- KaTeX for LaTeX Math Rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+
+    <style>
+        /* Custom Apple-like visual tweaks */
+        body {
+            background-color: #f5f5f7;
+            color: #1d1d1f;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            scroll-behavior: smooth;
+        }
+        
+        .glass-nav {
+            background: rgba(255, 255, 255, 0.72);
+            backdrop-filter: saturate(180%) blur(20px);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
+
+        .paper-card {
+            background-color: white;
+            border-radius: 24px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.04);
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            overflow: hidden;
+        }
+
+        .paper-card:hover {
+            box-shadow: 0 12px 32px rgba(0,0,0,0.08);
+            transform: translateY(-2px);
+        }
+
+        /* Latex Table Styles */
+        .latex-table-container {
+            overflow-x: auto;
+            margin: 2rem 0;
+        }
+        .latex-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: center;
+            font-family: inherit;
+        }
+        .latex-table th, .latex-table td {
+            padding: 12px 16px;
+        }
+        .latex-table thead {
+            border-top: 2px solid #1d1d1f;
+            border-bottom: 1px solid #1d1d1f;
+            font-weight: 600;
+        }
+        .latex-table tbody tr:last-child {
+            border-bottom: 2px solid #1d1d1f;
+        }
+
+        /* Section Reveal Animation */
+        .reveal-section {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+        }
+        .reveal-section.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* TOC Active State */
+        .toc-link {
+            transition: all 0.2s ease;
+            border-left: 2px solid transparent;
+            padding-left: 12px;
+        }
+        .toc-link.active {
+            color: #0066cc;
+            font-weight: 600;
+            border-left: 2px solid #0066cc;
+        }
+
+        /* Markdown-like typography */
+        .prose p { margin-bottom: 1.25em; line-height: 1.7; }
+        .prose ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 1.25em; }
+        .prose li { margin-bottom: 0.5em; }
+        .prose h3 { font-size: 1.25rem; font-weight: 600; margin-top: 2em; margin-bottom: 1em; color: #1d1d1f; }
+        
+        details > summary {
+            list-style: none;
+        }
+        details > summary::-webkit-details-marker {
+            display: none;
+        }
+    </style>
+</head>
+<body class="relative">
+
+    <!-- Top Navigation -->
+    <nav class="glass-nav fixed top-0 w-full z-50 transition-all duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-14">
+                <div class="flex-shrink-0 flex items-center font-semibold text-lg tracking-tight">
+                    <svg class="w-6 h-6 mr-2 text-apple-text" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                    GAN Paper Insight
+                </div>
+                <div class="hidden md:flex space-x-6 text-sm font-medium text-apple-secondary">
+                    <a href="#motivation" class="hover:text-apple-text transition-colors">动机</a>
+                    <a href="#modeling" class="hover:text-apple-text transition-colors">建模</a>
+                    <a href="#experiments" class="hover:text-apple-text transition-colors">实验</a>
+                    <a href="#results" class="hover:text-apple-text transition-colors">结果</a>
+                    <a href="#review" class="hover:text-apple-text transition-colors">短评</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Layout -->
+    <div class="pt-24 pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col lg:flex-row gap-12">
+        
+        <!-- Sidebar TOC (Desktop) -->
+        <aside class="hidden lg:block w-64 flex-shrink-0">
+            <div class="sticky top-24 paper-card p-6 border border-gray-100">
+                <h4 class="text-xs font-bold text-apple-secondary uppercase tracking-wider mb-4">目录 Table of Contents</h4>
+                <nav id="toc-container" class="space-y-3 text-sm text-apple-text flex flex-col">
+                    <!-- JS will populate this -->
+                </nav>
+            </div>
+        </aside>
+
+        <!-- Content Area -->
+        <main class="flex-1 space-y-12 min-w-0">
+
+            <!-- 1. Hero Section -->
+            <section id="hero" class="reveal-section paper-card p-10 md:p-14 text-center md:text-left relative overflow-hidden group">
+                <div class="absolute top-0 right-0 -mt-16 -mr-16 w-64 h-64 bg-gradient-to-br from-blue-50 to-purple-50 rounded-full blur-3xl opacity-50 group-hover:opacity-80 transition-opacity duration-700 pointer-events-none"></div>
+                <div class="inline-block px-3 py-1 rounded-full bg-black/5 text-xs font-medium tracking-wide mb-6">NIPS 2014 · Deep Learning</div>
+                <h1 class="text-4xl md:text-5xl font-bold tracking-tight text-apple-text mb-4 leading-tight">
+                    Generative Adversarial Nets
+                </h1>
+                <p class="text-lg text-apple-secondary mb-8">
+                    Ian J. Goodfellow, Jean Pouget-Abadie, Mehdi Mirza, Bing Xu, David Warde-Farley, Sherjil Ozair, Aaron Courville, Yoshua Bengio
+                </p>
+                
+                <details class="bg-apple-gray rounded-2xl p-6 group cursor-pointer transition-all duration-300" open>
+                    <summary class="font-semibold text-lg flex items-center justify-between outline-none">
+                        <span>💡 核心摘要 (TL;DR)</span>
+                        <svg class="w-5 h-5 text-apple-secondary transform group-open:rotate-180 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </summary>
+                    <div class="mt-4 text-apple-text prose text-base leading-relaxed border-t border-gray-200 pt-4">
+                        <p>本文提出了一个通过<strong>对抗过程（Adversarial Process）</strong>来估计生成模型的新框架。该框架同时训练两个神经网络：</p>
+                        <ul>
+                            <li><strong>生成模型 $G$ (Generator)</strong>：致力于捕捉真实数据分布，将随机噪声映射为逼真的伪造数据。</li>
+                            <li><strong>判别模型 $D$ (Discriminator)</strong>：估计样本来自真实训练数据而非生成器 $G$ 的概率。</li>
+                        </ul>
+                        <p>这构成了一个经典的<strong>极小化极大（minimax）双人博弈</strong>。理论证明，在函数空间中存在唯一解使得 $G$ 完美恢复数据分布，此时 $D$ 无法区分真假，输出处处为 $\frac{1}{2}$。整个系统完全摒弃了马尔可夫链，仅依赖反向传播即可端到端训练。</p>
+                        <div class="flex flex-wrap gap-2 mt-4">
+                            <span class="px-2 py-1 bg-white border border-gray-200 rounded text-xs font-medium text-gray-600">Generative Models</span>
+                            <span class="px-2 py-1 bg-white border border-gray-200 rounded text-xs font-medium text-gray-600">Minimax Game</span>
+                            <span class="px-2 py-1 bg-white border border-gray-200 rounded text-xs font-medium text-gray-600">No MCMC</span>
+                            <span class="px-2 py-1 bg-blue-50 text-blue-600 border border-blue-100 rounded text-xs font-medium">✨ Milestone / Groundbreaking</span>
+                        </div>
+                    </div>
+                </details>
+            </section>
+
+            <!-- 2. Motivation -->
+            <section id="motivation" class="reveal-section paper-card p-8 md:p-12 section-block" data-title="研究动机">
+                <h2 class="text-3xl font-bold mb-6 tracking-tight">研究动机与问题背景</h2>
+                <div class="prose max-w-none">
+                    <p>深度学习的核心承诺是发现能够表示各种模态数据（图像、音频、文本等）概率分布的丰富层次模型。但在 2014 年之前，深度学习在<strong>判别式模型</strong>（如图像分类）上取得了巨大成功，但在<strong>生成式模型</strong>上的进展却相对滞后。</p>
+                    
+                    <h3>🔍 现有文献/方法的局限性</h3>
+                    <p>作者指出了当时主导生成模型领域的几大痛点：</p>
+                    <ul>
+                        <li><strong>极大似然估计的计算棘手</strong>：涉及无向图模型（如 RBMs, DBMs）时，配分函数（Partition Function）及其梯度的计算由于存在难以解析的积分/求和，变得极其困难。</li>
+                        <li><strong>对马尔可夫链的重度依赖</strong>：为了近似上述难解的推断，通常必须求助于马尔可夫链蒙特卡洛（MCMC）方法，但 MCMC 存在严重的“混合（Mixing）”慢问题，特别是在高维空间中。</li>
+                        <li><strong>分段线性单元的受限</strong>：ReLU 等分段线性单元在反向传播中表现极好，但在带有反馈循环的生成模型中容易产生无界激活的问题。</li>
+                        <li><strong>近似方法的局限</strong>：如噪声对比估计（NCE），在模型学习到数据空间的一个小子集的近似正确分布后，学习速度会急剧下降。</li>
+                    </ul>
+
+                    <h3>🎯 本文核心目标与 Significance</h3>
+                    <p>本文试图解答的核心问题是：<strong>能否抛弃复杂的近似推断和马尔可夫链，设计一种仅利用标准反向传播（Backpropagation）就能高效训练的深度生成机器？</strong></p>
+                    <p>通过引入“造假者”（生成器）与“警察”（判别器）不断对抗的绝妙隐喻，这篇论文开创性地将复杂的<strong>无监督生成问题</strong>，巧妙转化为了研究界最擅长的<strong>有监督二分类（判别）问题</strong>。这在学术界和工业界都具有里程碑式的 Significance。</p>
+                </div>
+            </section>
+
+            <!-- 3. Modeling -->
+            <section id="modeling" class="reveal-section paper-card p-8 md:p-12 section-block" data-title="数学表示与建模">
+                <h2 class="text-3xl font-bold mb-6 tracking-tight">数学表示与建模</h2>
+                <div class="prose max-w-none">
+                    <p>本文最优雅之处在于其极其简洁却严密的数学建模。所有的对抗过程都被收敛到了一个漂亮的目标函数中。</p>
+
+                    <div class="bg-gray-50 rounded-xl p-6 mb-6 border border-gray-100">
+                        <h4 class="font-semibold mb-3 text-sm uppercase tracking-wide text-apple-secondary">符号定义</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-y-2 text-sm">
+                            <div>$x$: 真实数据样本</div>
+                            <div>$z$: 输入的随机噪声（通常采样自均匀或高斯分布）</div>
+                            <div>$p_{data}$: 真实数据生成分布</div>
+                            <div>$p_z(z)$: 噪声的先验分布</div>
+                            <div>$p_g$: 由生成器定义的模型生成分布</div>
+                            <div>$G(z; \theta_g)$: 生成器（多层感知机），将噪声映射到数据空间</div>
+                            <div>$D(x; \theta_d)$: 判别器（多层感知机），输出标量表示 $x$ 为真实的概率</div>
+                        </div>
+                    </div>
+
+                    <h3>数学形式化与目标函数</h3>
+                    <p>判别器 $D$ 的训练目标是最大化对真实样本和生成样本赋予正确标签的概率。生成器 $G$ 的训练目标则是最小化 $\log(1 - D(G(z)))$。这两个模型正在玩一个<strong>极小化极大双人博弈 (Minimax Two-player Game)</strong>，其价值函数 $V(G, D)$ 定义如下：</p>
+                    
+                    <div class="my-6 p-4 bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
+                        $$\min_G \max_D V(D,G) = \mathbb{E}_{x \sim p_{data}(x)}[\log D(x)] + \mathbb{E}_{z \sim p_z(z)}[\log(1 - D(G(z)))]$$
+                    </div>
+
+                    <p><strong>公式解析</strong>：</p>
+                    <ul>
+                        <li>第一项 $\mathbb{E}_{x \sim p_{data}(x)}[\log D(x)]$：针对真实数据分布的期望。若 $D$ 能准确识别真图，则 $D(x)$ 趋近于 $1$，该项趋近于 $0$（最大值）。</li>
+                        <li>第二项 $\mathbb{E}_{z \sim p_z(z)}[\log(1 - D(G(z)))]$：针对生成假数据的期望。若 $D$ 能准确识破假图，$D(G(z))$ 趋近于 $0$，该项趋近于 $0$。而 $G$ 则希望愚弄 $D$，使得 $D(G(z))$ 趋近于 $1$，从而使该项趋近于 $-\infty$（极小化）。</li>
+                    </ul>
+
+                    <h3>全局最优性证明 (Theoretical Proof)</h3>
+                    <p>论文给出了在非参数极限下（即模型容量无限大）系统能够收敛到全局最优的证明。</p>
+                    <p><strong>Step 1: 固定生成器 $G$，求最优判别器 $D_G^*$。</strong><br>
+                    对价值函数关于 $D(x)$ 求偏导并令其为 $0$，可得任意给定 $G$ 时，最优判别器为：
+                    $$D_G^*(x) = \frac{p_{data}(x)}{p_{data}(x) + p_g(x)}$$</p>
+
+                    <p><strong>Step 2: 证明全局最小值的条件为 $p_g = p_{data}$。</strong><br>
+                    将最优判别器 $D_G^*(x)$ 代回原极大极小目标函数，得到虚拟训练准则 $C(G)$：
+                    $$C(G) = \mathbb{E}_{x \sim p_{data}}\left[\log \frac{p_{data}(x)}{p_{data}(x) + p_g(x)}\right] + \mathbb{E}_{x \sim p_g}\left[\log \frac{p_g(x)}{p_{data}(x) + p_g(x)}\right]$$
+                    经过代数变形，这可以转化为 <strong>Jensen-Shannon (JS) 散度</strong>：
+                    $$C(G) = -\log(4) + 2 \cdot JSD(p_{data} || p_g)$$
+                    由于 JS 散度非负，且仅在两个分布完全相等时为 0，因此全局最小值为 $-\log(4)$，且唯一解为 <strong>$p_g = p_{data}$</strong>（生成分布完美拟合真实分布）。此时 $D_G^*(x) = \frac{1}{2}$。</p>
+
+                    <h3>算法流程 (Algorithm 1)</h3>
+                    <p>实际操作中，为了防止过拟合，作者采用交替训练的策略（类似 EM 算法的迭代）。</p>
+                    <div class="bg-gray-50 p-6 rounded-xl text-sm font-mono border border-gray-200">
+                        <p class="text-apple-secondary mb-2"># 小批量随机梯度下降训练 GAN</p>
+                        <p class="mb-2 text-blue-700">for 训练迭代次数 do</p>
+                        <div class="pl-4">
+                            <p class="mb-2 text-purple-600">for k 步 (训练判别器) do</p>
+                            <div class="pl-4">
+                                <p>1. 从先验 $p_z(z)$ 采样 $m$ 个噪声样本 $\{z^{(1)}, ..., z^{(m)}\}$</p>
+                                <p>2. 从数据分布 $p_{data}(x)$ 采样 $m$ 个真实样本 $\{x^{(1)}, ..., x^{(m)}\}$</p>
+                                <p>3. 利用梯度上升更新判别器参数 $\theta_d$：<br>
+                                $$\nabla_{\theta_d} \frac{1}{m} \sum_{i=1}^m \left[ \log D(x^{(i)}) + \log(1 - D(G(z^{(i)}))) \right]$$</p>
+                            </div>
+                            <p class="mb-2 text-purple-600">end for</p>
+                            
+                            <p class="mt-4 mb-2 text-green-600"># 训练生成器 (1 步)</p>
+                            <div class="pl-4">
+                                <p>4. 从先验 $p_z(z)$ 重新采样 $m$ 个噪声样本 $\{z^{(1)}, ..., z^{(m)}\}$</p>
+                                <p>5. 利用梯度下降更新生成器参数 $\theta_g$：<br>
+                                $$\nabla_{\theta_g} \frac{1}{m} \sum_{i=1}^m \log(1 - D(G(z^{(i)})))$$</p>
+                            </div>
+                        </div>
+                        <p class="text-blue-700 mt-2">end for</p>
+                    </div>
+                    <p class="mt-4 text-sm text-gray-500 bg-yellow-50 p-3 rounded-lg border border-yellow-100">
+                        💡 <strong>The "Non-Saturating" Trick</strong>: 作者在论文中特别提到，训练早期 $G$ 很差，$D$ 很容易就能以高置信度拒绝生成的样本，导致 $\log(1 - D(G(z)))$ 饱和，产生<strong>梯度消失</strong>。工程上的重要技巧是：训练 $G$ 时，不最小化 $\log(1 - D(G(z)))$，而是转为<strong>最大化 $\log D(G(z))$</strong>。这能提供早期所需的强大梯度。
+                    </p>
+                </div>
+            </section>
+
+            <!-- 4. Experiments -->
+            <section id="experiments" class="reveal-section paper-card p-8 md:p-12 section-block" data-title="实验设置">
+                <h2 class="text-3xl font-bold mb-6 tracking-tight">实验设置与复现细节</h2>
+                <div class="prose max-w-none">
+                    <p>为了验证所提出的架构，论文在一系列图像数据集上进行了无监督生成实验与似然评估。</p>
+
+                    <h3>任务与评测指标</h3>
+                    <ul>
+                        <li><strong>核心任务</strong>：图像生成。</li>
+                        <li><strong>定量指标</strong>：<strong>对数似然 (Log-likelihood)</strong>。由于 GAN 不显式提供概率密度分布，作者利用生成的样本拟合高斯 Parzen 窗（Gaussian Parzen Window），并在测试集上报告该分布下的对数似然估计值。</li>
+                        <li><strong>定性指标</strong>：人工观察生成的图像样本是否逼真，并在潜在空间（$z$ 空间）中进行线性插值，观察图像过渡的平滑性以证明模型并非简单记住了训练集。</li>
+                    </ul>
+
+                    <h3>数据集说明</h3>
+                    <p>实验使用了当时最具代表性的三个图像数据集：</p>
+                    <ul>
+                        <li><strong>MNIST</strong>: $28 \times 28$ 手写数字灰度图像（实值而非二值化版本）。</li>
+                        <li><strong>TFD (Toronto Face Database)</strong>: 人脸灰度图像，跨折交叉验证（cross validation on folds）。</li>
+                        <li><strong>CIFAR-10</strong>: $32 \times 32$ 彩色自然图像。</li>
+                    </ul>
+
+                    <h3>模型架构与实现细节</h3>
+                    <p>论文对于实现细节的描述较为高维，但提取出了关键参数：</p>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left border-collapse mt-4 border border-gray-200 rounded-lg">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-3 border-b border-gray-200">组件/设置</th>
+                                    <th class="px-4 py-3 border-b border-gray-200">具体配置</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="px-4 py-3 border-b border-gray-100 font-medium">生成器 $G$</td>
+                                    <td class="px-4 py-3 border-b border-gray-100">多层感知机 (MLP) 或去卷积网。激活函数混合使用 ReLU (Rectifier linear) 和 Sigmoid。</td>
+                                </tr>
+                                <tr>
+                                    <td class="px-4 py-3 border-b border-gray-100 font-medium">判别器 $D$</td>
+                                    <td class="px-4 py-3 border-b border-gray-100">多层感知机 (MLP) 或卷积网。激活函数统一使用 <strong>Maxout</strong> 激活。</td>
+                                </tr>
+                                <tr>
+                                    <td class="px-4 py-3 border-b border-gray-100 font-medium">正则化</td>
+                                    <td class="px-4 py-3 border-b border-gray-100">判别器 $D$ 训练中使用了 <strong>Dropout</strong>。</td>
+                                </tr>
+                                <tr>
+                                    <td class="px-4 py-3 border-b border-gray-100 font-medium">噪声注入方式</td>
+                                    <td class="px-4 py-3 border-b border-gray-100">仅将随机噪声 $z$ 作为生成器最底层（输入层）的输入。</td>
+                                </tr>
+                                <tr>
+                                    <td class="px-4 py-3 border-b border-gray-100 font-medium">优化器设置</td>
+                                    <td class="px-4 py-3 border-b border-gray-100">使用基于动量 (Momentum) 的小批量随机梯度下降 (SGD)。判别器步数 $k=1$（为最经济的选项）。</td>
+                                </tr>
+                                <tr>
+                                    <td class="px-4 py-3 text-gray-400 italic">缺失细节</td>
+                                    <td class="px-4 py-3 text-gray-400 italic">论文未明确说明：具体的网络层数、隐藏层维度、学习率大小、Batch Size 等（推测参考了同年同作者的 Maxout Networks 代码库设定）。</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 5. Results -->
+            <section id="results" class="reveal-section paper-card p-8 md:p-12 section-block" data-title="实验结果">
+                <h2 class="text-3xl font-bold mb-6 tracking-tight">实验结果与核心结论</h2>
+                <div class="prose max-w-none">
+                    <h3>定量评估：达到 SOTA 的似然估计</h3>
+                    <p>尽管由于模型不支持精确似然计算，依赖于 Parzen window 估计存在方差大的问题，但与其他深度生成模型相比，GAN 显示出了极强的竞争力。以下为论文的核心定量对比（原文 Table 1）：</p>
+
+                    <div class="latex-table-container">
+                        <table class="latex-table text-sm md:text-base">
+                            <thead>
+                                <tr>
+                                    <th>Model (模型)</th>
+                                    <th>MNIST</th>
+                                    <th>TFD</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>DBN (Deep Belief Network) [3]</td>
+                                    <td>$138 \pm 2$</td>
+                                    <td>$1909 \pm 66$</td>
+                                </tr>
+                                <tr>
+                                    <td>Stacked CAE [3]</td>
+                                    <td>$121 \pm 1.6$</td>
+                                    <td>$2110 \pm 50$</td>
+                                </tr>
+                                <tr>
+                                    <td>Deep GSN [6]</td>
+                                    <td>$214 \pm 1.1$</td>
+                                    <td>$1890 \pm 29$</td>
+                                </tr>
+                                <tr class="bg-blue-50 font-semibold">
+                                    <td class="text-blue-700">Adversarial nets (本文方法)</td>
+                                    <td class="text-blue-700">$225 \pm 2$</td>
+                                    <td class="text-blue-700">$2057 \pm 26$</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <p class="text-xs text-center text-gray-500 mt-2">基于 Parzen 窗方法的对数似然估计（数值越大越好）。MNIST 上对比的都是实值版本数据集模型。</p>
+                    </div>
+
+                    <p><strong>结果分析</strong>：</p>
+                    <ul>
+                        <li>在 <strong>MNIST</strong> 上，Adversarial Nets 以 <strong>$225 \pm 2$</strong> 的成绩大幅超越了先前提出的 Deep GSN 等模型。</li>
+                        <li>在 <strong>TFD</strong> 人脸数据集上，GAN 达到了 <strong>$2057 \pm 26$</strong>，与最佳模型 Stacked CAE 表现可比，远超 DBN 和 Deep GSN。</li>
+                        <li>这证明了，在完全摒弃马尔可夫链和复杂近似推断的前提下，仅利用反向传播，生成对抗网络不仅在理论上自洽，在数值评估上也能达到甚至超越领域前沿水平。</li>
+                    </ul>
+
+                    <h3>定性评估：平滑的隐空间插值</h3>
+                    <div class="my-6 p-4 border border-dashed border-gray-300 rounded-xl bg-gray-50 text-center">
+                        <p class="text-apple-secondary text-sm">Figure 2 & 3: 生成样本可视化与潜在空间线性插值（占位符，参见原文）</p>
+                        <p class="text-xs text-gray-400 mt-2">展示了模型生成的清晰数字、人脸以及 CIFAR-10 图像，并在 z 空间中进行两点线性插值，显示出图像间语义的平滑过渡（例如：生成的数字 '1' 慢慢变形为数字 '5'）。</p>
+                    </div>
+                    <p>图像可视化与插值实验传达了两个关键信息：</p>
+                    <ol>
+                        <li><strong>生成图像锐度高</strong>：由于不需要 MCMC 混合的平滑性约束，GAN 生成的图像相比传统方法（如变分自编码器 VAE，虽然本文未直接对比，但在后续文献中被证实）明显更加锐利（Sharp）。</li>
+                        <li><strong>未发生严重过拟合</strong>：插值序列中展现的并非已有训练样本的直接跳跃，而是模型真正学到了数据的流形分布，没有仅仅在“死记硬背”训练集（memorization）。</li>
+                    </ol>
+                </div>
+            </section>
+
+            <!-- 6. Critical Review -->
+            <section id="review" class="reveal-section paper-card p-8 md:p-12 bg-gradient-to-b from-white to-gray-50 section-block" data-title="审稿点评">
+                <h2 class="text-3xl font-bold mb-6 tracking-tight flex items-center">
+                    <span class="bg-black text-white px-3 py-1 text-sm rounded-full mr-3 tracking-wide">Review</span>
+                    犀利点评
+                </h2>
+                <div class="prose max-w-none">
+                    <p>站在现在的视角回顾这篇 2014 年的论文，它是无可争议的 <strong>"Tour de force" (杰作)</strong>。但在当时，它依然是一个粗糙但充满潜力的原型。</p>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6">
+                        <!-- Pros -->
+                        <div>
+                            <h4 class="flex items-center text-green-700 font-semibold text-lg mb-3">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                颠覆性的创新
+                            </h4>
+                            <ul class="text-sm space-y-2 text-gray-700">
+                                <li><strong>范式转移</strong>：将难度极高的分布匹配问题，通过一个博弈机制转化为深度学习最擅长的分类任务（交叉熵）。这在当时犹如降维打击。</li>
+                                <li><strong>理论的纯粹与优雅</strong>：非参数极限下的证明极其优美，将对抗博弈的纳什均衡与 JS 散度完美桥接，为后世的研究（如 f-GAN, WGAN）定下了理论基调。</li>
+                                <li><strong>解耦的架构</strong>：生成器从不直接接触真实数据，仅仅通过判别器回传的梯度更新。这种机制允许模型逼近极其尖锐、退化的分布。</li>
+                            </ul>
+                        </div>
+                        
+                        <!-- Cons -->
+                        <div>
+                            <h4 class="flex items-center text-red-700 font-semibold text-lg mb-3">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                隐患与不足
+                            </h4>
+                            <ul class="text-sm space-y-2 text-gray-700">
+                                <li><strong>训练极其脆弱 (Instability)</strong>：论文中提到了同步 $D$ 和 $G$ 的困难，即臭名昭著的 "Helvetica scenario" (模式崩溃 Mode Collapse)。极小极大博弈是一个非凸非凹问题，SGD 并不能保证收敛到纳什均衡。</li>
+                                <li><strong>评测方法的硬伤</strong>：采用 Parzen Window 在高维空间（如 CIFAR-10）估计似然是非常不准确的。这反映了早期生成模型在评价指标上的匮乏（IS 和 FID 直到几年后才被发明）。</li>
+                                <li><strong>理论与工程的妥协</strong>：证明基于 JS 散度，但工程实现上采用的非饱和目标函数 (Non-saturating game) 其实对应的是另一种不具良好对称性的散度，理论与实际在此出现裂痕。</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="mt-8 border-t border-gray-200 pt-6">
+                        <h4 class="font-semibold text-lg mb-3">🚀 历史回声与未来扩展</h4>
+                        <p class="text-sm text-gray-700">
+                            论文结语中预言的 5 个未来方向，竟奇迹般地构成了接下来 5 年 AI 领域最热的研究分支：条件生成（CGAN）、利用推理网络学习表征（BiGAN / ALI）、半监督学习等。这展现了作者极高的研究品味与视野。尽管现在的图像生成正被 Diffusion 模型统治，但 GAN 在实时渲染、高频细节纹理生成和领域适应中依然保持着独特的计算优势。
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 7. One More Thing -->
+            <section id="onemorething" class="reveal-section paper-card p-8 md:p-12 bg-gray-900 text-white section-block" data-title="洞见时刻">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-3xl font-bold tracking-tight">One More Thing</h2>
+                    <span class="text-4xl">🍎</span>
+                </div>
+                <div class="prose prose-invert max-w-none">
+                    <p class="text-lg text-gray-300 font-medium leading-relaxed">
+                        在深度学习的历史长河中，这篇论文不仅仅是一个算法的诞生，更揭示了一个关于“工程妥协”的深刻洞见。
+                    </p>
+                    <div class="pl-4 border-l-4 border-blue-500 mt-4">
+                        <p class="text-gray-400 text-sm">
+                            <strong>关于公式的幻觉：</strong><br>
+                            论文第二部分花了极大篇幅证明 GAN 优化的是 <strong>JS 散度</strong>。但在代码实现时，Goodfellow 发现如果真的按照 JS 散度的公式 $\min \log(1-D(G(z)))$ 去写，生成器在初期根本学不到东西（因为判别器太强，梯度几乎为0）。<br><br>
+                            于是，他在 Algorithm 1 中悄悄做了一个 <strong>"Trick"</strong>：让生成器转而最大化 $\log(D(G(z)))$。这一改，梯度充足了，网络跑通了。但这一改，优化目标在数学上<strong>已经不再是 JS 散度了</strong>（后来被证明等价于某种反向的 KL 散度与 JS 散度的混合）。<br><br>
+                            <strong>结论</strong>：理论赋予了文章在顶级会议发表的合理性与高度，而那些隐藏在文字中的“不那么数学”的工程直觉（Engineering Tricks），才是真正让深度网络产生惊人效果的灵魂。
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Back to Top Button -->
+    <button id="backToTop" class="fixed bottom-8 right-8 bg-black/80 backdrop-blur-md text-white p-3 rounded-full shadow-apple-hover opacity-0 pointer-events-none transition-all duration-300 transform translate-y-4 hover:scale-110 z-50">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
+    </button>
+
+    <!-- Interactive Scripts -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            /* =======================================
+               1. KaTeX Auto Render
+               ======================================= */
+            renderMathInElement(document.body, {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false}
+                ],
+                throwOnError: false,
+                output: 'html' // Use HTML output to strictly avoid unwanted line breaks on math elements in specific browsers
+            });
+
+            /* =======================================
+               2. Scroll Animations (Reveal Sections)
+               ======================================= */
+            const observerOptions = {
+                root: null,
+                rootMargin: '0px',
+                threshold: 0.15
+            };
+
+            const sectionObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                        observer.unobserve(entry.target); // Trigger only once
+                    }
+                });
+            }, observerOptions);
+
+            document.querySelectorAll('.reveal-section').forEach(section => {
+                sectionObserver.observe(section);
+            });
+
+            /* =======================================
+               3. Generate & Update TOC Dynamically
+               ======================================= */
+            const tocContainer = document.getElementById('toc-container');
+            const sections = document.querySelectorAll('.section-block');
+            
+            // Build TOC
+            sections.forEach(section => {
+                if(!section.id || !section.dataset.title) return;
+                const link = document.createElement('a');
+                link.href = `#${section.id}`;
+                link.className = 'toc-link block hover:text-apple-text py-1';
+                link.textContent = section.dataset.title;
+                link.dataset.targetId = section.id;
+                tocContainer.appendChild(link);
+            });
+
+            // Intersection Observer for highlighting TOC on scroll
+            const tocObserverOptions = {
+                rootMargin: '-20% 0px -70% 0px', // Trigger area in upper part of screen
+                threshold: 0
+            };
+
+            const activeLinks = new Map();
+            const tocObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if(entry.isIntersecting) {
+                        document.querySelectorAll('.toc-link').forEach(l => l.classList.remove('active'));
+                        const activeLink = document.querySelector(`.toc-link[data-target-id="${entry.target.id}"]`);
+                        if(activeLink) activeLink.classList.add('active');
+                    }
+                });
+            }, tocObserverOptions);
+
+            sections.forEach(section => tocObserver.observe(section));
+
+            /* =======================================
+               4. Back to Top Button
+               ======================================= */
+            const bttButton = document.getElementById('backToTop');
+            
+            window.addEventListener('scroll', () => {
+                if (window.scrollY > 500) {
+                    bttButton.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-4');
+                    bttButton.classList.add('opacity-100', 'pointer-events-auto', 'translate-y-0');
+                } else {
+                    bttButton.classList.add('opacity-0', 'pointer-events-none', 'translate-y-4');
+                    bttButton.classList.remove('opacity-100', 'pointer-events-auto', 'translate-y-0');
+                }
+            });
+
+            bttButton.addEventListener('click', () => {
+                window.scrollTo({
+                    top: 0,
+                    behavior: 'smooth'
+                });
+            });
+
+            /* =======================================
+               5. Navbar Blur & Shadow on scroll
+               ======================================= */
+            const navbar = document.querySelector('.glass-nav');
+            window.addEventListener('scroll', () => {
+                if (window.scrollY > 20) {
+                    navbar.style.boxShadow = '0 4px 20px rgba(0,0,0,0.05)';
+                } else {
+                    navbar.style.boxShadow = 'none';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

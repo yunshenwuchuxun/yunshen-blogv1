@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MAE: Masked Autoencoders Are Scalable Vision Learners</title>
+    
+    <!-- MathJax 渲染 LaTeX 公式 -->
+    <script>
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$']],
+                displayMath: [['$$', '$$']],
+                processEscapes: true
+            },
+            svg: {
+                fontCache: 'global'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <!-- 图标库 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        /* CSS 变量与苹果风格调色板 */
+        :root {
+            --bg-color: #fbfbfd;
+            --surface-color: #ffffff;
+            --text-primary: #1d1d1f;
+            --text-secondary: #86868b;
+            --accent-color: #0066cc;
+            --accent-hover: #0077ed;
+            --border-color: #d2d2d7;
+            --nav-bg: rgba(251, 251, 253, 0.8);
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+            --shadow-md: 0 4px 24px rgba(0, 0, 0, 0.08);
+            --shadow-lg: 0 12px 36px rgba(0, 0, 0, 0.12);
+            --radius-lg: 18px;
+            --radius-md: 12px;
+            --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+
+        /* 基础重置 */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            scroll-behavior: smooth;
+        }
+
+        /* 顶部导航栏 (毛玻璃效果) */
+        .navbar {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: 56px;
+            background: var(--nav-bg);
+            backdrop-filter: saturate(180%) blur(20px);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .nav-links {
+            display: flex;
+            gap: 24px;
+            list-style: none;
+        }
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text-primary);
+            font-size: 12px;
+            letter-spacing: -0.01em;
+            transition: color 0.3s;
+        }
+        .nav-links a:hover { color: var(--accent-color); }
+
+        /* 页面布局：左侧边栏 + 右侧主内容 */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 80px 24px 60px;
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            gap: 48px;
+            position: relative;
+        }
+
+        /* 左侧边栏 (TOC) */
+        .sidebar {
+            position: sticky;
+            top: 100px;
+            height: calc(100vh - 140px);
+            overflow-y: auto;
+            padding-right: 16px;
+        }
+        .toc-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+        }
+        .toc-list { list-style: none; }
+        .toc-list li { margin-bottom: 12px; }
+        .toc-list a {
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-size: 13px;
+            transition: all 0.2s;
+            display: block;
+            border-left: 2px solid transparent;
+            padding-left: 10px;
+        }
+        .toc-list a:hover, .toc-list a.active {
+            color: var(--accent-color);
+            border-left-color: var(--accent-color);
+        }
+
+        /* 右侧主内容区 */
+        .content { max-width: 800px; }
+
+        /* 模块区块样式 */
+        section {
+            background: var(--surface-color);
+            border-radius: var(--radius-lg);
+            padding: 48px;
+            margin-bottom: 32px;
+            box-shadow: var(--shadow-md);
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+        }
+        section.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* 标题排版 */
+        h1 { font-size: 40px; font-weight: 700; letter-spacing: -0.015em; line-height: 1.1; margin-bottom: 16px; }
+        h2 { font-size: 28px; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 24px; color: var(--text-primary); border-bottom: 1px solid var(--border-color); padding-bottom: 12px; }
+        h3 { font-size: 20px; font-weight: 600; margin: 24px 0 12px; }
+        p { font-size: 17px; line-height: 1.5; margin-bottom: 16px; color: #333; }
+        
+        /* 标签 */
+        .tags { display: flex; gap: 8px; margin: 24px 0; flex-wrap: wrap; }
+        .tag {
+            background: #f5f5f7;
+            color: var(--text-secondary);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        /* 强调文本 */
+        .highlight { font-weight: 600; color: var(--accent-color); }
+        .authors { font-size: 16px; color: var(--text-secondary); margin-bottom: 8px; }
+        .affiliations { font-size: 14px; color: var(--text-secondary); font-style: italic; }
+
+        /* 代码块与占位块 */
+        pre {
+            background: #f5f5f7;
+            border-radius: var(--radius-md);
+            padding: 16px;
+            overflow-x: auto;
+            font-family: 'SFMono-Regular', Consolas, monospace;
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+        .figure-placeholder {
+            background: #f5f5f7;
+            border: 1px dashed var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 60px 20px;
+            text-align: center;
+            color: var(--text-secondary);
+            margin: 24px 0;
+            font-size: 15px;
+            transition: transform 0.3s;
+        }
+        .figure-placeholder:hover { transform: scale(1.01); }
+
+        /* 表格样式 (Apple 极简风格) */
+        .table-container { overflow-x: auto; margin: 24px 0; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 15px;
+        }
+        th, td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        th { font-weight: 600; color: var(--text-primary); }
+        tr:hover { background-color: #fcfcfc; }
+
+        /* 可折叠组件 (Details) */
+        details {
+            background: #f5f5f7;
+            border-radius: var(--radius-md);
+            padding: 16px;
+            margin-bottom: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        details:hover { background: #f0f0f2; }
+        summary {
+            font-size: 17px;
+            font-weight: 600;
+            outline: none;
+            user-select: none;
+            display: flex;
+            align-items: center;
+        }
+        summary::marker { display: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before {
+            content: '\f054'; /* FontAwesome chevron-right */
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 900;
+            margin-right: 12px;
+            font-size: 12px;
+            transition: transform 0.3s;
+        }
+        details[open] summary::before { transform: rotate(90deg); }
+        details[open] summary { margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; }
+        details p { margin-bottom: 8px; font-size: 15px; }
+
+        /* 返回顶部按钮 */
+        .back-to-top {
+            position: fixed;
+            bottom: 40px;
+            right: 40px;
+            background: var(--surface-color);
+            color: var(--text-primary);
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: var(--shadow-md);
+            cursor: pointer;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+            z-index: 1000;
+            border: 1px solid var(--border-color);
+        }
+        .back-to-top.show { opacity: 1; visibility: visible; }
+        .back-to-top:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); color: var(--accent-color); }
+
+        /* 响应式设计 */
+        @media (max-width: 900px) {
+            .container { grid-template-columns: 1fr; padding: 70px 16px 40px; }
+            .sidebar { display: none; }
+            section { padding: 32px 20px; }
+            h1 { font-size: 32px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 顶部导航 -->
+    <nav class="navbar">
+        <ul class="nav-links">
+            <li><a href="#hero">Overview</a></li>
+            <li><a href="#motivation">Motivation</a></li>
+            <li><a href="#modeling">Modeling</a></li>
+            <li><a href="#experiments">Experiments</a></li>
+            <li><a href="#results">Results</a></li>
+            <li><a href="#review">Review</a></li>
+            <li><a href="#one-more-thing">Insight</a></li>
+        </ul>
+    </nav>
+
+    <div class="container">
+        <!-- 侧边栏目录 -->
+        <aside class="sidebar">
+            <div class="toc-title">Contents</div>
+            <ul class="toc-list" id="toc">
+                <li><a href="#hero" class="active">1. 概览 (Overview)</a></li>
+                <li><a href="#motivation">2. 动机与背景 (Motivation)</a></li>
+                <li><a href="#modeling">3. 数学建模与方法 (Modeling)</a></li>
+                <li><a href="#experiments">4. 实验设置 (Experiments)</a></li>
+                <li><a href="#results">5. 结果与发现 (Results)</a></li>
+                <li><a href="#review">6. 审稿人视角评论 (Review)</a></li>
+                <li><a href="#one-more-thing">7. One More Thing</a></li>
+            </ul>
+        </aside>
+
+        <!-- 主内容区 -->
+        <main class="content">
+            
+            <!-- 1. Hero Section -->
+            <section id="hero">
+                <h1>Masked Autoencoders Are Scalable Vision Learners</h1>
+                <div class="authors">Kaiming He*, Xinlei Chen*, Saining Xie, Yanghao Li, Piotr Dollár, Ross Girshick</div>
+                <div class="affiliations">Facebook AI Research (FAIR) · CVPR 2022</div>
+                
+                <div class="tags">
+                    <span class="tag">计算机视觉 (CV)</span>
+                    <span class="tag">自监督学习 (Self-Supervised Learning)</span>
+                    <span class="tag">Vision Transformer (ViT)</span>
+                    <span class="tag">SOTA</span>
+                </div>
+
+                <p><strong>论文摘要：</strong>这篇工作证明了掩码自编码器（Masked Autoencoders, MAE）是极其可扩展的计算机视觉自监督学习器。MAE 的思想非常简单：随机掩码掉输入图像的大量图块（如 75%），然后训练模型重建这些丢失的像素。其核心在于<strong>非对称的编码器-解码器架构</strong>：重量级的编码器仅处理可见的图块，而轻量级的解码器利用隐层表示和掩码 token 重建完整图像。这种设计极大地节省了算力（加速 3 倍以上），并使得训练超大容量的视觉模型（如 ViT-Huge）成为可能，在仅使用 ImageNet-1K 数据的条件下达到了 87.8% 的极高准确率。</p>
+            </section>
+
+            <!-- 2. Motivation -->
+            <section id="motivation">
+                <h2>研究动机与问题背景</h2>
+                <p>在自然语言处理（NLP）领域，以 BERT 和 GPT 为代表的自监督预训练（掩码语言建模/自回归）早已取得统治地位，使训练千亿参数模型成为现实。然而在计算机视觉（CV）中，尽管也有图像补全的研究，其发展却显著落后于 NLP。何恺明团队抛出了一个核心疑问：<strong>是什么造成了掩码自编码在视觉和语言领域的巨大差异？</strong></p>
+                
+                <h3>现有痛点与核心差异</h3>
+                <ul>
+                    <li><strong>架构差异：</strong> 过去十年 CV 由 CNN 统治，CNN 在规则网格上运算，很难像 Transformer 那样优雅地引入“掩码标记（mask tokens）”和位置编码。直到 Vision Transformer (ViT) 的出现才消除这一障碍。</li>
+                    <li><strong>信息密度截然不同：</strong> 语言是人类高度浓缩的语义信号（高度信息密集），预测缺失的单词迫使模型学习深层语义；而图像是高度空间冗余的自然信号，缺失的图像块通常可以通过周边像素“插值”猜出，这就导致模型学会了底层像素统计规律，却学不到高层语义。</li>
+                    <li><strong>解码器的角色不同：</strong> NLP 中重建的是包含丰富语义的“词”，解码器可以极简（如一层 MLP）；而 CV 中重建的是“底层像素”，语义级别低，因此需要解码器承担一定的将语义“降维”到像素的任务，这决定了 CV 的解码器设计极为关键。</li>
+                </ul>
+
+                <h3>本文的破局之道 (Significance)</h3>
+                <p>为了打破图像过度冗余的问题，作者提出<strong>采取极高比例的掩码（如 75%）</strong>。这逼迫模型不能仅靠周围像素进行简单的纹理外推，而必须真正理解整体的物体和场景（Gestalt 完形心理学）。通过引入非对称的轻量级解码器，MAE 不仅在理论上打通了 CV 的掩码预训练，在工程上更是将计算量骤降，成为大模型时代的 CV 基础设施。</p>
+            </section>
+
+            <!-- 3. Modeling -->
+            <section id="modeling">
+                <h2>数学表示与算法建模</h2>
+                <p>MAE 的结构是一个经典的自动编码器，包含将可见观测值映射为隐向量的编码器（Encoder），以及基于隐向量重建原始信号的解码器（Decoder）。但其最巧妙之处在于<strong>非对称设计（Asymmetric Design）</strong>。</p>
+
+                <h3>主要符号定义</h3>
+                <div class="table-container">
+                    <table>
+                        <tr><th>符号</th><th>含义说明</th></tr>
+                        <tr><td>$X \in \mathbb{R}^{H \times W \times C}$</td><td>输入原始图像</td></tr>
+                        <tr><td>$P = \{p_1, p_2, \dots, p_N\}$</td><td>将 $X$ 划分成的非重叠图块集合 (Patches)</td></tr>
+                        <tr><td>$\rho$</td><td>掩码率 (Masking Ratio)，论文最佳实践为 $0.75$</td></tr>
+                        <tr><td>$V \subset P, M \subset P$</td><td>可见图块集合 $V$ (占 $25\%$) 与 掩码图块集合 $M$ (占 $75\%$)</td></tr>
+                        <tr><td>$E(\cdot)$</td><td>编码器 (通常是完整的 ViT)</td></tr>
+                        <tr><td>$D(\cdot)$</td><td>解码器 (较小型的 Transformer)</td></tr>
+                        <tr><td>$e_{[M]}$</td><td>可学习的共享掩码向量 (Mask Token)</td></tr>
+                    </table>
+                </div>
+
+                <h3>核心算法流程 (Pipeline)</h3>
+                <p>整个前向传播与训练过程可以数学化地描述为以下步骤：</p>
+                <ol>
+                    <li><strong>图像切块与随机采样 (Patchify & Sample)：</strong> 将图像划分为 $N$ 个 patches。使用均匀分布随机采样出不重复的可见子集 $V$，剩余的划入掩码集合 $M$。</li>
+                    <li><strong>编码可见图块 (Encode)：</strong> 对可见集合 $V$ 进行线性投影并加上位置编码（Positional Embeddings），送入编码器 $E$。由于仅输入 $25\%$ 的序列长度，计算量大幅降低。<br>
+                    $$ Z_V = E(V + PosEmb_V) $$</li>
+                    <li><strong>拼接与还原序列 (Padding & Unshuffle)：</strong> 将编码后的隐向量 $Z_V$ 与代表掩码的 Token $e_{[M]}$（共 $|M|$ 个）拼接。为它们分别加上完整的位置编码，然后按原图空间位置打乱顺序还原（Unshuffle）。<br>
+                    $$ Z_{full} = Unshuffle(Z_V, \{e_{[M]}\}_{i=1}^{|M|}) + PosEmb_{full} $$</li>
+                    <li><strong>轻量级解码 (Decode)：</strong> 将完整的 $Z_{full}$ 送入解码器 $D$，预测所有图块的像素值。<br>
+                    $$ \hat{Y} = D(Z_{full}) $$</li>
+                    <li><strong>计算损失 (Loss)：</strong> 类似于 BERT，MAE <strong>仅在被掩码的图块上计算损失</strong>。目标函数为预测像素值与真实像素值的均方误差（MSE）。设 $y_i$ 为图块 $i$ 的真实像素展平向量：<br>
+                    $$ \mathcal{L} = \frac{1}{|M|} \sum_{i \in M} \| y_i - \hat{y}_i \|_2^2 $$
+                    <em>（注：论文发现使用该 patch 内部像素的标准化均值和方差对目标进行归一化（Normalized Pixels），能进一步提升表示质量。）</em>
+                    </li>
+                </ol>
+
+                <div class="figure-placeholder">
+                    <i class="fa-solid fa-diagram-project" style="font-size: 32px; margin-bottom: 12px; color: var(--text-secondary);"></i>
+                    <div>Figure 1：MAE 架构示意图（占位符，请参考原论文）。左侧输入切块后仅保留可见块进入粗壮的 Encoder；随后补齐带有位置编码的 Mask Tokens 进入细小的 Decoder，最后重建缺失像素。</div>
+                </div>
+            </section>
+
+            <!-- 4. Experiments -->
+            <section id="experiments">
+                <h2>实验设置与复现细节</h2>
+                <p>为了使得基于 MAE 的研究具有可复现性，作者详细公布了实验超参数。重点针对 <strong>ImageNet-1K (IN1K)</strong> 分类任务。</p>
+
+                <details>
+                    <summary>数据集与预处理</summary>
+                    <p><strong>数据集：</strong> ImageNet-1K（约 128 万张训练图片，1000 个类别）。</p>
+                    <p><strong>数据增强 (Pre-training)：</strong> 仅使用简单的随机裁剪 (RandomResizedCrop)，不使用颜色抖动 (Color Jittering)。MAE 的掩码机制本身已经起到了极强的数据增强和正则化作用。</p>
+                </details>
+
+                <details>
+                    <summary>模型架构选择</summary>
+                    <p><strong>Backbone：</strong> 标准 Vision Transformer (ViT)。消融实验主要使用 ViT-Large (ViT-L/16)，最终结果扩展至 ViT-Huge (ViT-H/14)。</p>
+                    <p><strong>Decoder 架构：</strong> 默认配置极其轻量，仅包含 8 层 Transformer Block，宽度维度（通道数）为 512。相比于 24 层、维度 1024 的 ViT-L，解码器单 token 的 FLOPs 仅占不到 10%。</p>
+                </details>
+
+                <details open>
+                    <summary>训练核心超参数 (Hyper-parameters)</summary>
+                    <p>采用 <code>AdamW</code> 优化器。这里使用了一种基于 batch size 的线性学习率缩放规则 (Linear LR scaling rule)：<br>
+                    $lr = base\_lr \times \frac{batch\_size}{256}$</p>
+                    <ul>
+                        <li><strong>Pre-training:</strong> 
+                            $base\_lr = 1.5 \times 10^{-4}$，Weight Decay = $0.05$，Batch Size = $4096$。
+                            Cosine Decay 策略，Warmup epoch = 40。训练总轮数：800 - 1600 epochs。掩码率 $\rho = 75\%$。
+                        </li>
+                        <li><strong>Fine-tuning (End-to-End):</strong>
+                            $base\_lr = 1 \times 10^{-3}$，采用层级学习率衰减 (layer-wise LR decay) 因子 $0.75$。Batch Size = $1024$，训练 50 个 epoch。引入了 RandAug, Mixup (0.8), Cutmix (1.0), Drop Path (0.1)。
+                        </li>
+                        <li><strong>Linear Probing:</strong>
+                            使用 <code>LARS</code> 优化器（大 batch 收敛更快），$base\_lr = 0.1$，不使用 Weight decay，不引入正则化策略。
+                        </li>
+                    </ul>
+                </details>
+            </section>
+
+            <!-- 5. Results -->
+            <section id="results">
+                <h2>实验结果与核心发现</h2>
+                
+                <h3>1. 与前沿方法的对比 (SOTA)</h3>
+                <p>下表展示了仅使用 ImageNet-1K 数据进行自监督预训练，随后进行端到端微调的准确率（Top-1 Accuracy，对应原文 Table 3）。</p>
+                
+                <div class="table-container">
+                    <table>
+                        <tr>
+                            <th>方法 (Method)</th>
+                            <th>预训练数据</th>
+                            <th>ViT-Base</th>
+                            <th>ViT-Large</th>
+                            <th>ViT-Huge (448 size)</th>
+                        </tr>
+                        <tr>
+                            <td>Scratch (从头训练)</td>
+                            <td>-</td>
+                            <td>82.3%</td>
+                            <td>82.6%</td>
+                            <td>83.1%</td>
+                        </tr>
+                        <tr>
+                            <td>MoCo v3 (对比学习)</td>
+                            <td>IN1K</td>
+                            <td>83.2%</td>
+                            <td>84.1%</td>
+                            <td>-</td>
+                        </tr>
+                        <tr>
+                            <td>BEiT (Masked Token)</td>
+                            <td>IN1K + DALL-E</td>
+                            <td>83.2%</td>
+                            <td>85.2%</td>
+                            <td>-</td>
+                        </tr>
+                        <tr>
+                            <td class="highlight">MAE (Ours)</td>
+                            <td class="highlight">IN1K</td>
+                            <td class="highlight">83.6%</td>
+                            <td class="highlight">85.9%</td>
+                            <td class="highlight">87.8%</td>
+                        </tr>
+                    </table>
+                </div>
+                <p><strong>结论点评：</strong> MAE 在超大模型 (ViT-Large/Huge) 上展现出惊人的扩展性（Scaling Behavior）。仅凭 ImageNet-1K 数据，ViT-Huge 达到了 <strong>87.8%</strong> 的准确率，以大幅度击败之前基于复杂 Tokenizer (如 BEiT 需额外的 DALL-E dVAE 预训练) 的方法。这证明了：<strong>简单纯粹的像素级重建，配合良好的正则化设计，足以学出极其优质的高层特征。</strong></p>
+
+                <h3>2. 核心消融实验 (Ablation Studies)</h3>
+                <ul>
+                    <li><strong>掩码率 (Masking Ratio) 的奇迹：</strong> 论文绘制的曲线表明，在 <strong>75%</strong> 的掩码率下，线性探测（Linear Probing）和微调（Fine-tuning）性能均达到顶峰。相比 NLP 中 BERT 通常使用的 15% 掩码率，这个极高的数字正是抵消图像“高冗余性”的秘钥。</li>
+                    <li><strong>解码器的深度：</strong> 实验表明（原文 Table 1a），如果仅用微调评测，哪怕 Decoder 只有 1 层 Transformer Block 也能做到极好的结果 (84.8%)。但如果是线性探测，深度为 8 的解码器效果更好 (73.5%)。这说明<strong>较深的解码器能帮编码器分担“低级像素重组”的工作，使得编码器的潜变量更纯粹地集中在高级语义上</strong>。</li>
+                    <li><strong>编码器移除 Mask Token 的算力红利：</strong> 如果在 Encoder 中保留 Mask Token（计算 100% 序列），准确率反而会下降，并且 FLOPs 是移除版的 <strong>3.3 倍</strong>！非对称设计是真正的效率杀手锏。</li>
+                </ul>
+
+                <div class="figure-placeholder">
+                    <i class="fa-solid fa-image" style="font-size: 32px; margin-bottom: 12px; color: var(--text-secondary);"></i>
+                    <div>Figure 4：MAE 在 75% 掩码率下的重建可视化验证。即使大面积区域（如大巴车的车身、狐狸的脸部）被遮挡，模型依然能合理地进行“语义推理”（做出合理的脑补），而不是简单的像素平滑过渡。</div>
+                </div>
+            </section>
+
+            <!-- 6. Review -->
+            <section id="review">
+                <h2>顶级视角：审稿人评论 (Critical Review)</h2>
+                
+                <h3><i class="fa-solid fa-circle-check" style="color: #34c759; margin-right: 8px;"></i> 卓越优势</h3>
+                <p>1. <strong>至繁归于至简的哲学：</strong> MAE 彻底抛弃了自监督对比学习（Contrastive Learning, 如 MoCo, SimCLR）中依赖人工数据增强（Crop, Color Jitter）和防崩溃（Collapse）设计的复杂组件。也抛弃了 BEiT 中繁琐的两阶段 Tokenizer 训练。大道至简的 MSE 像素级重构，使得方法极致优雅。</p>
+                <p>2. <strong>惊人的工程实用性：</strong> 将 Encoder 序列长度削减至 25%，由于 Transformer 复杂度与序列长度的平方 $O(N^2)$ 成正比，这带来了训练成本的指数级锐减。这一创新直接使得学术界或工业界用有限资源训练巨大 Transformer 模型成为可能。</p>
+
+                <h3><i class="fa-solid fa-circle-exclamation" style="color: #ff9500; margin-right: 8px;"></i> 局限与探讨空间</h3>
+                <p>1. <strong>特征的线性可分性：</strong> MAE 在 Linear Probing（固定骨干网络，仅训练最后一层线性分类器）上的成绩为 75.8%，实际上不如基于对比学习的 MoCo v3 (77.6%)。这是因为对比学习的损失函数天然强迫同一物体的特征“聚拢”在一起（利于线性分类），而 MAE 的特征保留了大量空间和细节信息。虽然微调结果无敌，但它提醒我们 <strong>Linear Probing 可能不再是评估预训练模型优劣的唯一金标准</strong>。</p>
+                <p>2. <strong>局限于强算力和大模型：</strong> 从实验结果看，MAE 在小模型 (ViT-Base) 上的增益并不像在 ViT-Large/Huge 上那么夸张。自编码器类方法更像是“给参数喂数据的怪兽”，需要极大的模型容量才能把巨量知识存在权重里。</p>
+
+                <h3><i class="fa-solid fa-lightbulb" style="color: #0066cc; margin-right: 8px;"></i> 未来启示</h3>
+                <p>MAE 打开了 CV 走向 NLP 规模化预训练的大门。可以预见，将其延伸至时空维度（如 <strong>VideoMAE</strong>），利用视频极高的时序冗余，掩码率甚至可以达到 90%。此外，多模态 MAE 也是顺理成章的演进方向。</p>
+            </section>
+
+            <!-- 7. One More Thing -->
+            <section id="one-more-thing">
+                <h2>One More Thing</h2>
+                <p>在阅读论文时，有一个极具启发性的实验洞见隐藏在 <strong>Section 4.3 Partial Fine-tuning</strong> 中。</p>
+                <p>作者展示了一个现象：既然 MAE 的特征“线性不可分”（Linear Probing 表现不如 MoCo），那如果我们<strong>只解冻并微调模型最后哪怕1个 Transformer Block</strong>，会发生什么？</p>
+                <p>结果是颠覆性的：<strong>仅仅微调 1 个 Block，准确率瞬间从 73.5% 暴增至 81.0%！</strong></p>
+                <p>如果你微调最后 4 个 Block，性能就几乎逼近全量微调了。相反，对比学习（MoCo v3）在部分微调时，全部弱于 MAE。这传递了一个极其深刻的 Insights：</p>
+                <p class="highlight">"MAE 提取的是极其丰富、包含了深层非线性语义特征的表示，虽然它为了重建被扭曲成了不适合线性切分的流形分布。只需要一个极小的非线性头部稍作转换，这些特征的威力就会彻底释放出来。"</p>
+                <p>这就好比 MAE 给了一把极其复杂的瑞士军刀，虽然你不能像用普通匕首（对比学习）那样直接“直刺”，但只要你加一个转化接头（微调一两层），它就能解决世界上最复杂的任务。</p>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- 返回顶部按钮 -->
+    <div class="back-to-top" id="backToTop">
+        <i class="fa-solid fa-arrow-up"></i>
+    </div>
+
+    <!-- 交互逻辑 JavaScript -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // 1. 返回顶部按钮逻辑
+            const backToTopBtn = document.getElementById('backToTop');
+            window.addEventListener('scroll', () => {
+                if (window.scrollY > 400) {
+                    backToTopBtn.classList.add('show');
+                } else {
+                    backToTopBtn.classList.remove('show');
+                }
+            });
+            backToTopBtn.addEventListener('click', () => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+
+            // 2. 模块滚动渐入动画
+            const sections = document.querySelectorAll('section');
+            const observerOptions = {
+                root: null,
+                rootMargin: '0px',
+                threshold: 0.15
+            };
+            const sectionObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, observerOptions);
+            sections.forEach(section => {
+                sectionObserver.observe(section);
+            });
+
+            // 3. 侧边栏 TOC 滚动高亮联动
+            const tocLinks = document.querySelectorAll('.toc-list a');
+            const scrollSpyObserver = new IntersectionObserver((entries) => {
+                let currentActiveId = null;
+                // 找出当前在视口内并且占比最大的块
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        currentActiveId = entry.target.getAttribute('id');
+                    }
+                });
+                
+                if (currentActiveId) {
+                    tocLinks.forEach(link => {
+                        link.classList.remove('active');
+                        if (link.getAttribute('href') === `#${currentActiveId}`) {
+                            link.classList.add('active');
+                        }
+                    });
+                }
+            }, { rootMargin: '-20% 0px -60% 0px', threshold: 0.2 });
+
+            sections.forEach(section => {
+                scrollSpyObserver.observe(section);
+            });
+
+            // 4. 平滑滚动修正 (应对 fixed header)
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    const targetId = this.getAttribute('href').substring(1);
+                    const targetElement = document.getElementById(targetId);
+                    if (targetElement) {
+                        const headerOffset = 80; // 导航栏高度 + 缓冲
+                        const elementPosition = targetElement.getBoundingClientRect().top;
+                        const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+                        window.scrollTo({
+                            top: offsetPosition,
+                            behavior: "smooth"
+                        });
+                    }
+                });
+            });
+            
+            // 初始化检查首屏 section
+            setTimeout(() => {
+                sections.forEach(section => {
+                    const rect = section.getBoundingClientRect();
+                    if(rect.top < window.innerHeight) {
+                        section.classList.add('visible');
+                    }
+                });
+            }, 100);
+        });
+    </script>
+</body>
+</html>
