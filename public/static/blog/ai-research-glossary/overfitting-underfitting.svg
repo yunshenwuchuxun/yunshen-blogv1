@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 690 230" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+  <rect width="690" height="230" rx="10" fill="#f7fafc" stroke="#e2e8f0"/>
+
+  <!-- Panel 1: Underfitting -->
+  <rect x="15" y="12" width="210" height="175" rx="8" fill="#fff" stroke="#e2e8f0"/>
+  <text x="120" y="34" text-anchor="middle" font-size="14" font-weight="700" fill="#e53e3e">Underfitting（欠拟合）</text>
+  <!-- Axes -->
+  <line x1="45" y1="50" x2="45" y2="160" stroke="#cbd5e0" stroke-width="1.2"/>
+  <line x1="45" y1="160" x2="200" y2="160" stroke="#cbd5e0" stroke-width="1.2"/>
+  <text x="28" y="108" font-size="9" fill="#a0aec0" transform="rotate(-90,28,108)">Loss</text>
+  <text x="122" y="174" text-anchor="middle" font-size="9" fill="#a0aec0">Epoch</text>
+  <!-- Training curve (stays high) -->
+  <path d="M 55,65 Q 110,78 190,88" fill="none" stroke="#4299e1" stroke-width="2.2" stroke-linecap="round"/>
+  <!-- Validation curve (stays high) -->
+  <path d="M 55,58 Q 110,72 190,80" fill="none" stroke="#ed8936" stroke-width="2.2" stroke-dasharray="6 3" stroke-linecap="round"/>
+
+  <!-- Panel 2: Good Fit -->
+  <rect x="240" y="12" width="210" height="175" rx="8" fill="#fff" stroke="#e2e8f0"/>
+  <text x="345" y="34" text-anchor="middle" font-size="14" font-weight="700" fill="#38a169">Good Fit（良好拟合）</text>
+  <line x1="270" y1="50" x2="270" y2="160" stroke="#cbd5e0" stroke-width="1.2"/>
+  <line x1="270" y1="160" x2="425" y2="160" stroke="#cbd5e0" stroke-width="1.2"/>
+  <text x="253" y="108" font-size="9" fill="#a0aec0" transform="rotate(-90,253,108)">Loss</text>
+  <text x="347" y="174" text-anchor="middle" font-size="9" fill="#a0aec0">Epoch</text>
+  <!-- Training curve -->
+  <path d="M 280,58 Q 320,100 415,140" fill="none" stroke="#4299e1" stroke-width="2.2" stroke-linecap="round"/>
+  <!-- Validation curve -->
+  <path d="M 280,55 Q 320,95 415,132" fill="none" stroke="#ed8936" stroke-width="2.2" stroke-dasharray="6 3" stroke-linecap="round"/>
+
+  <!-- Panel 3: Overfitting -->
+  <rect x="465" y="12" width="210" height="175" rx="8" fill="#fff" stroke="#e2e8f0"/>
+  <text x="570" y="34" text-anchor="middle" font-size="14" font-weight="700" fill="#e53e3e">Overfitting（过拟合）</text>
+  <line x1="495" y1="50" x2="495" y2="160" stroke="#cbd5e0" stroke-width="1.2"/>
+  <line x1="495" y1="160" x2="650" y2="160" stroke="#cbd5e0" stroke-width="1.2"/>
+  <text x="478" y="108" font-size="9" fill="#a0aec0" transform="rotate(-90,478,108)">Loss</text>
+  <text x="572" y="174" text-anchor="middle" font-size="9" fill="#a0aec0">Epoch</text>
+  <!-- Training curve (keeps decreasing) -->
+  <path d="M 505,58 Q 545,105 640,148" fill="none" stroke="#4299e1" stroke-width="2.2" stroke-linecap="round"/>
+  <!-- Validation curve (decreases then increases) -->
+  <path d="M 505,55 C 545,100 570,118 595,110 C 615,104 630,90 640,78" fill="none" stroke="#ed8936" stroke-width="2.2" stroke-dasharray="6 3" stroke-linecap="round"/>
+
+  <!-- Legend -->
+  <line x1="200" y1="208" x2="230" y2="208" stroke="#4299e1" stroke-width="2.2"/>
+  <text x="236" y="212" font-size="11" fill="#4a5568">Training Loss</text>
+  <line x1="360" y1="208" x2="390" y2="208" stroke="#ed8936" stroke-width="2.2" stroke-dasharray="6 3"/>
+  <text x="396" y="212" font-size="11" fill="#4a5568">Validation Loss</text>
+</svg>

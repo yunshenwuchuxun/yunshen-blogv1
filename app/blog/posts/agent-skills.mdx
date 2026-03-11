@@ -1,0 +1,342 @@
+---
+title: 'Agent Skills 实战指南：从 SKILL.md 到可复用工作流设计'
+publishedAt: '2026-03-04T11:00:00'
+summary: '一篇讲透 Agent Skills 的实战指南：从职责边界、触发条件、SKILL.md 结构到渐进式披露与资源分层，系统教你设计可复用、可维护、可跨平台迁移的 AI Agent Skills。'
+draft: false
+image: '/static/blog/agent-skills/skill-blueprint.svg'
+tags: [AI, Skill, Dev]
+---
+
+## 引言：为什么大多数 Skill 最后都会写成超长 Prompt
+
+为什么有些 AI Agent 第一次帮你做 code review 很稳，换个仓库却立刻“失忆”？很多时候，问题不在模型不够聪明，而在团队经验没有被沉淀成一个<strong>可被稳定调用的 Skill</strong>。
+
+大多数失败的 Skill 都有同一种写法：把背景、规范、示例、输出格式、边界条件一次性塞进 `SKILL.md`。它看起来很完整，实际却<strong>难触发、难维护、难迁移</strong>。写得越长，不一定越强，往往只是让上下文更拥挤。
+
+真正有效的 Skill，不是一段更长的 prompt，而是一份可复用的任务协议。它至少要回答四件事：
+
+- <strong>什么时候触发</strong>
+- <strong>按什么步骤执行</strong>
+- <strong>哪些信息应该按需加载</strong>
+- <strong>最后怎样判断它做对了</strong>
+
+本文就聚焦这一件事：<strong>如何把一个想法收敛成可以长期复用的 Agent Skill</strong>。你会看到的不是平台历史大全，而是一套更接近工程实践的 Skill 构建方法：如何定边界、写 `description`、拆正文、放资源，以及在发布前做结构化验收。
+
+![系统化构建 Skill 的骨架](/static/blog/agent-skills/skill-blueprint.svg)
+
+## 先抓住定义：Skill 不是提示词碎片
+
+如果只用一句话定义 Agent Skill，我更愿意把它称为：<strong>一个可被 Agent 在特定时机调用的任务协议</strong>。
+
+它至少要包含四个部分：
+
+| 组成 | 作用 | 缺了会怎样 |
+| --- | --- | --- |
+| 触发条件 | 决定 Agent 什么时候调用它 | Skill 很难被稳定命中 |
+| 执行步骤 | 告诉 Agent 先做什么、后做什么 | 输出容易漂移 |
+| 外部资源 | 承载长文档、脚本、模板 | `SKILL.md` 会膨胀 |
+| 验收标准 | 定义什么叫“完成得好” | 结果不可控、不可复用 |
+
+所以，Skill 不是 prompt 的别名。<strong>它更像一个轻量的工作流协议</strong>：用最小的入口描述能力，用按需加载的资源承载复杂度。
+
+## 设计一个 Skill，先回答 5 个问题
+
+在打开编辑器之前，先把下面五个问题写清楚。很多 Skill 之所以越写越散，不是文笔问题，而是这五个问题从一开始就没收敛。
+
+| 设计问题 | 要回答什么 | 常见错误 |
+| --- | --- | --- |
+| 任务边界 | 它到底解决哪一类重复任务 | 一个 Skill 管“审查 + 修复 + 提交”三件事 |
+| 触发信号 | 用户会用什么自然语言触发它 | `description` 只写功能，不写场景 |
+| 输入范围 | 它默认读取什么，缺什么时该停下 | 把所有上下文都假定为已知 |
+| 输出标准 | 最终结果应该长什么样 | 没有固定格式，次次都不同 |
+| 复杂度分层 | 哪些放正文，哪些放脚本/参考资料 | 把长清单全塞进 `SKILL.md` |
+
+![Skill 设计流程](/static/blog/agent-skills/skill-build-loop.svg)
+
+一个简单但有效的经验是：<strong>先定义边界，再写步骤；先定义输出，再补细节</strong>。这样写出来的 Skill 才会天然更稳定。
+
+## Skill 的骨架：目录往往比正文更重要
+
+一个规范的 Skill，通常长这样：
+
+```text
+code-reviewer/
+├── SKILL.md
+├── scripts/
+│   └── collect-target.ps1
+├── references/
+│   └── checklist.md
+└── assets/
+    └── report-template.md
+```
+
+这四层分别承担不同职责：
+
+- <strong>`SKILL.md`</strong>：入口协议，只放 Agent 执行时必须看到的最小信息
+- <strong>`scripts/`</strong>：确定性步骤，适合收集 diff、提取文件、生成模板这类重复动作
+- <strong>`references/`</strong>：长文档，适合放审查清单、领域规范、风格约定
+- <strong>`assets/`</strong>：可复用模板，适合报告骨架、示例输出、固定片段
+
+这里最关键的一条原则是：<strong>能固化成脚本的，就不要每次都靠自然语言解释；能下沉到参考资料的，就不要堆在正文里</strong>。
+
+## `SKILL.md` 怎么写才规范
+
+### 1. Frontmatter：先写“何时用”，再写“做什么”
+
+Skill 的入口不是标题，而是 `description`。它决定 Agent 能不能在合适的时机自动命中这个 Skill。
+
+一个常见误区是把 `description` 写成产品文案。
+
+```yaml
+# 不够好
+description: Helps with code reviews.
+```
+
+上面这句没有错，但太泛。它只告诉 Agent “这是个做代码审查的 Skill”，却没有告诉 Agent “什么时候该调用它”。
+
+```yaml
+# 更好的写法
+description: Review staged changes or specified files before merge. Use when the user asks for code review, risk review, or merge readiness assessment.
+```
+
+更好的 `description` 往往同时包含三层信息：
+
+- <strong>能力</strong>：它做什么
+- <strong>触发场景</strong>：什么时候用
+- <strong>输入线索</strong>：默认审查什么对象
+
+如果你希望 Skill 具备更好的跨平台兼容性，优先把核心信息放在标准字段里，把平台扩展放在可选层。
+
+| 字段 | 作用 | 建议 |
+| --- | --- | --- |
+| `name` | Skill 的稳定标识 | 简短、可复用、尽量不要频繁改名 |
+| `description` | 能力 + 触发条件 | 用自然语言写清“何时调用” |
+| 平台扩展字段 | 平台特性开关 | 只在确实需要时再加 |
+
+### 2. Body：只保留执行期真正需要看的内容
+
+`SKILL.md` 正文最容易失控。经验上，一个好用的 Body 通常只保留四类信息：
+
+- <strong>Scope</strong>：这次任务默认覆盖什么范围
+- <strong>Workflow</strong>：执行顺序是什么
+- <strong>Stop conditions</strong>：缺上下文时何时停下或回问
+- <strong>Output format</strong>：结果怎么组织
+
+这背后对应的正是 Agent Skills 最重要的设计思想：<strong>Progressive Disclosure</strong>。也就是把信息拆成层，而不是一次性全部注入。
+
+| 层级 | 放什么 | 典型长度 |
+| --- | --- | --- |
+| Metadata | `name` + `description` | 1-2 句 |
+| Body | 工作流、边界、输出格式 | 10-30 行 |
+| Resources | 长清单、模板、脚本、案例 | 按需加载 |
+
+判断一个 Skill 写得是否健康，可以用一句话：<strong>Agent 在开始执行前必须知道的，才留在 Body；执行过程中才需要的，放到 resources</strong>。
+
+## 一个最小但合格的 `code-reviewer`
+
+下面这个示例刻意保持克制。它不是“功能最全”的版本，而是一个<strong>结构最清楚、最容易复用</strong>的版本。
+
+```markdown
+---
+name: code-reviewer
+description: Review staged changes or specified files before merge. Use when the user asks for code review, risk review, or merge readiness assessment.
+---
+
+Review only the requested files or the current staged diff.
+
+## Workflow
+1. Read the target diff or files first.
+2. Check correctness, safety, performance, and maintainability.
+3. If critical context is missing, ask for the smallest missing artifact.
+4. Do not rewrite code unless the user asks.
+
+## Output
+- Group findings by file.
+- Severity: critical / warning / suggestion.
+- Quote the exact line or snippet.
+- Give a concrete fix for each finding.
+- End with merge readiness summary.
+```
+
+这个版本之所以“够用”，是因为它已经满足了 Skill 复用的最小闭环：
+
+- <strong>触发明确</strong>：知道什么时候该用
+- <strong>流程明确</strong>：知道先读什么、再审什么
+- <strong>回问明确</strong>：知道缺上下文时该怎么停
+- <strong>输出明确</strong>：知道结果要长成什么样
+
+而下面这些内容，反而更适合放到外围资源：
+
+- 更长的安全审查条目，放进 `references/checklist.md`
+- 收集 staged diff 或指定文件的逻辑，放进 `scripts/collect-target.ps1`
+- 固定报告模版，放进 `assets/report-template.md`
+
+<strong>不要一开始就追求”大而全”</strong>。先做一个能稳定复用的最小版本，再把复杂度拆出去，通常比一开始写 200 行正文更有效。
+
+## `scripts/`：确定性步骤固化成脚本
+
+先说一个容易忽略的事实：Agent 并不是只会"聊天"。当 `SKILL.md` 里写了一条 `Run scripts/xxx.sh` 的指令时，Agent 会通过 Bash 工具直接执行这个脚本，拿到输出结果，再继续后续步骤。换句话说，<strong>脚本是 Agent 的手，自然语言是 Agent 的脑</strong>——脑负责理解和判断，手负责精确执行。
+
+那什么时候该把一个步骤写成脚本？判断标准很简单：<strong>如果这个步骤的逻辑每次完全一致，不需要 Agent "理解"任何东西，就应该是脚本</strong>。
+
+| 场景 | 脚本做什么 | 靠自然语言会怎样 |
+| --- | --- | --- |
+| 收集审查目标 | `git diff --staged` 并格式化输出 | 每次可能用不同命令、遗漏参数 |
+| 提取项目结构 | 遍历目录、过滤无关文件 | 可能误包含 node_modules |
+| 生成样板文件 | 按模板创建文件并填充占位符 | 格式每次微妙不同 |
+
+以 `code-reviewer` 的 `scripts/collect-target.ps1` 为例——它的职责是收集待审查的代码变更，输出标准化的文本供 Agent 分析：
+
+```powershell
+param([string[]]$Files)
+
+if ($Files) {
+    foreach ($f in $Files) { Get-Content $f }
+} else {
+    git diff --staged --unified=5
+}
+```
+
+这个脚本只做一件事：如果用户指定了文件就读取文件内容，否则读取 Git 暂存区的 diff。它不做任何"判断"——判断交给 Agent。
+
+三条设计原则：
+
+- <strong>幂等</strong>：多次执行结果一致，不产生副作用
+- <strong>契约清晰</strong>：输入是什么（参数 / stdin），输出是什么（stdout / 文件）
+- <strong>失败可见</strong>：非零退出码 + 明确错误信息，让 Agent 知道该停下
+
+`SKILL.md` 中只需一行引用即可：
+
+```markdown
+1. Run `scripts/collect-target.ps1` to gather the review target.
+```
+
+<strong>确定性的事让脚本做，判断性的事让 Agent 做</strong>——这是 `scripts/` 存在的根本原因。
+
+## `references/`：长上下文按需加载
+
+审查清单 50 条、安全规范 3 页——这些不属于 `SKILL.md` 正文，而属于 `references/`。Agent 在执行过程中按需读取，不占用入口上下文。
+
+| 文件 | 内容 | 加载时机 |
+| --- | --- | --- |
+| `checklist.md` | 审查维度与检查条目 | 开始逐项审查时 |
+| `security-rules.md` | 安全红线与漏洞模式 | 涉及安全相关代码时 |
+| `style-guide.md` | 命名约定、格式要求 | 审查风格一致性时 |
+
+以 `references/checklist.md` 为例：
+
+```markdown
+## Correctness
+- [ ] Edge cases handled (null, empty, boundary)
+- [ ] Error paths return meaningful messages
+- [ ] Async operations properly awaited
+
+## Security
+- [ ] No hardcoded secrets or credentials
+- [ ] User input validated and sanitized
+
+## Performance
+- [ ] No unnecessary re-renders or re-computations
+- [ ] Large collections use pagination
+```
+
+`SKILL.md` 中这样引用：
+
+```markdown
+2. Read `references/checklist.md` and check each applicable item.
+```
+
+关键原则：<strong>每个文件聚焦一个主题</strong>。Agent 需要安全规则时不应被迫加载风格指南——按需加载的前提是粒度足够细。
+
+## `assets/`：固定输出的骨架模板
+
+希望 Skill 每次输出结构一致？用模板固定骨架，Agent 只负责填充内容。
+
+以 `assets/report-template.md` 为例：
+
+```markdown
+# Code Review Report
+
+## Summary
+<!-- One-sentence overall assessment -->
+
+## Findings
+
+### Critical
+<!-- Must fix before merge -->
+
+### Warning
+<!-- Should fix, low risk if deferred -->
+
+### Suggestion
+<!-- Optional improvement -->
+
+## Merge Readiness
+- **Verdict**: <!-- READY / NOT READY / READY WITH CONDITIONS -->
+```
+
+`SKILL.md` 中这样引用：
+
+```markdown
+## Output
+- Follow the structure in `assets/report-template.md`.
+```
+
+两条准则：
+
+- <strong>骨架固定、内容留空</strong>：用注释标记填充位置，不要预填示例文本（否则 Agent 会照抄）
+- <strong>最小可用</strong>：只固定必须统一的结构，留足弹性让 Agent 适配不同场景
+
+## 四层协作：一次完整的执行流程
+
+把四层串起来看，Agent 执行一次 `code-reviewer` 的完整链路是：
+
+1. 读取 `SKILL.md` → 获取工作流和边界
+2. 调用 `scripts/collect-target.ps1` → 拿到标准化的审查目标
+3. 读取 `references/checklist.md` → 逐项检查
+4. 读取 `assets/report-template.md` → 按模板组织输出
+
+每一层只在需要时才进入上下文，而不是一次性全部注入。这就是 <strong>Progressive Disclosure</strong> 在实践中的样子。
+
+## 平台差异里，真正需要关心什么
+
+如果你希望同一个 Skill 在多个工具里都尽量可用，最重要的不是记住所有平台细节，而是先抓住“标准层”。
+
+| 平台 | 主要发现方式 | 你真正要关心的点 |
+| --- | --- | --- |
+| Claude Code | 通常放在 `.claude/skills/` | 可以有平台扩展，但核心 `SKILL.md` 要保持简洁 |
+| OpenAI Codex | 通常放在 `.agents/skills/` | 核心格式兼容度高，适合复用同一套正文 |
+| LangChain | 以框架 API 形式组织 | 更像理念兼容，不是直接复用 `SKILL.md` |
+
+真正的迁移策略只有一句话：<strong>把可移植能力写进标准层，把平台特性留在扩展层</strong>。
+
+## 发布前检查清单
+
+在把 Skill 放进仓库前，我通常会快速过一遍这张清单：
+
+- <strong>单一职责</strong>：它是否只解决一类高频、重复、可复用的问题
+- <strong>触发自然</strong>：用户只说一句自然语言时，Agent 是否有机会命中它
+- <strong>正文克制</strong>：Body 是否只保留执行期必需内容
+- <strong>资源分层</strong>：长清单、脚本、模板是否已经拆出去
+- <strong>输出可验</strong>：结果是否有固定结构，而不是完全自由发挥
+- <strong>缺省安全</strong>：缺上下文时是否会停下或回问，而不是瞎猜
+- <strong>跨人复用</strong>：离开作者本人，这个 Skill 是否仍然能被别人理解和使用
+
+如果这七条里有三条答不上来，通常说明它还不是一个成熟的 Skill，而只是一段尚未收敛的 prompt。
+
+## 结语
+
+写 Skill 的核心，不是把说明写长，而是把复杂度拆开。
+
+一个成熟的 Skill，应该像一个小型协议：<strong>入口足够短，触发足够清楚，流程足够稳定，资源按需加载，结果可以验收</strong>。做到这几点，Skill 才会从“某次对话里的好 prompt”，变成“团队里可以长期复用的能力模块”。
+
+## 参考资料
+
+- [OpenAI Codex Skills](https://developers.openai.com/codex/skills)
+- [Claude Code Skills](https://code.claude.com/docs/en/skills)
+- [Claude Platform Agent Skills](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview)
+- [LangChain Multi-Agent Skills](https://docs.langchain.com/oss/python/langchain/multi-agent/skills)
+- [Agent Skills 开放标准](https://agentskills.io)
+- [Agent Skills 规范](https://agentskills.io/specification)
+- [Equipping agents for the real world with Agent Skills](https://claude.com/blog/equipping-agents-for-the-real-world-with-agent-skills)
+

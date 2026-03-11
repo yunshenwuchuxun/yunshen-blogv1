@@ -22,7 +22,12 @@ type Metadata = {
 	tags?: string[];
 };
 
+function stripByteOrderMark(content: string) {
+	return content.replace(/^\uFEFF/, '');
+}
+
 function parseFrontmatter(fileContent: string) {
+	fileContent = stripByteOrderMark(fileContent);
 	const frontmatterRegex = /---\s*([\s\S]*?)\s*---/;
 	const match = frontmatterRegex.exec(fileContent);
 	const frontMatterBlock = match?.[1];
@@ -164,9 +169,11 @@ export function formatDate(date: string, includeRelative = false) {
 }
 
 export async function getPostFromSlug(slug: string) {
-	const source = await fs.promises.readFile(
+	const source = stripByteOrderMark(
+		await fs.promises.readFile(
 		path.join(process.cwd(), 'app/blog/posts', `${slug}.mdx`),
 		'utf-8',
+		),
 	);
 
 	const { content, frontmatter } = await compileMDX<Metadata>({

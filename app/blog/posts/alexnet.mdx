@@ -3,7 +3,7 @@ title: 'AlexNet 论文精读'
 publishedAt: '2026-02-28'
 summary: 'AlexNet 论文精读笔记：首次在大规模图像分类中成功应用深度 CNN，解析 ReLU、Dropout、双 GPU 并行、数据增强等核心创新。'
 draft: false
-tags: [Deep Learning, CNN, AlexNet, Paper Reading]
+tags: [Paper, DL, CV]
 ---
 
 <PaperCard
@@ -12,7 +12,7 @@ tags: [Deep Learning, CNN, AlexNet, Paper Reading]
 	links={[
 		{ label: "论文原文", url: "https://arxiv.org/abs/1209.0145" },
 		{ label: "AI 总结", url: "/static/blog/alexnet/ai-summary.html" },
-		{ label: "代码实战", url: "https://colab.research.google.com/github/yunshenwuchuxun/yunshen-blogv1/blob/main/papers/01-alexnet/code.ipynb" },
+		{ label: "代码实战", url: "https://colab.research.google.com/github/yunshenwuchuxun/yunshen-blogv1/blob/main/papers/AlexNet/code.ipynb" },
 	]}
 />
 
@@ -243,7 +243,7 @@ net = models.alexnet(num_classes=10)
 net.features[0] = nn.Conv2d(1, 64, kernel_size=11, stride=4, padding=2)
 ```
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/yunshenwuchuxun/yunshen-blogv1/blob/main/papers/01-alexnet/code.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/yunshenwuchuxun/yunshen-blogv1/blob/main/papers/AlexNet/code.ipynb)
 
 ## 参考文献
 

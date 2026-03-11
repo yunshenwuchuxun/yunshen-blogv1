@@ -178,18 +178,21 @@ tags: [tag1, tag2, ..., Paper Reading]
 
 `$` 符号前后无多余空格。pipeline 已配置 `remarkMath` + `rehypeKatex`。
 
-### R3：Display 数学公式 — 使用 `$$...$$`
+### R3：Display 数学公式 — 使用 `$$...$$` 三行格式居中
 
 ```
+❌ $$h_i^{(l+1)} = \sigma(\sum_{j} \alpha_{ij} Wh_j)$$
+
 ✅
 $$
-\text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V
+h_i^{(l+1)} = \sigma(\sum_{j} \alpha_{ij} Wh_j)
 $$
 ```
 
-- `$$` 必须独占一行
+- `$$` 必须独占一行（三行格式：开 `$$` / 公式 / 闭 `$$`），单行 `$$...$$` 无法居中
 - 公式块前后各留一个空行
 - `\text{}` 在 KaTeX display 模式下可正常工作
+- 集合花括号使用 `\lbrace` / `\rbrace` 替代 `\{` / `\}`，避免 MDX 解析冲突
 
 ### R4：图片路径 — 正文插图使用绝对路径
 

@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MoCo - AI 总结</title>
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['$', '$']], displayMath: [['$$', '$$']], processEscapes: true, tags: 'ams' },
+            svg: { fontCache: 'global' },
+            options: { renderActions: { addMenu: [] } }
+        };
+    </script>
+    <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --bg: #f5f5f7;
+            --text-main: #1d1d1f;
+            --text-secondary: #424245;
+            --text-muted: #86868b;
+            --accent: #0071e3;
+            --accent-light: rgba(0, 113, 227, 0.08);
+            --card-bg: #ffffff;
+            --border: rgba(0, 0, 0, 0.06);
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03);
+            --shadow-md: 0 4px 16px rgba(0,0,0,0.06), 0 12px 32px rgba(0,0,0,0.04);
+            --shadow-hover: 0 8px 24px rgba(0,0,0,0.08), 0 16px 40px rgba(0,0,0,0.06);
+            --radius-lg: 20px;
+            --radius-md: 14px;
+            --font-stack: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+            --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            --blue: #0071e3;
+            --green: #30d158;
+            --red: #ff453a;
+            --orange: #ff9f0a;
+            --purple: #bf5af2;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
+        body { font-family: var(--font-stack); background: var(--bg); color: var(--text-main); line-height: 1.7; -webkit-font-smoothing: antialiased; }
+
+        h1, h2, h3 { font-weight: 600; letter-spacing: -0.02em; color: var(--text-main); }
+        h1 { font-size: clamp(28px, 5vw, 48px); line-height: 1.1; margin-bottom: 16px; font-weight: 700; }
+        h2 { font-size: clamp(22px, 3.5vw, 28px); margin: 0 0 24px; }
+        h3 { font-size: clamp(17px, 2.5vw, 20px); margin: 28px 0 12px; color: var(--text-secondary); }
+        p { font-size: 16px; margin-bottom: 18px; color: var(--text-secondary); line-height: 1.75; }
+        ul, ol { margin-bottom: 22px; padding-left: 20px; font-size: 16px; }
+        li { margin-bottom: 10px; color: var(--text-secondary); line-height: 1.7; }
+        li strong { color: var(--text-main); }
+        code { font-family: var(--font-mono); background: #f0f0f3; padding: 2px 6px; border-radius: 5px; font-size: 0.85em; color: #c41a68; }
+
+        .navbar {
+            position: fixed; top: 0; width: 100%; height: 48px;
+            background: rgba(245,245,247,0.72); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px);
+            border-bottom: 0.5px solid rgba(0,0,0,0.1); z-index: 9999;
+            display: flex; justify-content: center; align-items: center; gap: 4px;
+            overflow-x: auto; -webkit-overflow-scrolling: touch;
+        }
+        .navbar::-webkit-scrollbar { display: none; }
+        .navbar a {
+            color: var(--text-main); text-decoration: none; font-size: 13px; font-weight: 400;
+            padding: 6px 12px; border-radius: 20px; white-space: nowrap;
+            opacity: 0.6; transition: all 0.25s ease; flex-shrink: 0;
+        }
+        .navbar a:hover { opacity: 1; background: rgba(0,0,0,0.04); }
+
+        .layout-grid {
+            max-width: 1080px; margin: 0 auto; padding: 36px 24px 80px;
+            display: grid; grid-template-columns: 1fr 220px; gap: 44px;
+        }
+
+        .hero-section {
+            text-align: center; padding: 112px 24px 64px;
+            background: linear-gradient(180deg, #ffffff 0%, var(--bg) 100%);
+            position: relative;
+        }
+        .hero-section::after {
+            content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+            width: 100px; height: 1px; background: linear-gradient(90deg, transparent, rgba(0,0,0,0.12), transparent);
+        }
+        .meta-tags { display: flex; justify-content: center; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
+        .tag { font-size: 11px; font-weight: 500; letter-spacing: 0.03em; background: var(--accent-light); padding: 5px 13px; border-radius: 20px; color: var(--accent); }
+        .tag-green { background: rgba(48,209,88,0.1); color: #1a7a34; }
+        .hero-authors { color: var(--text-muted); font-size: 15px; margin-bottom: 32px; font-weight: 400; }
+        .hero-abstract { max-width: 700px; margin: 0 auto; font-size: clamp(15px, 2.2vw, 17px); line-height: 1.7; color: var(--text-muted); }
+
+        .card {
+            background: var(--card-bg); border-radius: var(--radius-lg);
+            padding: 40px 44px; margin-bottom: 24px;
+            box-shadow: var(--shadow-sm); border: 0.5px solid var(--border);
+            transition: box-shadow 0.35s ease, transform 0.35s ease;
+        }
+        .card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+        .section-label { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; color: var(--accent); margin-bottom: 6px; display: block; }
+
+        .callout {
+            background: #f0f5ff; border-radius: var(--radius-md); padding: 18px 22px;
+            margin: 24px 0; display: flex; gap: 12px; align-items: flex-start;
+            border: 1px solid rgba(0,113,227,0.1);
+        }
+        .callout-icon { font-size: 20px; line-height: 1.4; flex-shrink: 0; }
+        .callout-content p { margin: 0; font-size: 15px; line-height: 1.7; }
+        .callout-insight { background: linear-gradient(135deg, rgba(0,113,227,0.05) 0%, rgba(191,90,242,0.05) 100%); border: 1px solid rgba(0,113,227,0.1); }
+
+        .formula-card {
+            background: var(--card-bg); border-radius: var(--radius-md); padding: 28px;
+            margin: 20px 0; text-align: center; border: 1px solid var(--border);
+            overflow-x: auto;
+        }
+
+        .table-wrapper { overflow-x: auto; margin: 24px 0; border-radius: var(--radius-md); border: 1px solid var(--border); -webkit-overflow-scrolling: touch; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; min-width: 480px; }
+        th, td { padding: 12px 16px; }
+        th { font-weight: 600; background: #fafafa; border-bottom: 1px solid var(--border); font-size: 12px; letter-spacing: 0.03em; color: var(--text-muted); }
+        tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; }
+        tbody tr:last-child { border-bottom: none; }
+        tbody tr:hover { background: #fafbfc; }
+        td { color: var(--text-secondary); }
+        tr.highlight { background: rgba(0,113,227,0.04); font-weight: 600; }
+        tr.highlight td { color: var(--accent); }
+        .caption { font-size: 13px; color: var(--text-muted); margin-bottom: 10px; font-weight: 500; }
+
+        .sidebar-inner { position: sticky; top: 68px; }
+        .toc-title { font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 600; margin-bottom: 12px; letter-spacing: 0.06em; }
+        .toc-link { display: block; font-size: 13px; color: var(--text-muted); text-decoration: none; padding: 6px 0 6px 14px; border-left: 2px solid transparent; transition: all 0.2s; }
+        .toc-link:hover { color: var(--text-main); }
+        .toc-link.active { color: var(--accent); border-left-color: var(--accent); font-weight: 500; }
+
+        .figure { margin: 32px 0; text-align: center; }
+        .figure svg { width: 100%; max-width: 640px; height: auto; display: block; margin: 0 auto; }
+        .figure-caption { font-size: 13px; color: var(--text-muted); max-width: 90%; margin: 12px auto 0; line-height: 1.6; }
+
+        details { background: #fafafa; border-radius: var(--radius-md); padding: 18px 22px; margin: 22px 0; border: 1px solid var(--border); }
+        summary { font-weight: 600; font-size: 15px; cursor: pointer; outline: none; list-style: none; display: flex; justify-content: space-between; align-items: center; color: var(--text-main); }
+        summary::-webkit-details-marker { display: none; }
+        summary::after { content: '+'; font-size: 18px; color: var(--accent); transition: transform 0.3s; font-weight: 400; }
+        details[open] summary::after { transform: rotate(45deg); }
+        details p, details ul { margin-top: 14px; font-size: 15px; }
+
+        .back-to-top {
+            position: fixed; bottom: 24px; right: 24px; width: 40px; height: 40px;
+            border-radius: 50%; background: rgba(0,0,0,0.5); color: #fff; border: none;
+            cursor: pointer; opacity: 0; visibility: hidden; transition: all 0.3s;
+            backdrop-filter: blur(10px); z-index: 100; display: flex; align-items: center; justify-content: center;
+        }
+        .back-to-top.visible { opacity: 1; visibility: visible; }
+        .back-to-top:hover { background: var(--text-main); transform: scale(1.08); }
+
+        .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 24px 0; }
+        .metric-card { background: #fafafa; border-radius: var(--radius-md); padding: 18px 12px; text-align: center; border: 1px solid var(--border); }
+        .metric-value { font-size: clamp(22px, 3.5vw, 28px); font-weight: 700; color: var(--text-main); letter-spacing: -0.02em; }
+        .metric-label { font-size: 11px; color: var(--text-muted); margin-top: 4px; font-weight: 500; letter-spacing: 0.03em; }
+
+        .card-omt { background: linear-gradient(135deg, #1d1d1f 0%, #2d2d30 100%); border: none; }
+        .card-omt, .card-omt h2, .card-omt h3, .card-omt p, .card-omt li, .card-omt strong { color: #f5f5f7; }
+        .card-omt .section-label { color: rgba(255,255,255,0.4); }
+        .card-omt .callout { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.1); }
+        .card-omt .callout-content p { color: rgba(255,255,255,0.85); }
+
+        .param-table { margin: 20px 0; }
+
+        @media (max-width: 960px) {
+            .layout-grid { grid-template-columns: 1fr; gap: 0; padding: 24px 16px 60px; }
+            .sidebar { display: none; }
+        }
+        @media (max-width: 640px) {
+            .hero-section { padding: 80px 16px 40px; }
+            .hero-authors { font-size: 14px; margin-bottom: 24px; }
+            .meta-tags { gap: 6px; }
+            .tag { font-size: 10px; padding: 4px 10px; }
+            .card { padding: 24px 18px; margin-bottom: 16px; border-radius: 16px; }
+            .card:hover { transform: none; }
+            .callout { padding: 14px 16px; gap: 10px; flex-direction: column; }
+            .callout-icon { font-size: 18px; }
+            .callout-content p { font-size: 14px; }
+            p { font-size: 15px; margin-bottom: 14px; }
+            ul, ol { font-size: 15px; padding-left: 18px; }
+            li { margin-bottom: 8px; }
+            .metrics { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+            .metric-card { padding: 14px 8px; }
+            .metric-label { font-size: 10px; }
+            .navbar { gap: 0; justify-content: flex-start; padding: 0 12px; }
+            .navbar a { font-size: 12px; padding: 6px 10px; }
+            .figure-caption { font-size: 12px; }
+            details { padding: 14px 16px; }
+            summary { font-size: 14px; }
+            .table-wrapper { margin: 16px -18px; border-radius: 0; border-left: none; border-right: none; }
+            .formula-card { padding: 18px 12px; }
+            .back-to-top { bottom: 16px; right: 16px; width: 36px; height: 36px; }
+            .card-omt { padding: 28px 20px; }
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar">
+        <a href="#hero">概览</a>
+        <a href="#motivation">研究动机</a>
+        <a href="#method">核心方法</a>
+        <a href="#comparison">架构对比</a>
+        <a href="#loss">损失函数</a>
+        <a href="#results">实验结果</a>
+        <a href="#review">犀利短评</a>
+        <a href="#omt">One More Thing</a>
+    </nav>
+
+    <header id="hero" class="hero-section">
+        <div class="meta-tags">
+            <span class="tag">CVPR 2020</span>
+            <span class="tag">Contrastive Learning</span>
+            <span class="tag">Facebook AI Research</span>
+            <span class="tag tag-green">Milestone Paper</span>
+        </div>
+        <h1>Momentum Contrast for Unsupervised Visual Representation Learning</h1>
+        <p class="hero-authors">Kaiming He, Haoqi Fan, Yuxin Wu, Saining Xie, Ross Girshick</p>
+        <p class="hero-abstract">
+            本文将对比学习建模为<strong style="color:var(--text-main)">字典查询</strong>问题，提出 MoCo（Momentum Contrast）框架——通过动态队列维护大型负样本字典，通过动量编码器保持表示一致性。在 ImageNet 线性评估和多个下游任务上，MoCo 的无监督表示首次超越了有监督预训练基线。
+        </p>
+    </header>
+
+    <div class="layout-grid">
+        <main>
+            <!-- 1. 研究动机 -->
+            <section id="motivation" class="card">
+                <span class="section-label">SECTION 1</span>
+                <h2>研究动机与问题背景</h2>
+                <p>无监督视觉表示学习在 NLP 领域（BERT、GPT）取得巨大成功后，CV 领域的对比学习方法展现出缩小差距的潜力。MoCo 从<strong>字典查询</strong>的视角统一理解对比学习：</p>
+                <ul>
+                    <li><strong>Query 与 Key：</strong>对同一图像做两种数据增强，一个视图编码为 query $q$，另一个编码为 key $k^+$（正样本）。其他图像编码为 $k_1^-, k_2^-, \ldots$（负样本）。</li>
+                    <li><strong>字典查询目标：</strong>让 $q$ 与其匹配的 $k^+$ 相似度最高，与所有 $k_i^-$ 相似度最低。</li>
+                    <li><strong>核心矛盾：</strong>好的对比学习需要一个<strong>既大又一致</strong>的字典——大字典提供更丰富的负样本，一致性保证对比信号不失真。</li>
+                </ul>
+
+                <div class="callout">
+                    <div class="callout-icon">&#x1F4A1;</div>
+                    <div class="callout-content">
+                        <p><strong>核心洞见：</strong>现有方法在"大"和"一致"之间只能二选一。端到端方法（如 SimCLR）字典一致但受限于 batch size；Memory Bank 字典很大但表示不一致。MoCo 的突破在于：用<strong>动态队列</strong>解决"大"，用<strong>动量编码器</strong>解决"一致"。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. 核心方法 -->
+            <section id="method" class="card">
+                <span class="section-label">SECTION 2</span>
+                <h2>核心方法：动态队列 + 动量编码器</h2>
+
+                <div class="metrics">
+                    <div class="metric-card"><div class="metric-value" style="color:var(--blue)">65,536</div><div class="metric-label">队列大小 K</div></div>
+                    <div class="metric-card"><div class="metric-value" style="color:var(--green)">0.999</div><div class="metric-label">动量系数 m</div></div>
+                    <div class="metric-card"><div class="metric-value" style="color:var(--orange)">0.07</div><div class="metric-label">温度参数 &tau;</div></div>
+                    <div class="metric-card"><div class="metric-value" style="color:var(--purple)">60.6%</div><div class="metric-label">ImageNet Top-1</div></div>
+                </div>
+
+                <h3>1. 动态队列（Dynamic Queue）</h3>
+                <p>MoCo 设计了一个 FIFO 队列作为负样本字典。每个 mini-batch 编码后的键入队，最早入队的键出队，字典大小固定为 $K$（默认 65,536）。</p>
+                <ul>
+                    <li><strong>解耦字典与 batch：</strong>字典大小不再受 GPU 内存限制，可以远大于 mini-batch size。</li>
+                    <li><strong>保持新鲜度：</strong>最旧的键被移除，避免过时的表示污染对比信号。</li>
+                </ul>
+
+                <h3>2. 动量编码器（Momentum Encoder）</h3>
+                <p>队列中的键来自不同时间步，若编码器参数变化过快会导致表示不一致。MoCo 引入动量更新策略：</p>
+                <div class="formula-card">
+                    $$ \theta_k \leftarrow m \cdot \theta_k + (1 - m) \cdot \theta_q $$
+                </div>
+                <ul>
+                    <li><strong>查询编码器 $f_q$：</strong>参数 $\theta_q$ 通过反向传播正常更新。</li>
+                    <li><strong>键编码器 $f_k$：</strong>参数 $\theta_k$ 通过动量更新，$m=0.999$ 意味着每步仅吸收 0.1% 的 $\theta_q$，缓慢演变以保持一致性。</li>
+                </ul>
+
+                <div class="figure">
+                    <!-- SVG: MoCo Architecture -->
+                    <svg viewBox="0 0 640 340" xmlns="http://www.w3.org/2000/svg">
+                        <rect width="640" height="340" rx="16" fill="#fafbfc" stroke="#e8e8ed" stroke-width="0.5"/>
+                        <defs>
+                            <marker id="arrowB" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#0071e3"/></marker>
+                            <marker id="arrowG" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#30d158"/></marker>
+                            <marker id="arrowP" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#bf5af2"/></marker>
+                            <marker id="arrowR" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#ff453a"/></marker>
+                            <marker id="arrowGray" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#86868b"/></marker>
+                        </defs>
+
+                        <text x="320" y="24" text-anchor="middle" fill="#1d1d1f" font-size="14" font-weight="600" font-family="-apple-system,sans-serif">MoCo 架构流程</text>
+
+                        <!-- Input image x -->
+                        <rect x="20" y="140" width="70" height="60" rx="8" fill="#fff5e6" stroke="#ff9f0a" stroke-width="1.2"/>
+                        <text x="55" y="165" text-anchor="middle" fill="#1d1d1f" font-size="12" font-weight="600" font-family="-apple-system,sans-serif">图像 x</text>
+                        <text x="55" y="182" text-anchor="middle" fill="#86868b" font-size="10" font-family="-apple-system,sans-serif">数据增强</text>
+
+                        <!-- Augmentation split -->
+                        <line x1="90" y1="155" x2="130" y2="100" stroke="#0071e3" stroke-width="1.5" marker-end="url(#arrowB)"/>
+                        <line x1="90" y1="175" x2="130" y2="230" stroke="#30d158" stroke-width="1.5" marker-end="url(#arrowG)"/>
+                        <text x="100" y="90" fill="#0071e3" font-size="10" font-family="-apple-system,sans-serif">$x^q$</text>
+                        <text x="100" y="252" fill="#30d158" font-size="10" font-family="-apple-system,sans-serif">$x^k$</text>
+
+                        <!-- Query Encoder -->
+                        <rect x="135" y="70" width="120" height="50" rx="10" fill="rgba(0,113,227,0.08)" stroke="#0071e3" stroke-width="1.2"/>
+                        <text x="195" y="92" text-anchor="middle" fill="#0071e3" font-size="12" font-weight="600" font-family="-apple-system,sans-serif">Query Encoder</text>
+                        <text x="195" y="108" text-anchor="middle" fill="#0071e3" font-size="10" font-family="-apple-system,sans-serif">$f_q$（梯度更新）</text>
+
+                        <!-- Key Encoder -->
+                        <rect x="135" y="210" width="120" height="50" rx="10" fill="rgba(48,209,88,0.08)" stroke="#30d158" stroke-width="1.2"/>
+                        <text x="195" y="232" text-anchor="middle" fill="#30d158" font-size="12" font-weight="600" font-family="-apple-system,sans-serif">Key Encoder</text>
+                        <text x="195" y="248" text-anchor="middle" fill="#30d158" font-size="10" font-family="-apple-system,sans-serif">$f_k$（动量更新）</text>
+
+                        <!-- Momentum arrow between encoders -->
+                        <line x1="160" y1="120" x2="160" y2="206" stroke="#86868b" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#arrowGray)"/>
+                        <text x="110" y="168" fill="#86868b" font-size="9" font-family="-apple-system,sans-serif">动量更新</text>
+
+                        <!-- q output -->
+                        <line x1="255" y1="95" x2="310" y2="95" stroke="#0071e3" stroke-width="1.5" marker-end="url(#arrowB)"/>
+                        <rect x="315" y="75" width="50" height="40" rx="8" fill="rgba(0,113,227,0.12)" stroke="#0071e3" stroke-width="1"/>
+                        <text x="340" y="100" text-anchor="middle" fill="#0071e3" font-size="14" font-weight="700" font-family="-apple-system,sans-serif">q</text>
+
+                        <!-- k output -->
+                        <line x1="255" y1="235" x2="310" y2="235" stroke="#30d158" stroke-width="1.5" marker-end="url(#arrowG)"/>
+                        <rect x="315" y="215" width="50" height="40" rx="8" fill="rgba(48,209,88,0.12)" stroke="#30d158" stroke-width="1"/>
+                        <text x="340" y="240" text-anchor="middle" fill="#30d158" font-size="14" font-weight="700" font-family="-apple-system,sans-serif">k</text>
+
+                        <!-- Queue -->
+                        <rect x="420" y="175" width="190" height="100" rx="12" fill="rgba(191,90,242,0.06)" stroke="#bf5af2" stroke-width="1.2"/>
+                        <text x="515" y="197" text-anchor="middle" fill="#bf5af2" font-size="12" font-weight="600" font-family="-apple-system,sans-serif">动态队列 Queue</text>
+                        <!-- Queue slots -->
+                        <rect x="435" y="208" width="28" height="22" rx="4" fill="#30d158" opacity="0.2" stroke="#30d158" stroke-width="0.8"/>
+                        <text x="449" y="224" text-anchor="middle" fill="#30d158" font-size="9" font-weight="600" font-family="-apple-system,sans-serif">k+</text>
+                        <rect x="468" y="208" width="28" height="22" rx="4" fill="#bf5af2" opacity="0.15" stroke="#bf5af2" stroke-width="0.6"/>
+                        <text x="482" y="224" text-anchor="middle" fill="#bf5af2" font-size="9" font-family="-apple-system,sans-serif">$k_1^-$</text>
+                        <rect x="501" y="208" width="28" height="22" rx="4" fill="#bf5af2" opacity="0.15" stroke="#bf5af2" stroke-width="0.6"/>
+                        <text x="515" y="224" text-anchor="middle" fill="#bf5af2" font-size="9" font-family="-apple-system,sans-serif">$k_2^-$</text>
+                        <text x="545" y="224" text-anchor="middle" fill="#86868b" font-size="11" font-family="-apple-system,sans-serif">...</text>
+                        <rect x="560" y="208" width="28" height="22" rx="4" fill="#bf5af2" opacity="0.1" stroke="#bf5af2" stroke-width="0.6"/>
+                        <text x="574" y="224" text-anchor="middle" fill="#bf5af2" font-size="9" font-family="-apple-system,sans-serif">$k_K^-$</text>
+                        <!-- Enqueue / Dequeue labels -->
+                        <text x="448" y="257" fill="#30d158" font-size="9" font-weight="500" font-family="-apple-system,sans-serif">入队 &rarr;</text>
+                        <text x="555" y="257" fill="#ff453a" font-size="9" font-weight="500" font-family="-apple-system,sans-serif">&rarr; 出队</text>
+
+                        <!-- k to queue -->
+                        <line x1="365" y1="240" x2="416" y2="225" stroke="#30d158" stroke-width="1.2" marker-end="url(#arrowG)"/>
+
+                        <!-- Contrastive Loss -->
+                        <rect x="420" y="60" width="190" height="55" rx="12" fill="rgba(255,69,58,0.06)" stroke="#ff453a" stroke-width="1.2"/>
+                        <text x="515" y="82" text-anchor="middle" fill="#ff453a" font-size="12" font-weight="600" font-family="-apple-system,sans-serif">InfoNCE Loss</text>
+                        <text x="515" y="101" text-anchor="middle" fill="#86868b" font-size="10" font-family="-apple-system,sans-serif">对比 q 与 {k+, k1-, ..., kK-}</text>
+
+                        <!-- q to loss -->
+                        <line x1="365" y1="90" x2="416" y2="82" stroke="#0071e3" stroke-width="1.2" marker-end="url(#arrowB)"/>
+                        <!-- queue to loss -->
+                        <line x1="515" y1="175" x2="515" y2="119" stroke="#bf5af2" stroke-width="1.2" marker-end="url(#arrowP)"/>
+
+                        <!-- Gradient back to fq -->
+                        <path d="M420,100 Q390,130 255,95" fill="none" stroke="#ff453a" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrowR)"/>
+                        <text x="360" y="136" fill="#ff453a" font-size="9" font-family="-apple-system,sans-serif">反向传播</text>
+
+                        <!-- Legend -->
+                        <rect x="20" y="295" width="600" height="30" rx="6" fill="rgba(0,0,0,0.02)"/>
+                        <circle cx="40" cy="310" r="5" fill="#0071e3"/>
+                        <text x="52" y="314" fill="#86868b" font-size="10" font-family="-apple-system,sans-serif">梯度更新</text>
+                        <circle cx="140" cy="310" r="5" fill="#30d158"/>
+                        <text x="152" y="314" fill="#86868b" font-size="10" font-family="-apple-system,sans-serif">动量更新</text>
+                        <circle cx="240" cy="310" r="5" fill="#bf5af2"/>
+                        <text x="252" y="314" fill="#86868b" font-size="10" font-family="-apple-system,sans-serif">负样本队列</text>
+                        <circle cx="350" cy="310" r="5" fill="#ff453a"/>
+                        <text x="362" y="314" fill="#86868b" font-size="10" font-family="-apple-system,sans-serif">损失 &amp; 梯度</text>
+                        <line x1="440" y1="310" x2="470" y2="310" stroke="#86868b" stroke-width="1.2" stroke-dasharray="4 3"/>
+                        <text x="478" y="314" fill="#86868b" font-size="10" font-family="-apple-system,sans-serif">无梯度 / 间接更新</text>
+                    </svg>
+                    <p class="figure-caption">MoCo 完整架构：图像经两次增强后分别送入 query encoder 和 momentum key encoder，生成 $q$ 和 $k$。$k$ 入队形成负样本字典，InfoNCE 损失驱动 $f_q$ 更新，$f_k$ 通过动量公式间接更新。</p>
+                </div>
+
+                <details>
+                    <summary>训练伪代码关键设计</summary>
+                    <ul>
+                        <li><strong><code>labels = zeros(N)</code>：</strong>正样本 $k^+$ 始终被拼接在 logits 的第 0 列，因此 Cross Entropy 的 ground-truth 标签全为 0。</li>
+                        <li><strong><code>k = k.detach()</code>：</strong>确保梯度不回传到键编码器，键编码器仅通过动量公式更新。</li>
+                        <li><strong>严格的更新顺序：</strong>前向传播 &rarr; 计算 loss &rarr; backward 更新 $f_q$ &rarr; 动量更新 $f_k$ &rarr; 入队新 key、出队旧 key。</li>
+                    </ul>
+                </details>
+            </section>
+
+            <!-- 3. 架构对比 -->
+            <section id="comparison" class="card">
+                <span class="section-label">SECTION 3</span>
+                <h2>三种对比学习架构对比</h2>
+                <p>对比学习的核心问题是如何构建负样本字典。三种主流方案在字典大小与一致性之间做出了不同权衡：</p>
+
+                <div class="figure">
+                    <!-- SVG: Three architectures comparison -->
+                    <svg viewBox="0 0 640 280" xmlns="http://www.w3.org/2000/svg">
+                        <rect width="640" height="280" rx="16" fill="#fafbfc" stroke="#e8e8ed" stroke-width="0.5"/>
+                        <defs>
+                            <marker id="arrSmB" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><path d="M0,0 L5,2.5 L0,5" fill="#0071e3"/></marker>
+                            <marker id="arrSmO" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><path d="M0,0 L5,2.5 L0,5" fill="#ff9f0a"/></marker>
+                            <marker id="arrSmG" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><path d="M0,0 L5,2.5 L0,5" fill="#30d158"/></marker>
+                        </defs>
+
+                        <!-- Column 1: End-to-end -->
+                        <text x="107" y="24" text-anchor="middle" fill="#ff9f0a" font-size="13" font-weight="600" font-family="-apple-system,sans-serif">(a) 端到端</text>
+                        <rect x="30" y="38" width="155" height="225" rx="12" fill="rgba(255,159,10,0.04)" stroke="#ff9f0a" stroke-width="0.8"/>
+                        <!-- Two encoders -->
+                        <rect x="42" y="55" width="58" height="35" rx="6" fill="rgba(0,113,227,0.08)" stroke="#0071e3" stroke-width="0.8"/>
+                        <text x="71" y="76" text-anchor="middle" fill="#0071e3" font-size="10" font-weight="600" font-family="-apple-system,sans-serif">Enc_q</text>
+                        <rect x="115" y="55" width="58" height="35" rx="6" fill="rgba(0,113,227,0.08)" stroke="#0071e3" stroke-width="0.8"/>
+                        <text x="144" y="76" text-anchor="middle" fill="#0071e3" font-size="10" font-weight="600" font-family="-apple-system,sans-serif">Enc_k</text>
+                        <!-- Gradient arrows on both -->
+                        <text x="71" y="105" text-anchor="middle" fill="#0071e3" font-size="9" font-family="-apple-system,sans-serif">&#x2193; 梯度</text>
+                        <text x="144" y="105" text-anchor="middle" fill="#0071e3" font-size="9" font-family="-apple-system,sans-serif">&#x2193; 梯度</text>
+                        <!-- Dict = batch -->
+                        <rect x="50" y="115" width="115" height="30" rx="6" fill="rgba(255,159,10,0.1)" stroke="#ff9f0a" stroke-width="0.8"/>
+                        <text x="107" y="135" text-anchor="middle" fill="#ff9f0a" font-size="10" font-weight="500" font-family="-apple-system,sans-serif">字典 = mini-batch</text>
+                        <!-- Pros/cons -->
+                        <text x="107" y="170" text-anchor="middle" fill="#30d158" font-size="10" font-weight="500" font-family="-apple-system,sans-serif">&#x2713; 高一致性</text>
+                        <text x="107" y="190" text-anchor="middle" fill="#ff453a" font-size="10" font-weight="500" font-family="-apple-system,sans-serif">&#x2717; 字典小（受 GPU 限制）</text>
+                        <text x="107" y="210" text-anchor="middle" fill="#ff453a" font-size="10" font-weight="500" font-family="-apple-system,sans-serif">&#x2717; 需要大 batch</text>
+                        <text x="107" y="245" text-anchor="middle" fill="#86868b" font-size="9" font-style="italic" font-family="-apple-system,sans-serif">代表：SimCLR</text>
+
+                        <!-- Column 2: Memory Bank -->
+                        <text x="322" y="24" text-anchor="middle" fill="#bf5af2" font-size="13" font-weight="600" font-family="-apple-system,sans-serif">(b) Memory Bank</text>
+                        <rect x="243" y="38" width="155" height="225" rx="12" fill="rgba(191,90,242,0.04)" stroke="#bf5af2" stroke-width="0.8"/>
+                        <!-- Encoder -->
+                        <rect x="270" y="55" width="100" height="35" rx="6" fill="rgba(0,113,227,0.08)" stroke="#0071e3" stroke-width="0.8"/>
+                        <text x="320" y="76" text-anchor="middle" fill="#0071e3" font-size="10" font-weight="600" font-family="-apple-system,sans-serif">Encoder</text>
+                        <text x="320" y="105" text-anchor="middle" fill="#0071e3" font-size="9" font-family="-apple-system,sans-serif">&#x2193; 梯度</text>
+                        <!-- Memory bank -->
+                        <rect x="258" y="115" width="125" height="30" rx="6" fill="rgba(191,90,242,0.1)" stroke="#bf5af2" stroke-width="0.8"/>
+                        <text x="320" y="135" text-anchor="middle" fill="#bf5af2" font-size="10" font-weight="500" font-family="-apple-system,sans-serif">Memory Bank（全量）</text>
+                        <!-- Pros/cons -->
+                        <text x="320" y="170" text-anchor="middle" fill="#30d158" font-size="10" font-weight="500" font-family="-apple-system,sans-serif">&#x2713; 字典极大</text>
+                        <text x="320" y="190" text-anchor="middle" fill="#ff453a" font-size="10" font-weight="500" font-family="-apple-system,sans-serif">&#x2717; 低一致性（异步更新）</text>
+                        <text x="320" y="210" text-anchor="middle" fill="#ff453a" font-size="10" font-weight="500" font-family="-apple-system,sans-serif">&#x2717; 内存开销大</text>
+                        <text x="320" y="245" text-anchor="middle" fill="#86868b" font-size="9" font-style="italic" font-family="-apple-system,sans-serif">代表：InstDisc</text>
+
+                        <!-- Column 3: MoCo -->
+                        <text x="535" y="24" text-anchor="middle" fill="#30d158" font-size="13" font-weight="600" font-family="-apple-system,sans-serif">(c) MoCo</text>
+                        <rect x="455" y="38" width="155" height="225" rx="12" fill="rgba(48,209,88,0.04)" stroke="#30d158" stroke-width="0.8"/>
+                        <!-- Two encoders -->
+                        <rect x="467" y="55" width="58" height="35" rx="6" fill="rgba(0,113,227,0.08)" stroke="#0071e3" stroke-width="0.8"/>
+                        <text x="496" y="76" text-anchor="middle" fill="#0071e3" font-size="10" font-weight="600" font-family="-apple-system,sans-serif">Enc_q</text>
+                        <rect x="540" y="55" width="58" height="35" rx="6" fill="rgba(48,209,88,0.08)" stroke="#30d158" stroke-width="0.8"/>
+                        <text x="569" y="76" text-anchor="middle" fill="#30d158" font-size="10" font-weight="600" font-family="-apple-system,sans-serif">Enc_k</text>
+                        <!-- Update labels -->
+                        <text x="496" y="105" text-anchor="middle" fill="#0071e3" font-size="9" font-family="-apple-system,sans-serif">&#x2193; 梯度</text>
+                        <text x="569" y="105" text-anchor="middle" fill="#30d158" font-size="9" font-family="-apple-system,sans-serif">&#x2193; 动量</text>
+                        <!-- Queue -->
+                        <rect x="475" y="115" width="115" height="30" rx="6" fill="rgba(48,209,88,0.1)" stroke="#30d158" stroke-width="0.8"/>
+                        <text x="532" y="135" text-anchor="middle" fill="#30d158" font-size="10" font-weight="500" font-family="-apple-system,sans-serif">动态队列 (FIFO)</text>
+                        <!-- Pros/cons -->
+                        <text x="532" y="170" text-anchor="middle" fill="#30d158" font-size="10" font-weight="500" font-family="-apple-system,sans-serif">&#x2713; 字典大（65,536）</text>
+                        <text x="532" y="190" text-anchor="middle" fill="#30d158" font-size="10" font-weight="500" font-family="-apple-system,sans-serif">&#x2713; 高一致性（动量保证）</text>
+                        <text x="532" y="210" text-anchor="middle" fill="#30d158" font-size="10" font-weight="500" font-family="-apple-system,sans-serif">&#x2713; 低硬件需求</text>
+                        <text x="532" y="245" text-anchor="middle" fill="#1d1d1f" font-size="9" font-weight="600" font-family="-apple-system,sans-serif">Best of both worlds</text>
+                    </svg>
+                    <p class="figure-caption">三种对比学习架构的核心区别：端到端方法字典=batch size，一致但小；Memory Bank 字典大但不一致；MoCo 通过队列+动量编码器同时实现大字典和高一致性。</p>
+                </div>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>方法</th><th>字典大小</th><th>一致性</th><th>硬件需求</th><th>代表工作</th></tr></thead>
+                        <tbody>
+                            <tr><td>端到端</td><td>= batch size</td><td>高</td><td>高（需大 batch）</td><td>SimCLR</td></tr>
+                            <tr><td>Memory Bank</td><td>全量数据集</td><td>低</td><td>中</td><td>InstDisc</td></tr>
+                            <tr class="highlight"><td><strong>MoCo</strong></td><td><strong>65,536（可调）</strong></td><td><strong>高</strong></td><td><strong>低</strong></td><td><strong>本文</strong></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 4. 损失函数 -->
+            <section id="loss" class="card">
+                <span class="section-label">SECTION 4</span>
+                <h2>损失函数：InfoNCE</h2>
+                <p>MoCo 采用 InfoNCE Loss，将对比学习转化为 $(K+1)$ 类 softmax 分类任务。</p>
+
+                <h3>InfoNCE 公式</h3>
+                <div class="formula-card">
+                    $$ \mathcal{L}_q = -\log \frac{\exp(q \cdot k^+ / \tau)}{\exp(q \cdot k^+ / \tau) + \sum_{i=1}^{K} \exp(q \cdot k_i^- / \tau)} $$
+                </div>
+                <ul>
+                    <li><strong>$q$：</strong>当前样本的 query 表征（来自 $f_q$）。</li>
+                    <li><strong>$k^+$：</strong>正样本（同一图像的不同增强视图，来自 $f_k$）。</li>
+                    <li><strong>$k_i^-$：</strong>负样本（队列中其他图像的表征）。</li>
+                    <li><strong>$\tau = 0.07$：</strong>温度参数，控制分布尖锐程度。</li>
+                </ul>
+
+                <div class="figure">
+                    <!-- SVG: InfoNCE logits visualization -->
+                    <svg viewBox="0 0 640 180" xmlns="http://www.w3.org/2000/svg">
+                        <rect width="640" height="180" rx="16" fill="#fafbfc" stroke="#e8e8ed" stroke-width="0.5"/>
+                        <text x="320" y="24" text-anchor="middle" fill="#1d1d1f" font-size="13" font-weight="600" font-family="-apple-system,sans-serif">InfoNCE Logits 构造：正样本在第 0 位</text>
+
+                        <!-- q vector -->
+                        <rect x="30" y="65" width="60" height="50" rx="8" fill="rgba(0,113,227,0.1)" stroke="#0071e3" stroke-width="1"/>
+                        <text x="60" y="95" text-anchor="middle" fill="#0071e3" font-size="14" font-weight="700" font-family="-apple-system,sans-serif">q</text>
+
+                        <!-- dot product symbol -->
+                        <text x="110" y="95" text-anchor="middle" fill="#1d1d1f" font-size="18" font-family="-apple-system,sans-serif">&middot;</text>
+
+                        <!-- k+ and k- array -->
+                        <text x="170" y="55" text-anchor="middle" fill="#86868b" font-size="10" font-family="-apple-system,sans-serif">pos=0</text>
+                        <rect x="140" y="65" width="50" height="50" rx="8" fill="rgba(48,209,88,0.15)" stroke="#30d158" stroke-width="1.2"/>
+                        <text x="165" y="95" text-anchor="middle" fill="#30d158" font-size="12" font-weight="700" font-family="-apple-system,sans-serif">k+</text>
+                        <rect x="195" y="65" width="50" height="50" rx="6" fill="rgba(191,90,242,0.08)" stroke="#bf5af2" stroke-width="0.8"/>
+                        <text x="220" y="95" text-anchor="middle" fill="#bf5af2" font-size="11" font-family="-apple-system,sans-serif">$k_1^-$</text>
+                        <rect x="250" y="65" width="50" height="50" rx="6" fill="rgba(191,90,242,0.08)" stroke="#bf5af2" stroke-width="0.8"/>
+                        <text x="275" y="95" text-anchor="middle" fill="#bf5af2" font-size="11" font-family="-apple-system,sans-serif">$k_2^-$</text>
+                        <text x="315" y="95" text-anchor="middle" fill="#86868b" font-size="14" font-family="-apple-system,sans-serif">...</text>
+                        <rect x="330" y="65" width="50" height="50" rx="6" fill="rgba(191,90,242,0.08)" stroke="#bf5af2" stroke-width="0.8"/>
+                        <text x="355" y="95" text-anchor="middle" fill="#bf5af2" font-size="11" font-family="-apple-system,sans-serif">$k_K^-$</text>
+
+                        <!-- = logits -->
+                        <text x="405" y="95" text-anchor="middle" fill="#1d1d1f" font-size="16" font-family="-apple-system,sans-serif">=</text>
+
+                        <!-- logits result -->
+                        <rect x="425" y="65" width="50" height="50" rx="8" fill="rgba(48,209,88,0.2)" stroke="#30d158" stroke-width="1.2"/>
+                        <text x="450" y="88" text-anchor="middle" fill="#30d158" font-size="10" font-weight="600" font-family="-apple-system,sans-serif">高</text>
+                        <text x="450" y="103" text-anchor="middle" fill="#30d158" font-size="9" font-family="-apple-system,sans-serif">$q \cdot k^+$</text>
+                        <rect x="480" y="65" width="40" height="50" rx="6" fill="rgba(191,90,242,0.06)" stroke="#bf5af2" stroke-width="0.6"/>
+                        <text x="500" y="95" text-anchor="middle" fill="#bf5af2" font-size="9" font-family="-apple-system,sans-serif">低</text>
+                        <rect x="525" y="65" width="40" height="50" rx="6" fill="rgba(191,90,242,0.06)" stroke="#bf5af2" stroke-width="0.6"/>
+                        <text x="545" y="95" text-anchor="middle" fill="#bf5af2" font-size="9" font-family="-apple-system,sans-serif">低</text>
+                        <text x="580" y="95" text-anchor="middle" fill="#86868b" font-size="12" font-family="-apple-system,sans-serif">...</text>
+                        <rect x="593" y="65" width="30" height="50" rx="6" fill="rgba(191,90,242,0.06)" stroke="#bf5af2" stroke-width="0.6"/>
+                        <text x="608" y="95" text-anchor="middle" fill="#bf5af2" font-size="9" font-family="-apple-system,sans-serif">低</text>
+
+                        <!-- Label -->
+                        <text x="450" y="140" text-anchor="middle" fill="#30d158" font-size="10" font-weight="600" font-family="-apple-system,sans-serif">&#x2191;</text>
+                        <text x="540" y="140" text-anchor="middle" fill="#86868b" font-size="10" font-family="-apple-system,sans-serif">label = 0（正样本始终在 index 0）</text>
+                        <text x="320" y="165" text-anchor="middle" fill="#86868b" font-size="11" font-family="-apple-system,sans-serif">logits &divide; &tau; &rarr; softmax &rarr; CrossEntropy(logits, label=0)</text>
+                    </svg>
+                    <p class="figure-caption">InfoNCE 的实现：正样本 $k^+$ 的点积放在 logits 第 0 位，$K$ 个负样本的点积跟在后面。标签全为 0，本质是 $(K\!+\!1)$ 类分类任务。</p>
+                </div>
+
+                <h3>温度参数 $\tau$ 的影响</h3>
+                <ul>
+                    <li><strong>$\tau$ 较大（如 0.5）：</strong>分布平滑，模型平等对待所有负样本，学习更稳健但不够精细。SimCLR 使用 $\tau=0.5$（因负样本少，需更平滑的梯度信号）。</li>
+                    <li><strong>$\tau$ 较小（如 0.07）：</strong>分布尖锐，模型更关注最困难的负样本，学习更精细但训练可能不稳定。MoCo 使用 $\tau=0.07$（有大量负样本支撑）。</li>
+                </ul>
+            </section>
+
+            <!-- 5. 实验结果 -->
+            <section id="results" class="card">
+                <span class="section-label">SECTION 5</span>
+                <h2>实验结果与核心结论</h2>
+
+                <h3>ImageNet 线性评估</h3>
+                <p>在 ImageNet 上预训练后冻结编码器，仅训练线性分类头（linear probing）：</p>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>方法</th><th>架构</th><th>参数量</th><th>Top-1 (%)</th></tr></thead>
+                        <tbody>
+                            <tr><td>InstDisc (Memory Bank)</td><td>ResNet-50</td><td>24M</td><td>54.0</td></tr>
+                            <tr><td>LocalAgg</td><td>ResNet-50</td><td>24M</td><td>58.8</td></tr>
+                            <tr class="highlight"><td><strong>MoCo</strong></td><td><strong>ResNet-50</strong></td><td><strong>24M</strong></td><td><strong>60.6</strong></td></tr>
+                            <tr><td style="color:var(--text-muted)">有监督基线</td><td>ResNet-50</td><td>24M</td><td>76.5</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3>下游任务迁移</h3>
+                <p>MoCo 预训练的特征在 PASCAL VOC 和 COCO 上的目标检测和分割任务中，<strong>首次超越了 ImageNet 有监督预训练基线</strong>：</p>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>任务</th><th>数据集</th><th>指标</th><th>有监督预训练</th><th>MoCo 预训练</th></tr></thead>
+                        <tbody>
+                            <tr><td>目标检测</td><td>VOC 07+12</td><td>AP<sub>50</sub></td><td>81.3</td><td class="highlight"><strong>81.5</strong></td></tr>
+                            <tr><td>目标检测</td><td>COCO</td><td>AP</td><td>38.9</td><td class="highlight"><strong>39.4 (+0.5)</strong></td></tr>
+                            <tr><td>实例分割</td><td>COCO</td><td>AP<sup>mk</sup></td><td>35.4</td><td class="highlight"><strong>35.7 (+0.3)</strong></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="callout callout-insight">
+                    <div class="callout-icon">&#x1F50D;</div>
+                    <div class="callout-content">
+                        <p><strong>关键发现：</strong>MoCo 的消融实验表明，动量系数 $m=0.999$ 的效果远优于 $m=0.9$（后者使键编码器更新过快，一致性下降）。队列大小从 256 增加到 65,536 时，线性评估准确率持续提升，验证了"大字典"的重要性。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 6. 犀利短评 -->
+            <section id="review" class="card">
+                <span class="section-label">SECTION 6</span>
+                <h2>犀利短评</h2>
+
+                <h3>优点</h3>
+                <ul>
+                    <li><strong>统一视角：</strong>将对比学习建模为字典查询问题，提供了清晰的分析框架。动态队列 + 动量编码器的设计简洁优雅，从工程和理论上都易于理解。</li>
+                    <li><strong>硬件友好：</strong>不需要大 batch（SimCLR 需 8192），单机 8 GPU 即可训练。首次证明自监督预训练在下游任务上可以超越有监督预训练。</li>
+                    <li><strong>通用性强：</strong>MoCo 框架可以与不同的代理任务结合，不限于实例判别。后续 MoCo v2 仅加入少量改进即大幅提升性能。</li>
+                </ul>
+
+                <h3>局限性</h3>
+                <ul>
+                    <li><strong>仍需大量负样本：</strong>MoCo 的成功依赖大量负样本，后续 BYOL 和 SimSiam 证明无需负样本也能训练，质疑了"对比"的必要性。</li>
+                    <li><strong>线性评估瓶颈：</strong>在 ImageNet 线性评估上（60.6%），与有监督基线（76.5%）仍有显著差距。</li>
+                    <li><strong>数据增强依赖：</strong>对比学习的性能高度依赖数据增强策略的设计，这实质上引入了人工先验知识。</li>
+                </ul>
+            </section>
+
+            <!-- 7. One More Thing -->
+            <section id="omt" class="card card-omt">
+                <span class="section-label">SECTION 7</span>
+                <h2>One More Thing：从 MoCo 到 MAE 的演化之路</h2>
+                <p>MoCo 不仅是一篇论文，而是开启了何恺明在自监督学习领域的系统性探索——一条从"对比"到"生成"的技术演化路线：</p>
+                <ul>
+                    <li><strong>MoCo v2 (2020)：</strong>引入 SimCLR 的 MLP 投影头和更强数据增强，仅用几行代码改动即将线性评估提升至 71.1%。</li>
+                    <li><strong>MoCo v3 (2021)：</strong>将 MoCo 推广到 Vision Transformer（ViT），证明对比学习框架的架构通用性。</li>
+                    <li><strong>DINO (2021)：</strong>基于自蒸馏的自监督方法，继承了 MoCo 动量编码器的思想（在 DINO 中称为 teacher network），无需负样本。</li>
+                    <li><strong>MAE (2022)：</strong>何恺明最终跳出对比学习范式，转向掩码自编码——通过重建被掩码的图像 patch 学习表示，简洁至极且效果惊人。</li>
+                </ul>
+
+                <div class="callout">
+                    <div class="callout-icon">&#x1F30A;</div>
+                    <div class="callout-content">
+                        <p><strong>深层启示：</strong>MoCo 的动量编码器思想（缓慢演变的教师模型）已经成为自监督学习的通用技巧，渗透到 DINO、EMA、知识蒸馏等多个方向。从 MoCo → MoCo v2 → MoCo v3 → MAE 的研究轨迹，展现了从"判别式对比学习"到"生成式掩码建模"的范式跃迁——而这一切的起点，正是 MoCo 对"字典查询"这一基本问题的深刻洞察。</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <aside class="sidebar">
+            <div class="sidebar-inner">
+                <div class="toc-title">目录导航</div>
+                <div id="toc"></div>
+            </div>
+        </aside>
+    </div>
+
+    <button class="back-to-top" id="backToTop" aria-label="返回顶部">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+    </button>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const sections = document.querySelectorAll('main section');
+            const toc = document.getElementById('toc');
+            sections.forEach(s => {
+                const h = s.querySelector('h2');
+                if (!h) return;
+                const a = document.createElement('a');
+                a.href = `#${s.id}`;
+                a.className = 'toc-link';
+                a.textContent = h.textContent;
+                toc.appendChild(a);
+            });
+
+            const obs = new IntersectionObserver(entries => {
+                entries.forEach(e => {
+                    if (e.isIntersecting) {
+                        document.querySelectorAll('.toc-link').forEach(l => {
+                            l.classList.toggle('active', l.getAttribute('href') === `#${e.target.id}`);
+                        });
+                    }
+                });
+            }, { rootMargin: '-20% 0px -60% 0px' });
+            sections.forEach(s => obs.observe(s));
+
+            const btn = document.getElementById('backToTop');
+            window.addEventListener('scroll', () => btn.classList.toggle('visible', scrollY > 400));
+            btn.addEventListener('click', () => scrollTo({ top: 0, behavior: 'smooth' }));
+
+            document.querySelectorAll('a[href^="#"]').forEach(a => {
+                a.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const t = document.querySelector(this.getAttribute('href'));
+                    if (t) scrollTo({ top: t.getBoundingClientRect().top + scrollY - 60, behavior: 'smooth' });
+                });
+            });
+        });
+    </script>
+</body>
+</html>
