@@ -45,6 +45,8 @@ BERT 基于 Transformer 的 Encoder 部分（不使用 Decoder），提供两种
 | BERT-Base | 12 | 768 | 12 | 1.1 亿 |
 | BERT-Large | 24 | 1024 | 16 | 3.4 亿 |
 
+![BERT 预训练架构：深度双向 Transformer Encoder 同时训练 MLM 和 NSP 两个任务](/static/blog/bert/architecture.svg)
+
 ### 输入表示
 
 BERT 的输入是一个序列，可以是单个句子或两个句子拼接。与原始 Transformer 不同，BERT 只有编码器，通过将句子对拼接为一个序列来处理。

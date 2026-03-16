@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AlphaFold2 论文深度解析</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts (San Francisco equivalent) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- MathJax Configuration & Script -->
+    <script>
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$']],
+                displayMath: [['$$', '$$']],
+                processEscapes: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre']
+            }
+        };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+
+    <style>
+        /* Apple-style Aesthetics */
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #fbfbfd;
+            color: #1d1d1f;
+            -webkit-font-smoothing: antialiased;
+            scroll-behavior: smooth;
+        }
+
+        .glass-nav {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: saturate(180%) blur(20px);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            letter-spacing: -0.015em;
+        }
+
+        .section-title {
+            font-size: 2.5rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            line-height: 1.1;
+        }
+
+        .card {
+            background: #ffffff;
+            border-radius: 24px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
+            padding: 2rem;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
+        }
+
+        /* Table Styling */
+        .af-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 2rem 0;
+            font-size: 0.95rem;
+        }
+        .af-table th {
+            border-bottom: 1px solid #d2d2d7;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            color: #86868b;
+        }
+        .af-table td {
+            padding: 1rem;
+            border-bottom: 1px solid #f5f5f7;
+            color: #1d1d1f;
+        }
+
+        /* TOC Active State */
+        .toc-link {
+            transition: color 0.2s ease;
+            position: relative;
+        }
+        .toc-link.active {
+            color: #0066cc;
+            font-weight: 600;
+        }
+        .toc-link.active::before {
+            content: "";
+            position: absolute;
+            left: -12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px;
+            height: 16px;
+            background-color: #0066cc;
+            border-radius: 2px;
+        }
+
+        /* Custom Details/Summary */
+        details {
+            border-bottom: 1px solid #d2d2d7;
+            padding: 1rem 0;
+        }
+        summary {
+            font-weight: 600;
+            font-size: 1.25rem;
+            cursor: pointer;
+            list-style: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        summary::-webkit-details-marker {
+            display: none;
+        }
+        summary::after {
+            content: '+';
+            font-size: 1.5rem;
+            color: #0066cc;
+            transition: transform 0.3s ease;
+        }
+        details[open] summary::after {
+            transform: rotate(45deg);
+        }
+        .details-content {
+            padding-top: 1rem;
+            color: #515154;
+            line-height: 1.6;
+        }
+
+        .highlight-text {
+            background: linear-gradient(90deg, #0066cc, #3399ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        #backToTop {
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        #backToTop.show {
+            opacity: 1;
+            visibility: visible;
+        }
+    </style>
+</head>
+<body class="relative">
+
+    <!-- Navigation -->
+    <nav class="glass-nav fixed top-0 w-full z-50 h-16 flex items-center">
+        <div class="max-w-7xl mx-auto px-6 w-full flex justify-between items-center">
+            <div class="font-semibold text-lg tracking-tight">Paper Review <span class="text-gray-400 font-normal">| AlphaFold2</span></div>
+            <div class="hidden md:flex space-x-8 text-sm font-medium text-gray-600">
+                <a href="#motivation" class="hover:text-black transition">动机与背景</a>
+                <a href="#modeling" class="hover:text-black transition">数学与建模</a>
+                <a href="#experiments" class="hover:text-black transition">实验设定</a>
+                <a href="#results" class="hover:text-black transition">核心结果</a>
+                <a href="#review" class="hover:text-black transition">审稿评论</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <header class="pt-40 pb-20 px-6 bg-white overflow-hidden relative">
+        <div class="max-w-4xl mx-auto text-center relative z-10">
+            <div class="inline-block bg-gray-100 rounded-full px-4 py-1 text-xs font-semibold text-gray-600 mb-6 uppercase tracking-wider">
+                Nature 2021 · DeepMind · AI for Science
+            </div>
+            <h1 class="text-5xl md:text-7xl font-bold mb-6 tracking-tighter leading-tight">
+                Highly accurate protein structure <br> prediction with <span class="highlight-text">AlphaFold</span>
+            </h1>
+            <p class="text-xl text-gray-500 mb-8 font-light max-w-2xl mx-auto">
+                作者：John Jumper, Richard Evans, Demis Hassabis, 等<br>
+                单位：DeepMind
+            </p>
+            <div class="text-left bg-[#f5f5f7] rounded-3xl p-8 max-w-3xl mx-auto shadow-sm">
+                <h3 class="text-lg font-semibold mb-3">摘要速览</h3>
+                <p class="text-gray-700 leading-relaxed">
+                    蛋白质三维结构的精准预测被称为生物学的“圣杯”。在过去50年中，即便结合了同源建模等方法，计算预测仍远未达到原子级精度。本文提出了一个名为 <strong>AlphaFold2</strong> 的全新神经网络架构，它深度融合了蛋白质物理学、生物学知识以及多序列比对（MSA）带来的演化信息。在 CASP14 盲测中，该模型在绝大多数情况下实现了达到实验级（X射线/冷冻电镜）精度的结构预测，彻底打破了这一领域的长年瓶颈。
+                </p>
+            </div>
+            <div class="mt-8 flex justify-center space-x-3">
+                <span class="px-3 py-1 border border-gray-300 rounded-full text-sm text-gray-600">Protein Folding</span>
+                <span class="px-3 py-1 border border-gray-300 rounded-full text-sm text-gray-600">Deep Learning</span>
+                <span class="px-3 py-1 border border-gray-300 rounded-full text-sm text-gray-600">Attention Mechanism</span>
+                <span class="px-3 py-1 bg-blue-100 border border-blue-200 rounded-full text-sm text-blue-700 font-medium">SOTA</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Layout -->
+    <div class="max-w-7xl mx-auto px-6 py-12 flex flex-col md:flex-row gap-12">
+        
+        <!-- Sidebar TOC -->
+        <aside class="hidden md:block w-64 flex-shrink-0">
+            <div class="sticky top-32">
+                <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">目录 Table of Contents</h4>
+                <ul class="space-y-3 text-sm text-gray-600 font-medium">
+                    <li><a href="#motivation" class="toc-link block hover:text-black">研究动机与背景</a></li>
+                    <li><a href="#modeling" class="toc-link block hover:text-black">数学表示与建模</a></li>
+                    <li><a href="#experiments" class="toc-link block hover:text-black">实验设置与复现</a></li>
+                    <li><a href="#results" class="toc-link block hover:text-black">结果与结论</a></li>
+                    <li><a href="#review" class="toc-link block hover:text-black">专家评审 (Review)</a></li>
+                    <li><a href="#onemorething" class="toc-link block hover:text-black">One More Thing</a></li>
+                </ul>
+            </div>
+        </aside>
+
+        <!-- Content Area -->
+        <main class="flex-1 space-y-24">
+
+            <!-- Motivation -->
+            <section id="motivation" class="scroll-mt-32">
+                <h2 class="section-title">研究动机与问题背景</h2>
+                <div class="card space-y-6">
+                    <div>
+                        <h3 class="text-xl font-semibold mb-2 text-black">痛点与挑战</h3>
+                        <p class="text-gray-600">
+                            蛋白质结构决定其功能（Structure dictates function）。虽然基因测序技术爆炸性增长，产生了数十亿条蛋白质序列，但截至论文发表前，PDB（Protein Data Bank）中解析出的三维结构仅约10万个。实验手段（如X射线晶体学、冷冻电镜）解析单一结构通常需要数月甚至数年，耗资巨大。
+                        </p>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-semibold mb-2 text-black">现有方法的局限性</h3>
+                        <ul class="list-disc pl-5 text-gray-600 space-y-2">
+                            <li><strong>物理模拟方法</strong>（如分子动力学）：受限于庞大的计算复杂度与力场的近似误差，无法扩展到中大型蛋白。</li>
+                            <li><strong>同源建模/模板方法</strong>：在有高度相似已知结构（同源序列）时有效，但对于“孤儿蛋白”或无相似模板的序列，准确率断崖式下跌。</li>
+                            <li><strong>早期的深度学习方法</strong>（如AlphaFold1）：主要是预测氨基酸残基对的距离图（Distance Matrix），再通过启发式算法重构3D结构。缺乏端到端（End-to-end）的直接坐标输出，精度仍落后于实验手段。</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-semibold mb-2 text-black">核心贡献与 Significance</h3>
+                        <p class="text-gray-600">
+                            AlphaFold2 试图打破“不依赖模板就无法精准预测”的魔咒。其重要性在于首次实现计算预测达到 <strong>原子级实验精度（误差在一根碳原子键长 1.4Å 左右）</strong>，不仅能够预测全局拓扑，还能精准预测侧链（Side-chain）构象。
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Modeling -->
+            <section id="modeling" class="scroll-mt-32">
+                <h2 class="section-title">数学表示与建模</h2>
+                <p class="text-gray-600 mb-6 text-lg">
+                    AlphaFold2 的核心是将蛋白质折叠视为三维空间中的图推理问题（Graph Inference Problem）。网络抛弃了以前预测距离图的间接方式，直接预测原子的 3D 坐标。
+                </p>
+
+                <div class="space-y-6">
+                    <!-- Definitions -->
+                    <details class="bg-gray-50 rounded-2xl px-6 py-2 border-none">
+                        <summary class="text-black">核心符号与数据表示</summary>
+                        <div class="details-content">
+                            <ul class="space-y-3">
+                                <li>$N_{seq}$：多序列比对（MSA）的序列条数。</li>
+                                <li>$N_{res}$：目标蛋白质序列的残基（氨基酸）数量。</li>
+                                <li>$\mathbf{MSA}$ <strong>表示</strong>：矩阵张量，大小为 $N_{seq} \times N_{res} \times c_m$，捕获进化过程中的共演化信息。</li>
+                                <li><strong>Pair表示</strong>（残基对表示）：张量大小为 $N_{res} \times N_{res} \times c_z$，捕获残基 $i$ 和残基 $j$ 之间的空间和几何关系。</li>
+                                <li><strong>残基坐标 (Residue Gas)</strong>：模型中将每个氨基酸的主链视为一个独立的刚体，由旋转矩阵和平移向量表示：$(R_i, \vec{t}_i) \in SO(3) \times \mathbb{R}^3$。</li>
+                            </ul>
+                        </div>
+                    </details>
+
+                    <!-- Evoformer -->
+                    <div class="card border-l-4 border-blue-500 rounded-l-none">
+                        <h3 class="text-2xl font-semibold mb-4 text-black">核心模块 1：Evoformer</h3>
+                        <p class="text-gray-600 mb-4">
+                            Evoformer block 是网络的主干结构（共48层）。它的使命是让 MSA 表示与 Pair 表示之间产生深度的信息交互。
+                        </p>
+                        <h4 class="font-semibold mt-4 mb-2">三角更新机制 (Triangle Multiplicative Update)</h4>
+                        <p class="text-gray-600 mb-4">
+                            在三维空间中，距离必须满足三角不等式（即节点 $i, j, k$ 组成三角形）。Evoformer 引入了基于图的三角乘法更新和三角注意力，强迫网络学习到符合物理几何约束的 Pair 表示。其非注意力乘法更新直观表示为边 $(i,k)$ 与边 $(k,j)$ 共同更新边 $(i,j)$：
+                        </p>
+                        <div class="bg-gray-100 p-4 rounded-xl text-center overflow-x-auto my-4">
+                            $$ z_{ij}' = z_{ij} + \sum_{k} \left( \sigma(W_1 z_{ik}) \odot \sigma(W_2 z_{kj}) \right) $$
+                        </div>
+                        <p class="text-sm text-gray-500">（注：上述公式为三角更新理念的极简抽象表达，$z_{ij}$ 为残基对特征，实际前向过程包含 LayerNorm、Gating 等具体操作）</p>
+                    </div>
+
+                    <!-- Structure Module -->
+                    <div class="card border-l-4 border-purple-500 rounded-l-none">
+                        <h3 class="text-2xl font-semibold mb-4 text-black">核心模块 2：结构模块 (Structure Module)</h3>
+                        <p class="text-gray-600 mb-4">
+                            结构模块（共8层）接收 Evoformer 输出的 Pair 表示和单一序列表示，开始进行 3D 坐标的生成与迭代细化。
+                        </p>
+                        <h4 class="font-semibold mt-4 mb-2">不变点注意力 (Invariant Point Attention, IPA)</h4>
+                        <p class="text-gray-600 mb-4">
+                            IPA 是全篇最优雅的设计之一。传统的自注意力在处理 3D 坐标时，如果全局坐标系旋转，输出也会跟着乱。IPA 能够在每个残基的局部坐标系 $(R_i, \vec{t}_i)$ 中生成 Query, Key, Value 3D点，并在计算注意力权重后映射回全局坐标系，确保了<strong>对全局平移和旋转的严格等变性 (Equivariance)</strong>。
+                        </p>
+                        <div class="bg-gray-100 p-4 rounded-xl text-center overflow-x-auto my-4">
+                            $$ a_{ij} = \text{softmax} \left( q_i^T k_j + w \cdot \exp\left( -\frac{\gamma}{2} || \mathcal{T}_i(q_i^{pt}) - \mathcal{T}_j(k_j^{pt}) ||^2 \right) \right) $$
+                        </div>
+                        <p class="text-sm text-gray-500">此处的 $\mathcal{T}_i(x) = R_i x + \vec{t}_i$ 表示将局部点转换到全局的三维刚体变换，从而利用真实的物理距离衰减注意力权重。</p>
+                        
+                        <h4 class="font-semibold mt-6 mb-2">FAPE 损失函数 (Frame-Aligned Point Error)</h4>
+                        <p class="text-gray-600 mb-4">
+                            直接使用均方误差 (MSE) 会受到蛋白质整体刚体旋转的影响（需要先做一个全局对齐，这会产生梯度计算问题）。FAPE 损失函数通过计算“以真实残基 $i$ 的坐标系为参考看残基 $j$ 的原子”与“以预测残基 $i$ 的坐标系为参考看预测的残基 $j$ 的原子”之间的距离，实现了无需对齐的局部惩罚，并且具有天然的手性（Chirality）区分能力：
+                        </p>
+                        <div class="bg-gray-100 p-4 rounded-xl text-center overflow-x-auto my-4">
+                            $$ \mathcal{L}_{FAPE} = \frac{1}{N_{frames} N_{atoms}} \sum_{i,j} \min\left(d_{clamp}, \left|\left| \mathcal{T}_i^{-1}(\vec{x}_j) - \mathcal{T}_{i, true}^{-1}(\vec{x}_{j, true}) \right|\right| \right) $$
+                        </div>
+                    </div>
+
+                    <!-- Flow -->
+                    <details class="bg-gray-50 rounded-2xl px-6 py-2 border-none mt-6">
+                        <summary class="text-black">算法整体流程 (Recycling 机制)</summary>
+                        <div class="details-content">
+                            <ol class="list-decimal pl-5 space-y-2">
+                                <li><strong>输入提取</strong>：利用 HHBlits / jackhmmer 在巨大序列库中搜索 MSA；在 PDB 中搜索结构模板。</li>
+                                <li><strong>特征初始化</strong>：初始化 MSA 表示矩阵与 Pair 特征矩阵。</li>
+                                <li><strong>循环计算 (Recycling)</strong>：
+                                    将整个网络（Evoformer 48层 + Structure Module 8层）包裹起来，共执行 3 次循环。上一次输出的 Pair 表示和 3D 坐标，将作为输入反馈给下一次循环，极大增强了模型的深度推理能力。
+                                </li>
+                                <li><strong>辅助损失 (Auxiliary Losses)</strong>：包括距离图预测（Distogram）、带掩码的MSA重构（BERT风格，强迫学习共进化关系）、置信度评估（pLDDT）等。</li>
+                                <li><strong>输出细化</strong>：使用 Amber 99sb 力场做极其轻微的梯度下降（Relaxation），仅用来消除原子的立体碰撞，并不增加指标得分。</li>
+                            </ol>
+                        </div>
+                    </details>
+                </div>
+            </section>
+
+            <!-- Experiments -->
+            <section id="experiments" class="scroll-mt-32">
+                <h2 class="section-title">实验设置与复现细节</h2>
+                
+                <div class="card space-y-8">
+                    <div>
+                        <h3 class="text-xl font-semibold mb-4 text-black">数据集设定</h3>
+                        <table class="af-table">
+                            <thead>
+                                <tr>
+                                    <th>用途</th>
+                                    <th>数据集名称</th>
+                                    <th>包含内容/规模</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>有监督训练</td>
+                                    <td>PDB (截止 2018-04-30)</td>
+                                    <td>结晶学、冷冻电镜解析的结构，聚类到40%序列一致性后采样</td>
+                                </tr>
+                                <tr>
+                                    <td>自蒸馏训练 (无标签)</td>
+                                    <td>Uniclust30 (约35万条)</td>
+                                    <td>从未解析过结构的丰富多样蛋白质序列，用初版模型生成伪标签结构</td>
+                                </tr>
+                                <tr>
+                                    <td>MSA 检索</td>
+                                    <td>BFD, UniRef90, MGnify</td>
+                                    <td>包含数十亿条从宏基因组中提取的序列（极大提升了冷门蛋白性能）</td>
+                                </tr>
+                                <tr>
+                                    <td>模板检索</td>
+                                    <td>PDB70</td>
+                                    <td>用于寻找相似模板结构提供结构初始化先验</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div>
+                            <h3 class="text-xl font-semibold mb-3 text-black">评测指标</h3>
+                            <ul class="list-disc pl-5 text-gray-600 space-y-2">
+                                <li><strong>GDT (Global Distance Test)</strong>：CASP官方主要指标（满分100）。测量结构在多次对齐阈值下的残基重合比例。</li>
+                                <li><strong>lDDT-C$\alpha$</strong>：基于局部距离的差异测试（不用全局对齐），满分100。AlphaFold甚至训练了一个多层感知机（pLDDT）来输出该指标的自我置信度。</li>
+                                <li><strong>r.m.s.d$_{95}$</strong>：去除对齐最差的5%异常点后测量的均方根误差（A标度）。</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-semibold mb-3 text-black">训练与硬件配置</h3>
+                            <ul class="list-disc pl-5 text-gray-600 space-y-2">
+                                <li><strong>裁剪策略</strong>：输入太长显存会爆，随机 Crop 为 256 长度进行初始训练。</li>
+                                <li><strong>计算阵列</strong>：128 个 TPU v3 核心并行训练。Batch Size 为单核心 1（总 BS = 128）。</li>
+                                <li><strong>训练周期</strong>：初始阶段训练约 10,000,000 个样本（耗时约 1 周），之后用更长的 Crop（384残基）和更大的 MSA 栈进行 Fine-tuning（额外 4 天）。</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Results -->
+            <section id="results" class="scroll-mt-32">
+                <h2 class="section-title">实验结果与核心结论</h2>
+                <div class="card space-y-6">
+                    <p class="text-gray-600">
+                        在 CASP14（第14届国际蛋白质结构预测评估大赛，盲测，无数据集泄露风险）中，AlphaFold2 形成了统治级优势，其成绩被《Nature》直接评价为“解决了困扰生物学50年的蛋白质折叠难题”。
+                    </p>
+
+                    <table class="af-table">
+                        <thead>
+                            <tr>
+                                <th>评测对象 / 模型</th>
+                                <th>主链准确度 (中位数 r.m.s.d$_{95}$)</th>
+                                <th>全原子准确度 (中位数 r.m.s.d$_{95}$)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>AlphaFold2 (Group 427)</strong></td>
+                                <td class="text-blue-600 font-semibold">0.96 Å</td>
+                                <td class="text-blue-600 font-semibold">1.5 Å</td>
+                            </tr>
+                            <tr>
+                                <td>第二名方法 (BAKER组，非正式)</td>
+                                <td>2.8 Å</td>
+                                <td>3.5 Å</td>
+                            </tr>
+                            <tr>
+                                <td>碳-碳 单键长度 (作为对照)</td>
+                                <td colspan="2" class="text-center text-gray-400 italic">~ 1.4 Å</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h3 class="text-xl font-semibold mb-2 text-black mt-8">关键消融实验 (Ablation Study) 的结论</h3>
+                    <ul class="list-disc pl-5 text-gray-600 space-y-2">
+                        <li><strong>无自蒸馏 (Noisy Student)：</strong> 如果不使用大量无标签序列库进行自学习，GDT指标有轻微下降，但在孤儿蛋白上影响明显。</li>
+                        <li><strong>无不变点注意力 (No IPA)：</strong> 替换为普通的 3D 直接投影后，性能显著下降。证实了物理等变几何结构的绝对重要性。</li>
+                        <li><strong>无 Recycling：</strong> 移除这三次循环反馈，GDT 将大幅下跌约 5~8 分。</li>
+                        <li><strong>屏蔽 MSA 信息：</strong> 模型精度断崖式下跌。AlphaFold2 仍然高度依赖同源序列的信息，单序列（Single-sequence）预测依然是软肋。如果在 MSA 中有效序列 $< 30$ 条，准确率会显著下滑（参见图5a）。</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Critical Review -->
+            <section id="review" class="scroll-mt-32">
+                <h2 class="section-title">专家视角审稿评论 (Critical Review)</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Pros -->
+                    <div class="bg-[#F5F5F7] rounded-3xl p-8">
+                        <div class="flex items-center space-x-2 mb-4">
+                            <svg class="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <h3 class="text-xl font-bold text-black">突破与创新</h3>
+                        </div>
+                        <ul class="space-y-3 text-gray-600">
+                            <li><strong>极佳的 Inductive Bias（归纳偏置）：</strong> 并没有通过堆砌无脑的 Transformer 参数，而是将 3D 旋转平移结构、氨基酸的立体手性、共进化三角形不等式，全部以可导的方式编织进了网络架构。</li>
+                            <li><strong>从 heuristics 到 end-to-end：</strong> 摒弃了由距离矩阵拟合 3D 的启发式后处理优化，直接监督原子坐标，并引入 FAPE 损失，这是极其大胆且成果丰硕的一步。</li>
+                            <li><strong>自监督的胜利：</strong> 使用 BERT-style Masked MSA loss 和在 Uniclust 上的伪标签蒸馏，是工程和算法的完美结合。</li>
+                        </ul>
+                    </div>
+
+                    <!-- Cons & Doubts -->
+                    <div class="bg-[#F5F5F7] rounded-3xl p-8">
+                        <div class="flex items-center space-x-2 mb-4">
+                            <svg class="w-6 h-6 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                            <h3 class="text-xl font-bold text-black">局限与讨论</h3>
+                        </div>
+                        <ul class="space-y-3 text-gray-600">
+                            <li><strong>共演化数据的绑架：</strong> 模型依旧是个高度依赖 MSA（历史同源数据）的高级检索+几何插值机器，而非真正掌握了“物理折叠动力学”。对于全新设计的蛋白、点突变、折叠通路（Folding pathway），模型无法给出解答。</li>
+                            <li><strong>复合物和跨链互作：</strong> 本文版的 AF2 在多聚体或依赖于复杂配体/伴侣蛋白才能成型的区域（Bridging domains）表现糟糕（这是因为它的训练目标是单链）。</li>
+                            <li><strong>计算门槛极高：</strong> 使用超大规模 TPU 阵列，这在绝大多数学术界实验室中都是不可再现的。</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- One More Thing -->
+            <section id="onemorething" class="scroll-mt-32">
+                <h2 class="section-title bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-pink-500">
+                    One More Thing
+                </h2>
+                <div class="card space-y-6 relative overflow-hidden">
+                    <!-- Decor element -->
+                    <div class="absolute -right-20 -top-20 w-64 h-64 bg-pink-100 rounded-full blur-3xl opacity-50 pointer-events-none"></div>
+
+                    <h3 class="text-xl font-semibold mb-2 text-black relative z-10">违反物理规律的“残基气体” (Residue Gas) 是寻找最优解的捷径</h3>
+                    <p class="text-gray-600 relative z-10">
+                        论文中最令人拍案叫绝的设定之一是在 Structure Module 的早期迭代中，<strong>故意允许蛋白质结构违反基本的化学键连接规律。</strong>
+                    </p>
+                    <p class="text-gray-600 relative z-10">
+                        传统物理引擎在折叠过程中，强制要求相邻氨基酸通过肽键刚性连接，这导致折叠搜索空间极其崎岖，极易陷入局部最优。AlphaFold2 把氨基酸链当作离散的“残基气体（Residue Gas）”，网络前向传播时，允许序列在 3D 空间中断裂、相互穿越。这相当于在优化的能量地貌（Energy Landscape）中打通了“虫洞”，使得网络可以在不用解决复杂环路闭合（Loop closure）问题的情况下，同时对整条链的所有局部进行微调。最终通过 Structural Violation 损失在最后阶段“拉回”合规的几何构型。这启发我们，在强物理约束约束任务上，<strong>放宽约束引入自由度（随后再强行收敛），可能是规避局部极小值的工程艺术。</strong>
+                    </p>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Back to top button -->
+    <button id="backToTop" class="fixed bottom-8 right-8 bg-black text-white p-3 rounded-full shadow-lg hover:scale-110 transition-transform">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
+    </button>
+
+    <!-- Footer -->
+    <footer class="border-t border-gray-200 py-12 text-center text-sm text-gray-500 mt-20">
+        <p>基于 DeepMind (Nature 2021) "Highly accurate protein structure prediction with AlphaFold" 重构。<br>Designed for AI Researchers.</p>
+    </footer>
+
+    <!-- Interactive Scripts -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            // 1. Back to Top Button Logic
+            const backToTop = document.getElementById('backToTop');
+            window.addEventListener('scroll', () => {
+                if (window.scrollY > 300) {
+                    backToTop.classList.add('show');
+                } else {
+                    backToTop.classList.remove('show');
+                }
+            });
+            backToTop.addEventListener('click', () => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+
+            // 2. TOC Highlighting using Intersection Observer
+            const sections = document.querySelectorAll('section[id]');
+            const tocLinks = document.querySelectorAll('.toc-link');
+
+            const observerOptions = {
+                root: null,
+                rootMargin: '-100px 0px -40% 0px', // Adjust depending on header height
+                threshold: 0
+            };
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        // Remove active class from all links
+                        tocLinks.forEach(link => link.classList.remove('active'));
+                        // Add active class to corresponding link
+                        const id = entry.target.getAttribute('id');
+                        const activeLink = document.querySelector(`.toc-link[href="#${id}"]`);
+                        if (activeLink) activeLink.classList.add('active');
+                    }
+                });
+            }, observerOptions);
+
+            sections.forEach(section => observer.observe(section));
+        });
+    </script>
+</body>
+</html>

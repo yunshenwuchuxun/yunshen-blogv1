@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Swin Transformer: Hierarchical Vision Transformer</title>
+    
+    <!-- MathJax Configuration -->
+    <script>
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$']],
+                displayMath: [['$$', '$$']],
+                processEscapes: true,
+                processEnvironments: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre']
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        /* Apple-style CSS Reset & Variables */
+        :root {
+            --bg-color: #fbfbfd;
+            --text-primary: #1d1d1f;
+            --text-secondary: #86868b;
+            --link-color: #0066cc;
+            --card-bg: #ffffff;
+            --border-color: #d2d2d7;
+            --nav-bg: rgba(255, 255, 255, 0.72);
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+            --shadow-md: 0 4px 24px rgba(0, 0, 0, 0.08);
+            --shadow-lg: 0 12px 48px rgba(0, 0, 0, 0.12);
+            --radius-md: 12px;
+            --radius-lg: 18px;
+            --font-stack: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+            --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-stack);
+            color: var(--text-primary);
+            background-color: var(--bg-color);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Typography */
+        h1, h2, h3, h4 {
+            font-family: var(--font-display);
+            font-weight: 600;
+            letter-spacing: -0.015em;
+            margin-bottom: 0.8em;
+        }
+        h1 { font-size: 3rem; line-height: 1.1; letter-spacing: -0.02em; }
+        h2 { font-size: 2rem; margin-top: 2rem; }
+        h3 { font-size: 1.4rem; margin-top: 1.5rem; }
+        p { margin-bottom: 1.2rem; font-size: 17px; }
+        a { color: var(--link-color); text-decoration: none; transition: color 0.2s; }
+        a:hover { text-decoration: underline; }
+        strong { font-weight: 600; }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; background: #f5f5f7; padding: 0.2em 0.4em; border-radius: 4px; font-size: 0.9em; }
+        
+        /* Layout */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Navbar */
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            height: 52px;
+            background-color: var(--nav-bg);
+            backdrop-filter: saturate(180%) blur(20px);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+        }
+        .nav-content {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 1080px;
+            margin: 0 auto;
+            padding: 0 22px;
+        }
+        .nav-brand { font-weight: 600; font-size: 14px; color: var(--text-primary); }
+        .nav-links { display: flex; gap: 20px; }
+        .nav-links a { font-size: 12px; color: var(--text-primary); opacity: 0.8; }
+        .nav-links a:hover { opacity: 1; text-decoration: none; }
+
+        /* Hero Section */
+        .hero {
+            padding: 140px 0 80px;
+            text-align: center;
+            background: linear-gradient(180deg, #f5f5f7 0%, var(--bg-color) 100%);
+        }
+        .hero-meta {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .tags {
+            margin-top: 24px;
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .tag {
+            background-color: rgba(0, 102, 204, 0.1);
+            color: var(--link-color);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .abstract-card {
+            background: var(--card-bg);
+            border-radius: var(--radius-lg);
+            padding: 40px;
+            margin: 40px auto 0;
+            max-width: 840px;
+            box-shadow: var(--shadow-md);
+            text-align: left;
+            font-size: 18px;
+            line-height: 1.6;
+        }
+
+        /* Main Content Grid */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            gap: 60px;
+            margin-top: 40px;
+            padding-bottom: 100px;
+        }
+
+        /* Sidebar TOC */
+        .sidebar {
+            position: sticky;
+            top: 90px;
+            height: fit-content;
+            max-height: calc(100vh - 120px);
+            overflow-y: auto;
+        }
+        .toc-list {
+            list-style: none;
+            border-left: 2px solid var(--border-color);
+            padding-left: 16px;
+        }
+        .toc-item {
+            margin-bottom: 12px;
+        }
+        .toc-link {
+            font-size: 14px;
+            color: var(--text-secondary);
+            display: block;
+            transition: all 0.2s;
+        }
+        .toc-link:hover, .toc-link.active {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        /* Article Content */
+        .article-content section {
+            background: var(--card-bg);
+            border-radius: var(--radius-lg);
+            padding: 60px;
+            margin-bottom: 40px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid rgba(0,0,0,0.02);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .article-content section:hover {
+            box-shadow: var(--shadow-md);
+        }
+
+        /* UI Components */
+        .placeholder-img {
+            width: 100%;
+            height: auto;
+            min-height: 240px;
+            background-color: #f0f0f2;
+            border: 1px dashed #ccc;
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            margin: 24px 0;
+            font-size: 14px;
+            padding: 40px 20px;
+            text-align: center;
+            line-height: 1.5;
+        }
+        .highlight-box {
+            background-color: rgba(0, 102, 204, 0.04);
+            border-left: 4px solid var(--link-color);
+            padding: 20px;
+            border-radius: 0 var(--radius-md) var(--radius-md) 0;
+            margin: 24px 0;
+        }
+        
+        /* Tables */
+        .table-wrapper {
+            overflow-x: auto;
+            margin: 32px 0;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 15px;
+            white-space: nowrap;
+        }
+        th, td {
+            padding: 14px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        th {
+            font-weight: 600;
+            background-color: #f5f5f7;
+        }
+        tr:last-child td { border-bottom: none; }
+        tr:hover { background-color: #fbfbfd; }
+
+        /* Collapsible `<details>` */
+        details {
+            background: #fafafa;
+            border-radius: var(--radius-md);
+            padding: 16px 20px;
+            margin: 20px 0;
+            border: 1px solid var(--border-color);
+        }
+        summary {
+            font-weight: 600;
+            cursor: pointer;
+            outline: none;
+            font-size: 16px;
+        }
+        summary::-webkit-details-marker { display: none; }
+        summary::after {
+            content: '+';
+            float: right;
+            font-size: 20px;
+            line-height: 1;
+            color: var(--text-secondary);
+        }
+        details[open] summary::after { content: '−'; }
+        details[open] p { margin-top: 16px; }
+
+        /* Back to top */
+        .back-to-top {
+            position: fixed;
+            bottom: 40px;
+            right: 40px;
+            background: var(--text-primary);
+            color: white;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+            box-shadow: var(--shadow-md);
+        }
+        .back-to-top.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .main-grid { grid-template-columns: 1fr; gap: 40px; }
+            .sidebar { position: static; height: auto; margin-bottom: 20px; }
+            .article-content section { padding: 30px; }
+            h1 { font-size: 2.2rem; }
+            .nav-links { display: none; } /* Simplified for mobile */
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 导航栏 -->
+    <nav>
+        <div class="nav-content">
+            <div class="nav-brand">CV Paper Review</div>
+            <div class="nav-links">
+                <a href="#motivation">动机</a>
+                <a href="#modeling">建模</a>
+                <a href="#experiments">实验设置</a>
+                <a href="#results">实验结果</a>
+                <a href="#review">犀利短评</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 封面区 -->
+    <header class="hero">
+        <div class="container">
+            <div class="hero-meta">ICCV 2021 · Best Paper Award (Marr Prize)</div>
+            <h1>Swin Transformer: Hierarchical Vision Transformer using Shifted Windows</h1>
+            <p style="color: var(--text-secondary); margin-top: 12px;">Ze Liu, Yutong Lin, Yue Cao, Han Hu, Yixuan Wei, Zheng Zhang, Stephen Lin, Baining Guo<br/>(Microsoft Research Asia)</p>
+            
+            <div class="tags">
+                <span class="tag">Computer Vision</span>
+                <span class="tag">Vision Transformer</span>
+                <span class="tag">Backbone Architecture</span>
+                <span class="tag">SOTA</span>
+            </div>
+
+            <div class="abstract-card">
+                <strong>核心摘要：</strong>在自然语言处理（NLP）中大放异彩的 Transformer，在迁移到计算机视觉（CV）领域时面临两大根本挑战：视觉实体的<strong>多尺度变化（Scale variations）</strong>以及图像像素的<strong>高分辨率（High resolution）</strong>导致计算量爆炸。本文提出了一种全新的层级式（Hierarchical）Vision Transformer——<strong>Swin Transformer</strong>。它通过在<strong>非重叠的局部窗口（Local Windows）</strong>内计算自注意力，并将窗口在相邻层之间进行<strong>移动（Shift）</strong>来实现跨窗口连接。该架构不仅拥有相对于图像大小的<strong>线性计算复杂度</strong>，还生成了多尺度特征图，成功接管了 CNN 在检测、分割等密集预测任务中的统治地位，全面刷新了各项 SOTA 指标。
+            </div>
+        </div>
+    </header>
+
+    <!-- 主体内容区 -->
+    <div class="container main-grid">
+        
+        <!-- 侧边目录 -->
+        <aside class="sidebar">
+            <ul class="toc-list">
+                <li class="toc-item"><a href="#motivation" class="toc-link">1. 研究动机与背景</a></li>
+                <li class="toc-item"><a href="#modeling" class="toc-link">2. 数学表示与核心建模</a></li>
+                <li class="toc-item"><a href="#experiments" class="toc-link">3. 实验设置与复现细节</a></li>
+                <li class="toc-item"><a href="#results" class="toc-link">4. 核心实验结果</a></li>
+                <li class="toc-item"><a href="#review" class="toc-link">5. 审稿人视角：犀利评论</a></li>
+                <li class="toc-item"><a href="#onemorething" class="toc-link">6. One More Thing</a></li>
+            </ul>
+        </aside>
+
+        <!-- 文章正文 -->
+        <main class="article-content">
+            
+            <!-- 1. Motivation -->
+            <section id="motivation">
+                <h2>1. 研究动机与问题背景 (Motivation)</h2>
+                <p>长期以来，CNN（如 ResNet）一直是计算机视觉的绝对骨干（Backbone）。当 ViT（Vision Transformer）首次证明 Transformer 也能做图像分类时，整个 CV 界为之震动。然而，ViT 无法直接取代 CNN 成为通用的视觉骨干网络。</p>
+                
+                <div class="highlight-box">
+                    <strong>ViT 的致命局限性：</strong>
+                    <ul style="margin-top: 10px; margin-left: 20px;">
+                        <li><strong>单一尺度（Single Scale）：</strong> ViT 生成的特征图（Feature Maps）是固定分辨率的（如始终是 $16\times$ 下采样），而在目标检测、实例分割任务中，极度依赖类似 FPN（特征金字塔）的<strong>多尺度特征</strong>来识别不同大小的物体。</li>
+                        <li><strong>平方级计算复杂度（Quadratic Complexity）：</strong> ViT 的全局自注意力机制计算复杂度与图像的 Patch 数量呈平方关系 $O(N^2)$。当处理高分辨率图像（如用于密集预测的语义分割）时，计算量和内存消耗是不可接受的。</li>
+                    </ul>
+                </div>
+                <p><strong>本文试图解决的核心问题：</strong>如何设计一种具有层级结构（Hierarchical）、且计算复杂度与图像大小呈<strong>线性关系</strong>的 Transformer，使其能像 ResNet 一样无缝接入各种下游稠密预测（Dense Prediction）任务？</p>
+                <p><strong>学术意义：</strong>Swin Transformer 真正打通了 NLP（Transformer）和 CV（Backbone）的底层架构，让 Transformer 首次具备了成为 CV 通用骨干的硬实力。</p>
+            </section>
+
+            <!-- 2. Formulation & Modeling -->
+            <section id="modeling">
+                <h2>2. 数学表示与建模 (Formulation & Modeling)</h2>
+                <p>Swin Transformer 的精妙在于利用局部窗口（Window）来控制计算量，并用滑动（Shift）来弥补局部窗口带来的信息隔离。其核心建模包含以下步骤：</p>
+                
+                <h3>2.1 层级特征映射 (Hierarchical Feature Maps)</h3>
+                <p>为了构建多尺度特征，网络通过 <strong>Patch Merging</strong> 层在深度增加时逐渐合并相邻的 Patch：</p>
+                <ul style="margin-left: 20px; margin-bottom: 20px;">
+                    <li><strong>Stage 1：</strong> 输入图像 $H \times W \times 3$，被切分为 $4 \times 4$ 的 Patch，每个 Patch 特征维度为 $4 \times 4 \times 3 = 48$。然后通过 Linear Embedding 映射到维度 $C$。此时分辨率为 $\frac{H}{4} \times \frac{W}{4}$。</li>
+                    <li><strong>Stage 2 & 3 & 4：</strong> 进行 Patch Merging。将相邻 $2 \times 2$ 的 Patch 特征在通道维度拼接（维度变为 $4C$），然后通过一个线性层降维至 $2C$。分辨率变为 $\frac{H}{8} \times \frac{W}{8}$，依此类推至 $\frac{H}{32} \times \frac{W}{32}$。</li>
+                </ul>
+
+                <h3>2.2 基于窗口的自注意力 (Window based Self-Attention, W-MSA)</h3>
+                <p>普通的全局 MSA 复杂度对于大小为 $h \times w$ 个 patch 的图像是平方级的：</p>
+                $$\Omega(\text{MSA}) = 4hwC^2 + 2(hw)^2C$$
+                <p>Swin Transformer 将图像均匀划分为不重叠的窗口（每个窗口包含 $M \times M$ 个 patch，默认 $M=7$），仅在窗口<strong>内部</strong>计算注意力。此时复杂度变为关于 $hw$ 的线性关系：</p>
+                $$\Omega(\text{W-MSA}) = 4hwC^2 + 2M^2hwC$$
+                
+                <h3>2.3 滑动窗口注意力 (Shifted Window, SW-MSA)</h3>
+                <p>完全不重叠的窗口会隔绝窗口间的信息交流。作者提出在连续的两个 Swin Transformer Block 中交替使用<strong>常规窗口（W-MSA）</strong>和<strong>滑动窗口（SW-MSA）</strong>。</p>
+                <p>在第 $l$ 层使用常规切分后，在第 $l+1$ 层，窗口向右下角平移 $(\lfloor\frac{M}{2}\rfloor, \lfloor\frac{M}{2}\rfloor)$ 个 patch。这两个连续 Block 的前向传播公式如下：</p>
+                $$\hat{z}^l = \text{W-MSA}(\text{LN}(z^{l-1})) + z^{l-1}$$
+                $$z^l = \text{MLP}(\text{LN}(\hat{z}^l)) + \hat{z}^l$$
+                $$\hat{z}^{l+1} = \text{SW-MSA}(\text{LN}(z^l)) + z^l$$
+                $$z^{l+1} = \text{MLP}(\text{LN}(\hat{z}^{l+1})) + \hat{z}^{l+1}$$
+
+                <h3>2.4 相对位置偏置 (Relative Position Bias)</h3>
+                <p>在计算自注意力时，论文摒弃了绝对位置编码，而在计算相似度矩阵时加入相对位置偏置 $B \in \mathbb{R}^{M^2 \times M^2}$：</p>
+                $$\text{Attention}(Q, K, V) = \text{SoftMax}(QK^T/\sqrt{d} + B)V$$
+                <p>由于沿两个坐标轴的相对位置在 $[-M+1, M-1]$ 之间，模型参数化了一个较小的偏置矩阵 $\hat{B} \in \mathbb{R}^{(2M-1) \times (2M-1)}$，而 $B$ 中的值从 $\hat{B}$ 中提取。这一设计大幅提升了下游密集预测任务的性能。</p>
+
+                <div class="placeholder-img">
+                    Figure 4 示意说明：高效批量计算（Efficient Batch Computation）。<br/>
+                    <strong>核心 Trick：</strong> 因为窗口滑动会导致边缘出现非标准大小的碎片窗口，如果直接补零（Padding）会增加计算量。论文提出将特征图向左上角进行 <strong>循环移位（Cyclic Shift）</strong>，使得原本碎片的窗口重新拼合成 $M \times M$ 的完整窗口，计算完注意力后再<strong>反向移位</strong>还原。结合 Masking 机制防止不相干部分产生注意力，极其优雅地解决了硬件实现效率问题。
+                </div>
+            </section>
+
+            <!-- 3. Experiments -->
+            <section id="experiments">
+                <h2>3. 实验设置与复现细节 (Experiments & Reproducibility)</h2>
+                <p>为验证其作为“通用视觉骨干”的定位，论文在三大主流 CV 任务上进行了全面实验。</p>
+
+                <h3>3.1 架构变体与参数配置</h3>
+                <p>根据基础通道数 $C$ 和各 Stage 的 Block 数量，设定了 4 个规模的模型（$M=7$, $d=32$, 扩展比 $\alpha=4$）：</p>
+                <ul>
+                    <li><strong>Swin-T (Tiny)</strong>: $C=96$, 层数={2, 2, 6, 2}, 参数量 $\approx$ 28M (对标 ResNet-50)</li>
+                    <li><strong>Swin-S (Small)</strong>: $C=96$, 层数={2, 2, 18, 2}, 参数量 $\approx$ 50M (对标 ResNet-101)</li>
+                    <li><strong>Swin-B (Base)</strong>: $C=128$, 层数={2, 2, 18, 2}, 参数量 $\approx$ 88M (对标 ViT-B)</li>
+                    <li><strong>Swin-L (Large)</strong>: $C=192$, 层数={2, 2, 18, 2}, 参数量 $\approx$ 197M</li>
+                </ul>
+
+                <h3>3.2 任务一：图像分类 (ImageNet-1K)</h3>
+                <ul>
+                    <li><strong>预处理与增强：</strong>基本遵循 DeiT，未使用 repeated augmentation 和 EMA（发现无益）。</li>
+                    <li><strong>优化器设定：</strong> AdamW 优化器，300 epochs，初始学习率 0.001（Cosine 衰减），Weight Decay 0.05，20 epochs Warm-up，Batch Size 1024。</li>
+                    <li><strong>预训练：</strong> 大模型（Swin-B/L）在 ImageNet-22K 上预训练 90 epochs。</li>
+                </ul>
+
+                <h3>3.3 任务二：目标检测与实例分割 (COCO 2017)</h3>
+                <ul>
+                    <li><strong>测试框架：</strong> 替换了主流框架（Cascade Mask R-CNN, ATSS, RepPoints v2, Sparse R-CNN）中的 ResNet 骨干。</li>
+                    <li><strong>优化器设定：</strong> AdamW，初始学习率 0.0001，Weight Decay 0.05，多尺度训练，使用 3x schedule（36 epochs）。</li>
+                </ul>
+
+                <h3>3.4 任务三：语义分割 (ADE20K)</h3>
+                <ul>
+                    <li><strong>测试框架：</strong> 基于 mmsegmentation 库的 UperNet。</li>
+                </ul>
+            </section>
+
+            <!-- 4. Results -->
+            <section id="results">
+                <h2>4. 实验结果与核心结论 (Results & Findings)</h2>
+
+                <h3>4.1 ImageNet 分类表现</h3>
+                <p>相比同样参数量和计算量级别（FLOPs）的模型，Swin Transformer 完胜 DeiT 和经过高度 NAS 搜索的 RegNet。不仅是准确率，<strong>吞吐量（Throughput）也维持在非常高的水平</strong>。</p>
+                <div class="table-wrapper">
+                    <table>
+                        <caption>表 1：ImageNet-1K 分类结果（常规训练 vs. ImageNet-22K 预训练）</caption>
+                        <thead>
+                            <tr>
+                                <th>模型</th>
+                                <th>输入分辨率</th>
+                                <th>参数量</th>
+                                <th>FLOPs</th>
+                                <th>Top-1 准确率</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>RegNetY-16G</td>
+                                <td>$224^2$</td>
+                                <td>84M</td>
+                                <td>16.0G</td>
+                                <td>82.9%</td>
+                            </tr>
+                            <tr>
+                                <td>DeiT-S</td>
+                                <td>$224^2$</td>
+                                <td>22M</td>
+                                <td>4.6G</td>
+                                <td>79.8%</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Swin-T (Ours)</strong></td>
+                                <td>$224^2$</td>
+                                <td>29M</td>
+                                <td>4.5G</td>
+                                <td><strong>81.3%</strong></td>
+                            </tr>
+                            <tr>
+                                <td>DeiT-B</td>
+                                <td>$384^2$</td>
+                                <td>86M</td>
+                                <td>55.4G</td>
+                                <td>83.1%</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Swin-B (Ours)</strong></td>
+                                <td>$384^2$</td>
+                                <td>88M</td>
+                                <td>47.0G</td>
+                                <td><strong>84.5%</strong></td>
+                            </tr>
+                            <tr style="background-color: rgba(0, 102, 204, 0.05);">
+                                <td colspan="5"><em>--- 下方为 ImageNet-22K 预训练微调结果 ---</em></td>
+                            </tr>
+                            <tr>
+                                <td>ViT-L/16</td>
+                                <td>$384^2$</td>
+                                <td>307M</td>
+                                <td>190.7G</td>
+                                <td>85.2%</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Swin-L (Ours)</strong></td>
+                                <td>$384^2$</td>
+                                <td>197M</td>
+                                <td>103.9G</td>
+                                <td><strong>87.3%</strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3>4.2 COCO 目标检测：历史性的碾压</h3>
+                <p>这是 Swin 震惊 CV 界的战绩。在同等参数和 FLOPs 级别下，用 Cascade Mask R-CNN 框架，<strong>Swin-T 比 ResNet-50 的 Box AP 暴涨了 +4.2，Mask AP 暴涨 +3.3</strong>。最终融合各项高级策略（HTC++）的 Swin-L 模型拿下了 <strong>58.7 Box AP</strong>，超越了当时榜单上使用最先进 Copy-paste 数据增强的 SOTA（55.9 AP），实现了对纯 CNN 架构绝对性能的跨代碾压。</p>
+
+                <h3>4.3 关键消融实验 (Ablation Studies)</h3>
+                <ul>
+                    <li><strong>Shifted Window 真的有用吗？</strong> 取消 Shift 机制后，ImageNet Top-1 掉了 1.1%，而 COCO 目标检测的 AP 直接暴跌 2.8 个点！这证明，对于缺乏全局感知的局部窗口来说，跨层“拼图偏移”是重建感受野的关键。</li>
+                    <li><strong>位置偏置：</strong> 加入绝对位置编码（Absolute position）不仅没带来提升，反而使密集任务性能下降。相对位置偏置（Relative position bias）才是关键，比什么位置编码都不加高了 1.2%（ImageNet）。</li>
+                </ul>
+            </section>
+
+            <!-- 5. Critical Review -->
+            <section id="review">
+                <h2>5. 审稿人视角：犀利评论 (Critical Review)</h2>
+                
+                <h3>🔥 高光优点</h3>
+                <ul style="margin-bottom: 20px; padding-left: 20px;">
+                    <li><strong>完美的架构对齐 (Alignment with CV tasks)：</strong> 之前大家都在想尽办法强行把图片切成 Sequence 喂给 ViT，而本文退后一步思考：视觉信号天生就有 2D 先验和尺度金字塔。Swin 巧妙地借用了 CNN “逐渐降采样”的老智慧，完美适配了几乎所有为 CNN 开发的下游检测分割头（如 FPN），工程友好度满分。</li>
+                    <li><strong>优雅的复杂度解决路径：</strong> $O(N^2)$ 是自注意力的心病。通过 Local Window 控制复杂度为 $O(N)$，再通过 Shift 实现特征交互，设计哲学异常清晰。</li>
+                    <li><strong>统治级的霸榜性能：</strong> 论文不仅仅在说故事，在目标检测和分割这种极度考验 Backbone 抽取细腻特征能力的任务上，用断层式（margin > 2.0+ AP）的领先证明了架构的优越性。</li>
+                </ul>
+
+                <h3>🤔 局限与探讨</h3>
+                <ul style="margin-bottom: 20px; padding-left: 20px;">
+                    <li><strong>局部性妥协：</strong> 相比于标准 ViT 在第一层就能建立“左上角与右下角”的全局关联（这往往被视为 Transformer 打败 CNN 的核心红利），Swin Transformer 重新走回了“通过堆叠局部感受野来扩大全局感受野”的老路。这种妥协一定程度上损失了长程依赖（Long-range dependency）的快速建立。</li>
+                    <li><strong>手工设计痕迹严重：</strong> 窗口大小固定 $M=7$、Shift 位移固定 $\lfloor M/2 \rfloor$、Patch Merging 的 $2 \times 2$ 拼接，这些超参数本质上和 CNN 里的 Kernel Size=3x3 并没有哲学上的区别。Swin 更像是一个“披着 Self-Attention 外衣的强悍 CNN”。</li>
+                </ul>
+
+                <h3>🚀 未来方向</h3>
+                <p>后续研究（如后来的 Swin-V2）必定需要解决它如何扩展到超高分辨率（如超大 Window Size、大尺度预训练下的相对位置编码崩溃），以及进一步统一视觉自监督学习（MAE 架构在 Swin 上其实不如在 Vanilla ViT 上自然）。</p>
+            </section>
+
+            <!-- 6. One More Thing -->
+            <section id="onemorething">
+                <h2>6. One More Thing</h2>
+                <p>论文中极容易被读者忽略，但在系统级实现上价值千金的设计，是位于图 4 的 <strong>"Cyclic Shift (循环移位) + Masked MSA"</strong>。</p>
+                <div class="highlight-box" style="border-left-color: #ff9500; background-color: rgba(255, 149, 0, 0.05);">
+                    <strong>工程与算法的美妙交汇：</strong><br/>
+                    当采用偏移窗口时，图像边缘的窗口会被切碎（比如原来 $2 \times 2$ 个窗口变成了 $3 \times 3$ 个残缺窗口）。如果在硬件里直接计算，处理不同尺寸的 Tensor 会严重拖慢 GPU 速度（甚至比直接算全局 Attention 更慢）。<br/><br/>
+                    微软的科学家做了一个极简的变换：把左上、正上、左边这三个“越界”的区域，直接像贪吃蛇穿墙一样，<strong>循环移动补到右下角</strong>。这样，窗口数量又变回了原先的标准数量（完美对齐显存），并且在计算时加一个 Masking 告诉模型“其实它们不是真的靠在一起”。<br/><br/>
+                    消融实验表5（Table 5）揭示：正是这个小小的技巧，让 Shifted Window 的速度比 Naive Padding 的做法<strong>快了 13% 到 18%</strong>，才真正将理论上的低复杂度变为了 GPU 上的现实！
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- 底部返回顶部按钮 -->
+    <div class="back-to-top" id="backToTop" title="返回顶部">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="18 15 12 9 6 15"></polyline>
+        </svg>
+    </div>
+
+    <!-- 交互脚本 -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // 平滑滚动
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    document.querySelector(this.getAttribute('href')).scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                });
+            });
+
+            // 监听滚动，高亮侧边栏目录
+            const sections = document.querySelectorAll('section');
+            const navLinks = document.querySelectorAll('.toc-link');
+            
+            const observerOptions = {
+                root: null,
+                rootMargin: '-20% 0px -70% 0px',
+                threshold: 0
+            };
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        navLinks.forEach(link => {
+                            link.classList.remove('active');
+                            if (link.getAttribute('href').substring(1) === entry.target.id) {
+                                link.classList.add('active');
+                            }
+                        });
+                    }
+                });
+            }, observerOptions);
+
+            sections.forEach(section => observer.observe(section));
+
+            // 返回顶部按钮逻辑
+            const backToTopBtn = document.getElementById('backToTop');
+            window.addEventListener('scroll', () => {
+                if (window.scrollY > 500) {
+                    backToTopBtn.classList.add('visible');
+                } else {
+                    backToTopBtn.classList.remove('visible');
+                }
+            });
+
+            backToTopBtn.addEventListener('click', () => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 300" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 7" refX="9" refY="3.5" markerWidth="8" markerHeight="6" orient="auto-start-auto">
+      <path d="M 0 0 L 10 3.5 L 0 7 z" fill="#a0aec0"/>
+    </marker>
+    <marker id="arr-red" viewBox="0 0 10 7" refX="9" refY="3.5" markerWidth="8" markerHeight="6" orient="auto-start-auto">
+      <path d="M 0 0 L 10 3.5 L 0 7 z" fill="#fc8181"/>
+    </marker>
+  </defs>
+  <rect width="780" height="300" rx="10" fill="#f7fafc" stroke="#e2e8f0"/>
+
+  <!-- Title -->
+  <text x="390" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#2d3748">GAN 对抗训练架构</text>
+
+  <!-- Noise z -->
+  <rect x="30" y="120" width="90" height="60" rx="8" fill="#fffaf0" stroke="#ed8936" stroke-width="1.3"/>
+  <text x="75" y="148" text-anchor="middle" font-size="12" font-weight="600" fill="#c05621">噪声 z</text>
+  <text x="75" y="164" text-anchor="middle" font-size="9" fill="#a0aec0">z ~ N(0, I)</text>
+
+  <!-- Arrow: Noise → Generator -->
+  <line x1="120" y1="150" x2="158" y2="150" stroke="#a0aec0" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Generator -->
+  <rect x="160" y="105" width="130" height="90" rx="8" fill="#f5f0ff" stroke="#805ad5" stroke-width="1.5"/>
+  <text x="225" y="140" text-anchor="middle" font-size="14" font-weight="700" fill="#6b46c1">Generator</text>
+  <text x="225" y="158" text-anchor="middle" font-size="10" fill="#805ad5">G(z)</text>
+  <text x="225" y="174" text-anchor="middle" font-size="9" fill="#a0aec0">MLP / CNN</text>
+
+  <!-- Arrow: Generator → Generated samples -->
+  <line x1="290" y1="150" x2="328" y2="150" stroke="#a0aec0" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Generated samples -->
+  <rect x="330" y="120" width="100" height="60" rx="8" fill="#fefcbf" stroke="#d69e2e" stroke-width="1.2"/>
+  <text x="380" y="146" text-anchor="middle" font-size="11" font-weight="600" fill="#975a16">生成样本</text>
+  <text x="380" y="162" text-anchor="middle" font-size="9" fill="#975a16">G(z) (假)</text>
+
+  <!-- Real Data -->
+  <rect x="330" y="46" width="100" height="55" rx="8" fill="#f0fff4" stroke="#38a169" stroke-width="1.2"/>
+  <text x="380" y="70" text-anchor="middle" font-size="11" font-weight="600" fill="#276749">真实数据</text>
+  <text x="380" y="86" text-anchor="middle" font-size="9" fill="#276749">x ~ p_data</text>
+
+  <!-- Arrow: Real → Discriminator -->
+  <line x1="430" y1="73" x2="476" y2="110" stroke="#a0aec0" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Arrow: Generated → Discriminator -->
+  <line x1="430" y1="150" x2="476" y2="145" stroke="#a0aec0" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Discriminator -->
+  <rect x="478" y="95" width="140" height="100" rx="8" fill="#ebf8ff" stroke="#4299e1" stroke-width="1.5"/>
+  <text x="548" y="132" text-anchor="middle" font-size="14" font-weight="700" fill="#2b6cb0">Discriminator</text>
+  <text x="548" y="150" text-anchor="middle" font-size="10" fill="#4299e1">D(x)</text>
+  <text x="548" y="168" text-anchor="middle" font-size="9" fill="#a0aec0">MLP / CNN</text>
+  <text x="548" y="184" text-anchor="middle" font-size="9" fill="#718096">二分类器</text>
+
+  <!-- Arrow: Discriminator → Output -->
+  <line x1="618" y1="145" x2="656" y2="145" stroke="#a0aec0" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Output -->
+  <rect x="658" y="110" width="95" height="70" rx="8" fill="#fed7d7" stroke="#fc8181" stroke-width="1.3"/>
+  <text x="705" y="136" text-anchor="middle" font-size="11" font-weight="600" fill="#9b2c2c">输出</text>
+  <text x="705" y="154" text-anchor="middle" font-size="10" fill="#9b2c2c">Real: 1</text>
+  <text x="705" y="168" text-anchor="middle" font-size="10" fill="#9b2c2c">Fake: 0</text>
+
+  <!-- Adversarial Feedback: D → G (curved arrow at bottom) -->
+  <path d="M 548 195 L 548 250 L 225 250 L 225 195" fill="none" stroke="#fc8181" stroke-width="1.5" stroke-dasharray="6 3" marker-end="url(#arr-red)"/>
+  <rect x="310" y="238" width="160" height="24" rx="4" fill="#fff5f5" stroke="#fc8181" stroke-width="0.8"/>
+  <text x="390" y="255" text-anchor="middle" font-size="10" font-weight="600" fill="#c53030">对抗反馈：D 的梯度指导 G</text>
+
+  <!-- Labels for max/min -->
+  <text x="548" y="88" text-anchor="middle" font-size="10" font-weight="600" fill="#2b6cb0">max D: 区分真假</text>
+  <text x="225" y="98" text-anchor="middle" font-size="10" font-weight="600" fill="#6b46c1">min G: 欺骗 D</text>
+</svg>
