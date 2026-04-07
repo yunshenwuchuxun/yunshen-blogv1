@@ -47,6 +47,9 @@ yarn-error.log*
 # Build cache
 tsconfig.tsbuildinfo
 
+# Claude local worktrees
+.claude/worktrees/
+
 # Paper reading - large binary assets only
 /papers/media/
 /papers/*/nmt_data/

@@ -115,40 +115,102 @@ export const projectDetails: Record<string, ProjectDetail> = {
 	'smart-drawio': {
 		slug: 'smart-drawio',
 		title: 'Smart Drawio Next',
-		subtitle: '用自然语言或参考图片，几秒钟生成可编辑的专业科研 Draw.io 图表',
-		description: `Smart Drawio Next 将 Next.js 16、Draw.io embed 以及流式大模型调用组合在一起，打造了一款革命性的图表生成工具。它能够理解你的自然语言描述或参考图片，自动生成结构化的专业图表，并且支持在线编辑和持续优化。
+		subtitle:
+			'用自然语言或参考图片，几秒钟生成可编辑的 Draw.io 图表，适用于科研、架构文档与演示场景',
+		description: `Smart Drawio Next 是一个面向科研图、系统架构图与产品说明图的 AI 绘图工具。它不是把想法直接渲染成一张不可修改的图片，而是把自然语言描述或参考图片转成结构化的 Draw.io 内容，让你得到真正可编辑、可继续优化的图表结果。
 
-无论是科研论文中的架构图、产品设计的流程图，还是技术文档的系统架构，都可以通过简单的描述快速生成。项目已经内置了多模型配置、访问密码、历史记录、通知系统等配套功能，可以直接部署为个人效率工具或团队内部服务。`,
+整个流程围绕“生成 → 编辑 → 应用 → 优化”展开：用户先输入 prompt 或上传参考图，模型流式生成 XML / JSON，结果会同步进入 Monaco 编辑器与嵌入式 Draw.io 画布；你既可以像写代码一样直接改结构，也可以像传统白板工具一样继续拖拽微调。再配合后处理工具、样式包、多模型配置与本地历史记录，它更像一套完整的图表生产工作台，而不是一次性 demo。`,
+		overviewSections: [
+			{
+				title:
+					'从 Prompt 到可编辑图表：这是结构化图表工作流，而不是一次性截图生成',
+				body: `README 里最重要的判断，是把“AI 生成图”从一次性输出升级成可反复迭代的图表工作流。Smart Drawio Next 接收自然语言描述，也支持上传参考图片，然后把结果生成成结构化的 XML / JSON，而不是只吐出一张静态图。这样做的好处非常直接：图生成出来之后，你依然可以继续编辑、继续优化、继续应用到真实的科研、文档和汇报场景里。
+
+对研究者和工程团队来说，这种可编辑性比“单次出图速度”更重要。论文结构图、系统架构图、流程图、时间线图往往都需要多轮修改，如果 AI 只能给你一张图片，你最后还是要重画；而 Smart Drawio Next 生成的是可落进 Draw.io 的内容，所以它在产品定位上更像“AI 加持的专业绘图工作台”。`,
+				image: '/static/images/project/smart-drawio-page.png',
+				imageAlt: 'Smart Drawio Next 主界面截图，展示输入区、编辑器与画布联动',
+			},
+			{
+				title: '代码编辑器 + Draw.io 画布双栈联动，是它真正拉开差距的地方',
+				body: `项目最强的体验不是“AI 会画图”，而是“图生成之后还能像工程对象一样被继续操作”。README 把这一层讲得很清楚：左边是输入与生成控制，中间是 Monaco 编辑器，右边是嵌入式 Draw.io 画布。你可以直接在代码层修改节点、箭头、布局与文本，再一键重新应用；也可以在画布里继续拖动和微调，让生成结果真正融入既有工作流。
+
+这种 code + canvas 的双栈设计非常适合复杂图表：一方面，结构化编辑让你可以精确控制图的逻辑；另一方面，Draw.io 原生的可视化交互保留了普通用户的低门槛操作方式。它不是在编辑器和白板之间二选一，而是把两者的优势拼接到了一起。`,
+				image: '/static/images/project/smart-drawio-transformer.png',
+				imageAlt: 'Smart Drawio Next 生成的 Transformer 架构图示例',
+			},
+			{
+				title: '它不是只会一类图：科研图、视觉模型图和多模态结构图都能生成',
+				body: `README 的 Gallery 很能说明这个项目的上限。除了通用流程图和架构图，它还展示了 Transformer、Swin Transformer、CLIP、ProSST 等不同风格与内容密度的科研图表示例。这一点很重要，因为真正的图表工具不能只会“画几个盒子”，而要能适应完全不同的信息组织方式：有的图强调模块分层，有的图强调跨模态交互，有的图强调时序和数据流。
+
+从这些示例可以看出，Smart Drawio Next 更像一个图表生成引擎：你可以显式指定图表类型，也可以让模型自动判断；你可以做学术论文里的模型图，也可以做技术文档里的系统图、汇报里的概念图，甚至偏信息可视化风格的演示图。这种跨场景通用性，正是它适合作为 portfolio 项目的原因。`,
+				image: '/static/images/project/smart-drawio-swin.png',
+				imageAlt: 'Smart Drawio Next 生成的 Swin Transformer 图表示例',
+			},
+			{
+				title: '多模态输入不是噱头，而是把“参考图改造”为可编辑内容的关键入口',
+				body: `README 强调了这个项目不仅支持文本生成，还支持图片输入。你可以上传一张已有图示、手绘草图、论文截图或参考页面，让 vision 模型先理解其结构，再转成可编辑图表内容。相比单纯的 text-to-diagram，这一步非常实用：现实工作里很多需求并不是“从零开始画”，而是“把这张已有图改成适合我汇报、文档或论文的版本”。
+
+这也是 Smart Drawio Next 在实战里更有价值的原因。它把图片理解、结构重建和后续编辑串成一条链路，让参考图不再只是灵感来源，而是可转换、可重组、可二次创作的输入。对科研和工程用户来说，这类能力比“炫技式自动生成”更贴近真实工作流。`,
+				image: '/static/images/project/smart-drawio-clip.png',
+				imageAlt: 'Smart Drawio Next 生成的 CLIP 图表示例',
+			},
+			{
+				title: '复杂科研图也能保持结构清晰，这让它更像生产工具而不是展示 Demo',
+				body: `README 里的 ProSST 示例说明，这个项目不仅能处理经典 AI 架构图，也能覆盖更复杂的科研示意场景。此类图通常包含更多层次、更复杂的关系线和更高的信息密度，如果没有后续编辑与后处理能力，很容易生成出“元素都有，但读不明白”的结果。Smart Drawio Next 的优势在于：生成只是起点，后续你还能继续整理结构、调整视觉层级、压缩冗余线条与文本噪声。
+
+因此它适合的不只是“做一张好看的图”，而是“把复杂知识表达整理成真正能被人读懂、能放进论文和文档里的图”。这是科研绘图里很稀缺、也很有说服力的产品能力。`,
+				image: '/static/images/project/smart-drawio-prosst.png',
+				imageAlt: 'Smart Drawio Next 生成的 ProSST 图表示例',
+			},
+			{
+				title: '后处理工具链与样式系统，让图表从“能用”走向“能展示”',
+				body: `很多 AI 图表工具的问题不是“生成不出来”，而是“生成出来以后不够像最终交付物”。README 里的 Tools System 正是在解决这个问题：Drawing Tricks 负责对齐、正交连线、统一间距、箭头规范化、跳线等结构修正；Text Tools 负责文本折行、居中、面板化与紧凑排版；Style Presets 与 Style Packs 则负责把整张图一键拉到可展示、可汇报的视觉质量。
+
+这让 Smart Drawio Next 不只是一个生成器，更像一个能把草图打磨成展示级图表的后期系统。你可以先用模型快速起稿，再用工具链把它整理到适合论文、演讲或技术方案评审的精度。这种“生成 + 工具化 refinement”的组合，是这个项目最值得在 portfolio 里强调的地方之一。`,
+				image: '/static/images/project/smart-drawio-tools-business-clean.png',
+				imageAlt: 'Smart Drawio Next 样式包处理后的商业风格图表示例',
+			},
+		],
 		features: [
 			{
-				title: 'LLM 原生绘图体验',
+				title: '流式图表生成',
 				description:
-					'流式显示生成进度，支持"继续生成"拆分长内容；可手动指定 20+ 图表类型或让模型自动选择',
+					'支持 streaming generation 与 continue generation，长图或复杂图表也能分段生成并持续补全',
 			},
 			{
 				title: '多模态输入',
 				description:
-					'支持拖拽 PNG/JPG/WebP/GIF（≤5 MB）或使用文件选择，配合 Vision 模型将已有图纸转成可编辑信息',
+					'既支持自然语言 prompt，也支持上传参考图片，把已有图示转换成可编辑 Draw.io 内容',
 			},
 			{
-				title: '双画布联动',
+				title: '代码 + 画布双工作流',
 				description:
-					'Monaco 编辑器负责查看/修改原始代码，Draw.io iframe 负责渲染与微调；支持随时重新应用代码',
+					'中间用 Monaco 编辑 XML / JSON，右侧嵌入 Draw.io 实时预览与继续编辑，兼顾精确控制与可视操作',
 			},
 			{
-				title: '智能优化链路',
+				title: '后处理工具链',
 				description:
-					'一键修复箭头锚点、线条宽度等常见问题，或通过高级优化面板勾选/自定义需求交给 AI 再处理',
+					'提供布局整理、连线修复、文本格式化、样式预设与 style packs，让初稿快速提升到展示级效果',
 			},
 			{
-				title: '配置管理器',
+				title: '20+ 图表类型',
 				description:
-					'UI 里即可创建、复制、导入/导出任意数量的 OpenAI/Anthropic 兼容配置，支持在线测试模型列表',
+					'覆盖 flowchart、mind map、sequence、UML、ER、timeline、architecture diagram、network topology 等多种图表形态',
 			},
 			{
-				title: '历史记录 & 通知',
+				title: '主题与样式系统',
 				description:
-					'最近 20 条生成记录保存在浏览器 localStorage，可随时回放；通知、确认弹窗等提升整体 UX',
+					'内置 10 种颜色主题，并支持 blueprint、business clean、presentation cards 等一键视觉风格',
+			},
+			{
+				title: '配置管理与历史记录',
+				description:
+					'支持多模型配置切换、访问密码模式、本地历史回放与通知系统，适合个人或团队长期使用',
+			},
+			{
+				title: '可部署产品形态',
+				description:
+					'提供 Docker / Docker Compose 部署路径，并支持 client-side 与 server-side 两种 LLM 配置模式',
 			},
 		],
 		techStack: [
@@ -160,13 +222,18 @@ export const projectDetails: Record<string, ProjectDetail> = {
 				category: 'LLM 接入',
 				items: [
 					'OpenAI / Anthropic 兼容接口',
+					'SSE 流式响应',
 					'Server Actions',
 					'Edge API 路由',
 				],
 			},
 			{
-				category: '状态持久化',
-				items: ['localStorage（配置、历史、访问密码）'],
+				category: '状态与配置',
+				items: ['localStorage', '访问密码模式', '历史记录回放'],
+			},
+			{
+				category: '部署方式',
+				items: ['Docker', 'Docker Compose', 'Next.js standalone output'],
 			},
 		],
 		links: [
@@ -179,15 +246,17 @@ export const projectDetails: Record<string, ProjectDetail> = {
 		usage: [
 			'克隆仓库：git clone https://github.com/yunshenwuchuxun/smart-drawio-next.git',
 			'安装依赖：pnpm install',
-			'启动开发服务器：pnpm dev',
-			'访问 http://localhost:3000 即可体验',
+			'本地开发：pnpm dev',
+			'访问 http://localhost:3000',
+			'Docker 启动：docker compose up -d --build',
+			'按需选择浏览器本地配置模式或服务端 Access Password 模式',
 		],
 		targetUsers: [
-			'科研工作者 - 快速生成论文中的架构图、流程图',
-			'产品经理 - 绘制产品流程图、用户旅程图',
-			'开发人员 - 创建系统架构图、技术文档图表',
-			'教育工作者 - 制作教学演示图表',
-			'任何需要快速生成专业图表的用户',
+			'科研工作者 - 快速生成论文中的模型图、方法流程图与实验结构图',
+			'产品与设计团队 - 用自然语言快速起草流程图、概念图与汇报图示',
+			'开发人员 - 创建系统架构图、数据流图、网络拓扑图与技术文档图表',
+			'教育工作者 - 制作教学演示图、课程讲义图与可修改示意图',
+			'内部工具团队 - 部署为组织内共享的 AI 绘图工作台',
 		],
 		license: 'MIT License – 可在保留版权声明的前提下自由使用、复制与分发',
 	},
@@ -198,6 +267,50 @@ export const projectDetails: Record<string, ProjectDetail> = {
 		description: `智能动力学系统分析器是一款基于 Flask 的 Web 应用，专注于线性与非线性动力学系统的分析与可视化。平台支持相图生成、轨迹动画、混沌分析以及离散系统应用的全面研究。
 
 借助自然语言转矩阵的智能功能，用户可以用直观的方式描述系统，平台自动解析并生成专业的数学分析结果。无论是学习动力学系统理论，还是进行科研工作中的系统仿真，都能获得流畅的交互体验。`,
+		overviewSections: [
+			{
+				title: '主页面与智能输入：把动力学分析入口做得足够直观',
+				body: `README 里最容易让人建立第一印象的，不是某个单点算法，而是整个入口设计。首页把矩阵输入、特征值分析、系统分类和文本转矩阵放进同一条工作流里，让用户不用先写一堆脚本，就能快速看到系统的基本性质和可视化结果。
+
+这让项目很适合教学和快速探索：初学者可以从线性系统矩阵直接入门，研究者也可以把自然语言描述转成可计算对象，再继续做更深入的相图与轨迹分析。它不是单纯展示公式结果，而是在努力降低动力学系统分析的使用门槛。`,
+				image: '/static/images/project/dynamical-system-main.png',
+				imageAlt:
+					'智能动力学系统分析器首页，展示矩阵输入、特征值分析与智能输入入口',
+			},
+			{
+				title: '线性与非线性系统分析：从平衡点分类到局部稳定性判断',
+				body: `README 展示的线性系统分析页，清楚说明这个项目不是“给出几个数字”的计算器，而是把特征值、相图、向量场和系统分类真正组合到了一起。用户可以直接看到节点、鞍点、焦点等典型行为，也能把代数结果和几何直觉对应起来。
+
+进一步到非线性系统时，平台还能做平衡点检测、雅可比矩阵线性化和局部稳定性分析。对学习者来说，这种从理论定义到图形反馈的闭环很有价值；对做系统建模的人来说，它也能更快地验证方程在局部邻域里的动力学表现。`,
+				image: '/static/images/project/dynamical-system-linear-analysis.png',
+				imageAlt: '线性系统分析页面，展示相图、向量场与平衡点行为',
+			},
+			{
+				title: '轨迹绘制与交互动画：把系统演化过程直接动态化',
+				body: `相比静态相图，README 里的轨迹绘制页面更能体现这个项目的交互价值。平台用 Canvas 做实时轨迹动画，不只是画出一条路径，而是让用户观察不同初值下轨迹如何随时间展开、收敛、发散或绕转。
+
+这类动态可视化对解释系统行为非常有效，尤其适合课堂演示、多轨迹对比和参数调节后的即时反馈。它把“系统会怎么动”从抽象概念变成可直接观察的过程，也让这个项目比普通数学可视化工具更有产品感。`,
+				image: '/static/images/project/dynamical-system-trajectory.png',
+				imageAlt: '轨迹绘制页面，展示实时动画与多轨迹对比',
+			},
+			{
+				title: '3D 混沌吸引子与高级分析：从好看的图进一步走向可分析对象',
+				body: `README 里最有表现力的部分之一，是对 Lorenz、Rössler、Chua、Thomas 等经典混沌系统的支持。页面不仅能渲染 3D 吸引子，还把 Lyapunov 指数、Poincaré 截面和分形维数这些更高阶的分析能力放进同一个平台里。
+
+这意味着项目并不满足于“把混沌图画出来”，而是试图把混沌系统研究里常见的几个关键分析视角整合起来。对课程项目来说这已经很完整；对 portfolio 展示来说，这一块也最能体现系统的数学深度和可视化表达能力。`,
+				image: '/static/images/project/dynamical-system-chaos-analysis.png',
+				imageAlt: '混沌分析页面，展示 3D 吸引子与 Lyapunov 指数相关能力',
+			},
+			{
+				title: '离散系统与实际应用：把 textbook 图形延伸到真实模型场景',
+				body: `README 没有把离散动力学停留在教材式示意图层面，而是把分岔图、蛛网图、回归映射和 Lyapunov 指数这些分析工具，继续延伸到人口动态、离散 SIR、经济蛛网模型等更具体的应用场景。这样做的好处，是用户能把抽象的离散映射行为和实际建模问题联系起来。
+
+从项目展示角度看，这一部分很重要，因为它说明平台不仅适合讲“理论”，也适合讲“问题”。你可以先分析系统什么时候进入周期、分岔或混沌，再把这种行为放回人口、流行病或经济系统里理解，这让整个项目的应用面比单纯的相图工具更宽。`,
+				image:
+					'/static/images/project/dynamical-system-discrete-applications.png',
+				imageAlt: '离散动力学实际应用页面，展示人口模型与流行病模型等场景',
+			},
+		],
 		features: [
 			{
 				title: '2D 线性系统分析',
@@ -252,7 +365,7 @@ export const projectDetails: Record<string, ProjectDetail> = {
 			'克隆仓库：git clone https://github.com/yunshenwuchuxun/dynamical-system-analyzer.git',
 			'安装依赖：pip install -r requirements.txt',
 			'启动服务器：python app.py',
-			'访问 http://localhost:5000 即可体验',
+			'访问 http://localhost:5001 即可体验',
 		],
 		targetUsers: [
 			'数学/物理专业学生 - 学习动力学系统与混沌理论',

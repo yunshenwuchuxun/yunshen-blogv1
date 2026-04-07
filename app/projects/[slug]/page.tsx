@@ -90,11 +90,35 @@ export default async function ProjectDetailPage(props: {
 					/>
 				</div>
 
-				<section className='space-y-4'>
+				<section className='space-y-6'>
 					<h2 className='text-2xl font-semibold'>项目简介</h2>
 					<div className='whitespace-pre-line text-gray-600 dark:text-gray-400'>
 						{detail.description}
 					</div>
+					{detail.overviewSections?.map((section) => (
+						<div
+							key={section.title}
+							className='space-y-4 rounded-xl border border-gray-200 p-5 dark:border-gray-700'
+						>
+							<h3 className='text-xl font-semibold text-gray-900 dark:text-gray-100'>
+								{section.title}
+							</h3>
+							{section.image ? (
+								<div className='overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700'>
+									<Image
+										src={section.image}
+										alt={section.imageAlt ?? section.title}
+										width={1400}
+										height={900}
+										className='w-full'
+									/>
+								</div>
+							) : null}
+							<div className='whitespace-pre-line text-gray-600 dark:text-gray-400'>
+								{section.body}
+							</div>
+						</div>
+					))}
 				</section>
 
 				<section className='space-y-6'>
