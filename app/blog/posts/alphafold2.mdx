@@ -4,7 +4,7 @@ publishedAt: '2026-03-15'
 summary: 'Nature 2021 论文精读：DeepMind 的 AlphaFold2 以原子级精度解决了蛋白质折叠问题，解析 Evoformer 编码器与 IPA 结构模块的核心设计。'
 draft: false
 image: '/static/blog/alphafold2/denoising-comparison.png'
-tags: [AI for Science, Protein, DL, Paper Reading]
+tags: [Paper, DL]
 ---
 
 <PaperCard
@@ -13,7 +13,7 @@ tags: [AI for Science, Protein, DL, Paper Reading]
 	links={[
 		{ label: "论文原文", url: "https://www.nature.com/articles/s41586-021-03819-2" },
 		{ label: "AI 总结", url: "/static/blog/alphafold2/ai-summary.html" },
-		{ label: "代码实战", url: "https://colab.research.google.com/github/yunshenwuchuxun/yunshen-blogv1/blob/main/papers/AlphaFold2/18_AlphaFold2_%E4%BB%A3%E7%A0%81%E5%AE%9E%E6%88%98.ipynb" },
+		{ label: "代码实战", url: "https://colab.research.google.com/github/yunshenwuchuxun/yunshen-blogv1/blob/main/papers/AlphaFold2/code.ipynb" },
 	]}
 />
 
@@ -154,7 +154,7 @@ AlphaFold2 的根本创新在于将蛋白质折叠问题重新定义为进化信
 
 完整代码包含从零手写 Evoformer + IPA 和使用 `invariant-point-attention` 库的简洁实现，以蛋白质骨架坐标去噪任务验证核心架构：
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/yunshenwuchuxun/yunshen-blogv1/blob/main/papers/AlphaFold2/18_AlphaFold2_%E4%BB%A3%E7%A0%81%E5%AE%9E%E6%88%98.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/yunshenwuchuxun/yunshen-blogv1/blob/main/papers/AlphaFold2/code.ipynb)
 
 ### 合成数据与任务
 

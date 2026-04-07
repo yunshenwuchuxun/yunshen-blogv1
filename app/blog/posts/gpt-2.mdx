@@ -1,0 +1,260 @@
+---
+title: 'GPT-2 论文精读：从微调范式到 Prompt 范式'
+publishedAt: '2026-04-04'
+summary: '系统解析 GPT-2 如何借助 WebText 预训练与 decoder-only Transformer，把 NLP 从预训练 + 微调推进到 Prompt 驱动的零样本范式，并结合代码实战理解 causal attention、Pre-LN 与自回归生成。'
+draft: false
+image: '/static/og-image.png'
+tags: [Paper, LLM, NLP]
+---
+
+<PaperCard
+	title="Language Models are Unsupervised Multitask Learners"
+	description="Alec Radford, Jeffrey Wu, Rewon Child, David Luan, Dario Amodei, Ilya Sutskever — 2019 (OpenAI)"
+	links={[
+		{ label: "论文原文", url: "https://cdn.openai.com/better-language-models/language-models.pdf" },
+		{ label: "代码实战", url: "https://colab.research.google.com/github/yunshenwuchuxun/yunshen-blogv1/blob/main/papers/GPT2/code.ipynb" },
+	]}
+/>
+
+GPT-2 的历史意义，不只是“OpenAI 把 GPT-1 做得更大了”，而是它第一次系统展示：<strong>当语言模型规模和训练数据规模足够大时，同一个固定模型可以仅凭 Prompt 在多个任务上表现出可用的零样本能力</strong>。这让 NLP 的工作重心开始从“为每个任务单独微调模型”转向“尽量把任务写成自然语言提示，再让同一个模型去完成”。
+
+如果说 GPT-1 建立了“无监督预训练 + 有监督微调”的范式，那么 GPT-2 则进一步把问题推进了一步：<strong>模型是否可以不再为每个任务改参数，而是直接通过输入格式理解任务</strong>。后来 GPT-3、InstructGPT 和 ChatGPT 能把 Prompt、few-shot 和指令遵循发展为完整使用范式，根都可以追溯到 GPT-2 在这里完成的这次转向。
+
+## 研究动机
+
+### 微调范式的瓶颈
+
+在 GPT-2 之前，NLP 的主流路线更像是“<strong>预训练模型负责提供初始化，具体任务仍然依赖微调完成</strong>”。这比纯监督学习已经前进了一大步，但仍然有两个明显限制：
+
+- <strong>任务适配成本高</strong>：每个任务都需要额外的标注数据、任务头和训练流程。
+- <strong>模型通用性不足</strong>：能否解决一个新任务，往往取决于是否存在对应标注集，而不是模型能否从自然语言描述中理解任务。
+
+这意味着研究者虽然已经拥有“通用预训练模型”，但使用方式仍然是“一个任务对应一次微调”。模型的通用性主要体现在初始化层面，而不是直接可调用的能力层面。
+
+### GPT-2 真正想验证什么
+
+GPT-2 想回答的问题是：<strong>如果互联网文本中天然就包含翻译、问答、摘要、续写等大量任务模式，那么一个足够大的语言模型是否可以直接通过这些模式学会“按提示完成任务”</strong>？
+
+论文给出的答案是肯定的。训练完成后，GPT-2 不需要额外增加分类头或再训练参数，只要给出合适的上下文格式，它就可能沿着训练中见过的模式继续生成。例如：
+
+- 翻译提示：`translate to french: sea otter =>`
+- 摘要提示：长文后接 `TL;DR:`
+- 问答提示：`&#123;文章内容&#125; Q: &#123;问题&#125; A:`
+
+从这个角度看，GPT-2 真正改变的不是某个单独任务的做法，而是“模型如何被使用”的方式。
+
+| 对比维度 | GPT-1 / 微调范式 | GPT-2 / Prompt 范式 |
+|---|---|---|
+| <strong>核心思想</strong> | 先学通用语言表示，再对具体任务微调 | 保持参数固定，通过 Prompt 激活任务模式 |
+| <strong>任务适配方式</strong> | 依赖标注数据和任务专属训练 | 依赖自然语言提示与上下文格式 |
+| <strong>模型副本</strong> | 不同任务往往需要不同模型副本 | 一个模型可服务多类任务 |
+| <strong>新任务门槛</strong> | 需要数据、训练和验证流程 | 先把任务转写成合适提示即可 |
+| <strong>统一视角</strong> | 多任务仍是多个目标 | 多任务被统一成文本输入 -> 文本输出 |
+
+## 核心方法/模型架构
+
+### 统一训练目标：自回归语言建模
+
+GPT-2 的结构仍然建立在 <strong>decoder-only Transformer</strong> 之上。它不追求双向编码理解，而是坚持一个最简单也最统一的目标：根据前文预测下一个 token。对于序列 $x_1, x_2, \dots, x_n$，语言建模目标可以写成：
+
+$$
+P(x_1, x_2, \dots, x_n) = \prod_{t=1}^{n} P(x_t \mid x_{<t})
+$$
+
+这个目标看起来朴素，但它有一个决定性的优点：<strong>几乎所有文本任务都可以转写成“给定上下文，继续生成”</strong>。如果前文是新闻正文，模型会学到新闻续写；如果前文是 `TL;DR:` 前的长文，模型会学到摘要模式；如果前文是问答格式，模型就会学到在 `A:` 后面继续回答。
+
+也正因为训练目标足够统一，GPT-2 才能把看似不同的 NLP 任务纳入同一种使用方式中。
+
+### 为什么 decoder-only 结构足够关键
+
+从结构上看，GPT-2 可以概括为以下几个部分：
+
+- <strong>Token Embedding</strong>：把离散 token 映射到连续向量空间。
+- <strong>Learned Positional Embedding</strong>：为每个位置加入可学习的位置表示。
+- <strong>多层 decoder block</strong>：每层包含 causal self-attention 和前馈网络。
+- <strong>Final LayerNorm + LM Head</strong>：把隐藏状态投影回词表，得到下一 token 的 logits。
+
+与 Encoder-Decoder Transformer 相比，GPT-2 的好处在于接口极其统一：<strong>无论任务叫翻译、问答还是摘要，模型内部始终只做一件事——继续生成下一个 token</strong>。这种极简的一致性，是后来大语言模型普遍采用 decoder-only 路线的重要原因。
+
+## 组件详解
+
+### 因果自注意力：为什么 GPT-2 不能看未来
+
+GPT-2 的注意力不是普通 self-attention，而是 <strong>causal self-attention</strong>。对于任意位置，模型只能访问自己和左边已经出现的 token，不能偷看未来信息。其核心形式为：
+
+$$
+\text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}} + M\right)V
+$$
+
+其中 $M$ 是因果掩码。它会把未来位置对应的分数压成极小值，使当前位置只能依赖历史上下文。这个约束非常关键，因为 GPT-2 的训练目标本质上就是自回归建模；如果模型在训练时能看到未来 token，那么推理时的条件就和训练时完全不一致了。
+
+### Pre-LN：让更深的模型更稳定
+
+GPT-2 和很多早期 Transformer 讲法的一个重要差异，是它把 LayerNorm 放在子层前面，也就是常说的 <strong>Pre-LN</strong>。在简化形式下，一个 block 可以写成：
+
+$$
+x_{mid} = x + \text{Attn}(\text{LN}(x))
+$$
+
+$$
+x_{out} = x_{mid} + \text{FFN}(\text{LN}(x_{mid}))
+$$
+
+这种写法让残差路径更顺畅，深层训练时梯度传播更稳定。对于“继续把模型做深、做大”这件事，Pre-LN 不是一个边角细节，而是决定可训练性的关键工程选择之一。
+
+### 位置嵌入、输出层与 Weight Tying
+
+和很多教科书里用固定正弦位置编码讲 Transformer 不同，GPT-2 更贴近现代大模型常见实现：它使用 <strong>可学习的位置嵌入</strong>。这意味着模型不仅学习 token 本身的语义，也学习“这个 token 出现在第几个位置”带来的统计规律。
+
+在输出端，GPT-2 会对最后隐藏状态做一次归一化，再投影回词表空间：
+
+$$
+\text{logits} = h_f W^T
+$$
+
+其中一个常见技巧是 <strong>weight tying</strong>，也就是让输出层权重和 token embedding 共享参数。这样既能减少参数量，也让输入空间与输出空间保持更强的一致性。
+
+### Prompt 为什么会成为任务接口
+
+GPT-2 最有启发性的地方，是它没有把“翻译、摘要、问答、续写”当成四个完全不同的问题，而是把它们都理解为“<strong>在某种上下文模式下继续写文本</strong>”。
+
+这意味着 Prompt 的角色不是一个事后补充的技巧，而是模型接口本身：
+
+- 输入以翻译模式开头时，模型倾向于继续生成译文。
+- 输入在长文后追加 `TL;DR:` 时，模型倾向于继续生成摘要。
+- 输入采用问答格式时，模型倾向于在 `A:` 后面继续回答。
+
+从今天回看，这其实就是后续 Prompt Engineering、few-shot learning 和 instruction following 的雏形。GPT-2 并没有把这些概念全部命名清楚，但它第一次把“任务通过输入格式而不是参数修改来指定”这件事清晰地展示出来。
+
+### 训练与推理：同一套逻辑的两种展开方式
+
+GPT-2 的训练与推理看似不同，本质上却是同一套自回归逻辑在不同阶段的展开。
+
+训练时使用 <strong>teacher forcing</strong>：模型一次看到完整前缀，并并行计算每个位置“预测下一个 token”的损失。推理时则改为 <strong>autoregressive generation</strong>：每次只取最后一个位置的 logits，生成一个新 token，再把它接回输入继续循环。
+
+因此，`model.generate()` 并不是什么神秘黑箱，它只是把“前向传播 -> 取最后一个 logits -> 选 token -> 拼回输入”这一循环，以及 cache、停止条件和采样策略等工程细节一起封装起来。
+
+## 实验结果
+
+GPT-2 最重要的实验意义，并不是它在所有 benchmark 上都彻底取代了监督微调方法，而是它首次系统展示：<strong>同一个固定语言模型在不修改参数的前提下，可以通过不同 Prompt 对多类任务产生合理的零样本行为</strong>。
+
+这篇论文真正验证的，是下面三件事：
+
+- <strong>问答、翻译、摘要等任务模式可以在纯语言建模训练后自然浮现</strong>
+- <strong>任务不一定非要通过专门头部和监督目标来定义</strong>
+- <strong>模型规模与数据规模，是 Prompt 能力出现的关键条件</strong>
+
+从研究史视角看，GPT-2 证明了一个后来被不断放大的事实：<strong>语言模型并不只是“会续写文本”，而是在续写过程中隐式吸收了任务格式、知识模式和上下文约束</strong>。这也是为什么后来的大模型越来越像“统一接口”，而不是“一组彼此分散的任务模型”。
+
+## 总结
+
+GPT-2 的核心贡献，在于它把语言模型的价值从“可迁移表示”进一步推进到“可通过 Prompt 直接调用的通用能力”。它不只是扩大了 GPT-1，而是把 NLP 的交互方式从“微调模型”改写成了“设计输入”。
+
+这一步对后续大模型时代的影响极深。无论是 few-shot 提示、指令遵循、聊天界面还是代理式调用，本质上都继承了 GPT-2 在这里第一次清晰展示的思想：<strong>尽量让模型参数保持通用，把任务规范前移到自然语言上下文中</strong>。
+
+## 代码实战
+
+理解 GPT-2，最有效的方式通常不是只背论文结论，而是同时走两条路径：一条是<strong>学习路径</strong>，把关键模块拆开看清楚；另一条是<strong>工程路径</strong>，直接观察预训练模型怎样通过 Prompt 和生成接口工作。
+
+完整代码实战：
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/yunshenwuchuxun/yunshen-blogv1/blob/main/papers/GPT2/code.ipynb)
+
+### 学习路径：从 causal attention 到 Pre-LN
+
+第一段最值得看的代码，是教学版 <strong>causal self-attention</strong>。它直接把“未来位置不可见”落实到了 mask 逻辑里：
+
+```python
+class CausalSelfAttention(nn.Module):
+    def __init__(self, d_model: int, num_heads: int, dropout: float, max_len: int):
+        super().__init__()
+        assert d_model % num_heads == 0
+        self.num_heads = num_heads
+        self.head_dim = d_model // num_heads
+        self.qkv_proj = nn.Linear(d_model, 3 * d_model)
+        self.out_proj = nn.Linear(d_model, d_model)
+        mask = torch.triu(torch.ones(max_len, max_len), diagonal=1).bool()
+        self.register_buffer('causal_mask', mask)
+
+    def forward(self, x: torch.Tensor):
+        B, T, C = x.shape
+        qkv = self.qkv_proj(x)
+        q, k, v = qkv.chunk(3, dim=-1)
+        q = q.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
+        k = k.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
+        v = v.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
+        scores = (q @ k.transpose(-2, -1)) / math.sqrt(self.head_dim)
+        scores = scores.masked_fill(self.causal_mask[:T, :T], float('-inf'))
+        attn = F.softmax(scores, dim=-1)
+        out = attn @ v
+        return out.transpose(1, 2).contiguous().view(B, T, C)
+```
+
+第二段代码展示了 <strong>Pre-LN decoder block</strong>。这一层把 LayerNorm、残差连接和前馈网络串成 GPT-2 的最小骨架：
+
+```python
+class GPT2Block(nn.Module):
+    def __init__(self, d_model: int, num_heads: int, d_ff: int, dropout: float, max_len: int):
+        super().__init__()
+        self.ln1 = nn.LayerNorm(d_model)
+        self.attn = CausalSelfAttention(d_model, num_heads, dropout, max_len)
+        self.ln2 = nn.LayerNorm(d_model)
+        self.ffn = nn.Sequential(
+            nn.Linear(d_model, d_ff),
+            nn.GELU(),
+            nn.Linear(d_ff, d_model),
+            nn.Dropout(dropout),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = x + self.attn(self.ln1(x))
+        x = x + self.ffn(self.ln2(x))
+        return x
+```
+
+这两段代码对应的是“为什么 GPT-2 能成立”的结构层理解：因果掩码保证训练目标正确，Pre-LN 保证深层网络更稳定。
+
+### 工程路径：直接理解 `generate()` 在做什么
+
+第三段代码对应 <strong>工程路径</strong>。它说明真实项目里怎样直接调用预训练 GPT-2，并把同一组 Prompt 送入 `model.generate()`：
+
+```python
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+tokenizer = AutoTokenizer.from_pretrained('openai-community/gpt2', padding_side='left')
+if tokenizer.pad_token is None:
+    tokenizer.pad_token = tokenizer.eos_token
+
+model = AutoModelForCausalLM.from_pretrained('openai-community/gpt2').to(device)
+model.eval()
+
+inputs = tokenizer(
+    prompts,
+    return_tensors='pt',
+    padding=True,
+    truncation=True,
+    max_length=128,
+).to(device)
+
+generated_ids = model.generate(
+    **inputs,
+    max_new_tokens=40,
+    do_sample=True,
+    temperature=0.8,
+    top_k=50,
+    pad_token_id=tokenizer.eos_token_id,
+)
+
+outputs = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
+```
+
+这段代码的重点不是 API 本身，而是它把论文思想落到了真实工作流上：同一个预训练模型，只通过改变 Prompt 和解码策略，就能表现出不同的任务行为。
+
+如果只用一句话概括这份 Notebook 的价值，那就是：<strong>学习路径负责解释 GPT-2 为什么成立，工程路径负责说明今天我们实际上怎样使用它</strong>。前者帮助建立结构理解，后者帮助理解 Prompt、padding、cache 和生成策略这些真实工程细节。
+
+## 参考文献
+
+- Radford, A., Wu, J., Child, R., Luan, D., Amodei, D., & Sutskever, I. (2019). [Language Models are Unsupervised Multitask Learners](https://cdn.openai.com/better-language-models/language-models.pdf). *OpenAI*.
+- OpenAI. [Better language models and their implications](https://openai.com/index/better-language-models/).
+- Jay Alammar. [The Illustrated GPT-2](https://jalammar.github.io/illustrated-gpt2/).
+- Sebastian Raschka. [Understanding Decoder-Only Transformers](https://sebastianraschka.com/blog/2023/llm-transformer-book.html).

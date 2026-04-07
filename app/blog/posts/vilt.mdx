@@ -1,0 +1,177 @@
+---
+title: 'ViLT：去掉卷积的视觉语言 Transformer'
+publishedAt: '2026-04-06'
+summary: 'ViLT 论文精读：用 Patch Projection 取代 CNN 和区域检测器，把视觉语言预训练的计算重心从视觉编码转回多模态交互。'
+draft: false
+image: '/static/blog/vilt/image7.png'
+tags: [Paper, CV, LLM]
+---
+
+<PaperCard
+	title="ViLT: Vision-and-Language Transformer Without Convolution or Region Supervision"
+	description="Wonjae Kim, Bokyung Son, Ildoo Kim — ICML 2021"
+	links={[
+		{ label: "论文原文", url: "https://arxiv.org/abs/2102.03334" },
+		{ label: "代码实战", url: "https://colab.research.google.com/github/yunshenwuchuxun/yunshen-blogv1/blob/main/papers/ViLT/code.ipynb" },
+	]}
+/>
+
+ViLT 的关键价值，不在于把视觉编码器继续做大，而在于重新追问视觉语言预训练里的算力究竟该花在哪里。传统 VLP 模型往往把绝大多数计算预算消耗在图像侧的 CNN 或检测器上，真正负责图文交互的 Transformer 反而只占很小一部分。
+
+这篇论文给出的回答非常直接：既然文本可以被表示成 token 并线性嵌入后送入 Transformer，那么图像也可以遵循同样的思路。ViLT 因此移除了卷积网络和区域监督，只保留 patch 切分与线性投影，让多模态交互第一次真正成为整个系统的中心。
+
+## 研究动机
+
+在 ViLT 之前，主流视觉语言预训练模型通常依赖预训练检测器来提取区域特征。这种做法有两个明显问题。
+
+- <strong>效率开销极高</strong>：特征提取本身就要消耗大量时间，常常远高于后续图文交互模块。
+- <strong>表达能力受限</strong>：模型对图像的理解被检测器的类别空间和预定义视觉词典所限制。
+
+![ViLT 与其他 VLP 模型的推理时间对比](/static/blog/vilt/image4.png)
+
+从论文给出的对比可以看到，UNITER-Base 的视觉嵌入耗时约为 810ms，Pixel-BERT-R50 约为 45ms，而 ViLT-B/32 只需约 0.4ms。模态交互部分三者差距并不大，真正拖慢系统的是视觉编码阶段。
+
+因此，ViLT 的问题意识不是“怎样进一步堆大视觉骨干网络”，而是“能否把视觉嵌入简化到与文本嵌入同一量级”，从而把建模重点重新放回跨模态理解。
+
+## 核心方法/模型架构
+
+ViLT 的整体思路可以概括为一句话：<strong>文本是 token，图像也变成 token</strong>。
+
+对文本，模型沿用 BERT 风格的词嵌入。对图像，模型将输入切成固定大小的 patch，再用线性层映射到统一的隐藏维度。这样得到的图像 patch token 与文本 token 可以直接拼接后送入同一个 Transformer Encoder。
+
+![四种 VLP 模型架构的模态交互层级对比](/static/blog/vilt/image5.png)
+
+![四种 VLP 框架中视觉编码、文本编码与模态交互的权重对比](/static/blog/vilt/image6.png)
+
+这一设计意味着 ViLT 属于典型的<strong>单流融合</strong>架构。图像与文本从输入阶段就进入同一序列空间，通过自注意力机制进行统一交互，而不是先各自编码后再额外做 cross-attention。
+
+![ViLT 模型整体架构（论文 Figure 3）](/static/blog/vilt/image7.png)
+
+## 组件详解
+
+### 输入嵌入
+
+ViLT 中每个 token 的输入表示由三部分相加得到：类型嵌入、位置嵌入和内容嵌入。
+
+$$
+\text{Token Embedding} = \text{Type Embedding} + \text{Position Embedding} + \text{Content Embedding}
+$$
+
+文本和图像在形式上被统一处理。每个模态序列前都会加入一个可学习的 `[CLS]` token，最终形成统一的多模态输入序列。
+
+### Patch Projection
+
+ViLT 最关键的简化是去掉 CNN 和区域检测器，直接把图像切成 patch 后线性映射。这一步本质上继承了 ViT 的思想，但放到视觉语言预训练里意义更大，因为它把图像端的前处理代价压缩到了极低水平。
+
+与传统 region feature 或 grid feature 相比，Patch Projection 的优点在于结构简单、计算代价低，并且避免了把视觉表示能力绑定在外部检测器的标签体系上。
+
+### 单流多模态交互
+
+两个模态的嵌入分别加上模态类型嵌入后，在序列维度直接拼接：
+
+$$
+z^0 = [\bar{t} + t^{type};\; \bar{v} + v^{type}]
+$$
+
+之后整个序列进入 $D$ 层 Transformer Encoder 做联合建模。论文中采用的是 ViT 风格的 pre-norm 结构：
+
+$$
+\hat{z}^d = \text{MSA}(\text{LN}(z^{d-1})) + z^{d-1}
+$$
+
+$$
+z^d = \text{MLP}(\text{LN}(\hat{z}^d)) + \hat{z}^d
+$$
+
+最终使用第一个文本 token 的输出作为池化表示：
+
+$$
+p = \tanh(z_0^D W_{pool})
+$$
+
+这种设计强调的是早期、深层、持续的跨模态交互。与 CLIP 式双塔结构相比，ViLT 更适合需要细粒度图文理解的任务。
+
+### 预训练目标
+
+ViLT 主要使用三个目标。
+
+- <strong>ITM</strong>：判断图文是否匹配。
+- <strong>MLM</strong>：遮蔽部分文本 token，要求模型结合上下文和图像恢复原词。
+- <strong>WPA</strong>：通过最优传输距离鼓励词与 patch 的细粒度对齐。
+
+其中，WPA 的意义在于把“整体匹配”进一步细化为“局部对齐”。模型不仅要知道这张图和这句话是否有关，还要在内部表示中学会哪些词更可能对应哪些图像区域。
+
+### 训练细节
+
+论文里还有几个非常重要但容易被忽视的训练策略。
+
+- <strong>整词掩码</strong>：避免 MLM 任务只靠 subword 局部上下文作弊。
+- <strong>图像增强</strong>：由于不再依赖预缓存区域特征，ViLT 可以更自然地在训练时应用增强。
+- <strong>较低输入分辨率</strong>：进一步降低 patch 数量和计算开销。
+
+这些设计共同说明，ViLT 的“高效”并不是单点技巧，而是从输入表示、网络结构到训练流程的一整套系统性简化。
+
+## 实验结果
+
+ViLT 最显著的实验结论是：即使去掉 CNN 和检测器，模型仍然能在多个下游视觉语言任务上取得有竞争力的性能，同时把推理速度提升到远快于以往方法的水平。
+
+这篇论文传达出的核心判断是：在视觉语言预训练里，过重的视觉编码器未必是必要条件。只要多模态 Transformer 足够有效，直接从 patch 开始联合建模，也能取得相当有竞争力的结果。
+
+当然，这条极简路线也有边界。对于特别依赖精细局部结构的任务，纯 patch 表示未必总是优于更强的视觉骨干网络。后续工作如 METER、BEiT-3 等，其实都可以看作是在 ViLT 提出的效率优先路线之上，继续寻找更好的精度-效率平衡。
+
+## 总结
+
+ViLT 的真正贡献，不只是把视觉侧换成了 patch embedding，而是重新定义了视觉语言预训练的计算重点。它证明了多模态建模的瓶颈不一定在视觉编码器本身，而可能在于系统把太多资源浪费在了交互之前。
+
+从这个意义上说，ViLT 是一篇很有方法论价值的论文：它用极简设计挑战了当时的主流范式，也为后续一系列高效多模态模型提供了重要起点。
+
+## 代码实战
+
+下面这份 Notebook 采用“两条线并行”的方式讲解 ViLT。
+
+第一条线是教学版的 Mini-ViLT，从 `PatchEmbedding`、`TextEmbedding`、`MultimodalFusion`、`PreNormTransformerLayer` 一步步搭起完整的数据流，重点帮助理解论文中的结构和张量形状。
+
+第二条线是工程侧的预训练推理，直接调用 HuggingFace 的 `ViltForImageAndTextRetrieval`，演示如何用真实 checkpoint 做图文匹配打分。这种写法比从零训练更适合教学和快速验证。
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/yunshenwuchuxun/yunshen-blogv1/blob/main/papers/ViLT/code.ipynb)
+
+下面这段教学代码展示了 ViLT 如何把图像 patch 直接变成 token 序列：
+
+```python
+class PatchEmbedding(nn.Module):
+    def __init__(self, img_size: int, patch_size: int, d_model: int, in_channels: int = 3):
+        super().__init__()
+        self.num_patches = (img_size // patch_size) ** 2
+        self.proj = nn.Conv2d(in_channels, d_model, kernel_size=patch_size, stride=patch_size)
+        self.cls_token = nn.Parameter(torch.randn(1, 1, d_model))
+        self.pos_embed = nn.Parameter(torch.randn(1, 1 + self.num_patches, d_model))
+
+    def forward(self, x):
+        B = x.shape[0]
+        x = self.proj(x)
+        x = x.flatten(2).transpose(1, 2)
+        cls = self.cls_token.expand(B, -1, -1)
+        x = torch.cat([cls, x], dim=1)
+        x = x + self.pos_embed
+        return x
+```
+
+对应到工程实践，Notebook 还展示了如何使用预训练检索模型进行图文匹配推理：
+
+```python
+from transformers import ViltProcessor, ViltForImageAndTextRetrieval
+
+model_name = 'dandelin/vilt-b32-finetuned-coco'
+processor = ViltProcessor.from_pretrained(model_name)
+model = ViltForImageAndTextRetrieval.from_pretrained(model_name)
+model.eval()
+```
+
+这两部分结合起来，既能帮助理解 ViLT 为什么快，也能帮助掌握今天实际可运行的调用方式。
+
+## 参考文献
+
+1. Wonjae Kim, Bokyung Son, Ildoo Kim. <em>ViLT: Vision-and-Language Transformer Without Convolution or Region Supervision</em>. ICML 2021. [arXiv](https://arxiv.org/abs/2102.03334)
+2. PMLR Proceedings page: [ViLT: Vision-and-Language Transformer Without Convolution or Region Supervision](https://proceedings.mlr.press/v139/kim21k.html)
+3. Hugging Face model card: [dandelin/vilt-b32-finetuned-coco](https://huggingface.co/dandelin/vilt-b32-finetuned-coco)
+4. 原始代码实战 Notebook：`papers/ViLT/code.ipynb`

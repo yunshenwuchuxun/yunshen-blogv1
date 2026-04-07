@@ -10,19 +10,19 @@ export const metadata = {
 
 const TOPIC_GROUPS = [
 	{
-		title: 'AI 工程',
-		description: 'Agent、Skills 与开发工作流相关文章',
-		tags: ['AI', 'Agent', 'Skill', 'Dev'],
+		title: 'AI Engineering',
+		description: 'Agents, tooling, and workflow-oriented posts.',
+		tags: ['AI', 'Agent', 'Tooling'],
 	},
 	{
-		title: '论文精读',
-		description: '按研究方向归档模型与论文笔记',
-		tags: ['Paper', 'DL', 'CV', 'NLP', 'GNN', 'Gen'],
+		title: 'Research',
+		description: 'Core research and paper-reading topics.',
+		tags: ['Paper', 'DL', 'CV', 'NLP', 'LLM'],
 	},
 	{
-		title: '其它',
-		description: '测试与杂项内容',
-		tags: ['Test'],
+		title: 'Systems',
+		description: 'Linux, infrastructure, and deployment notes.',
+		tags: ['Linux', 'Infra'],
 	},
 ] as const;
 

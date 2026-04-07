@@ -4,7 +4,7 @@ publishedAt: '2026-03-15'
 summary: 'ICCV 2021 Best Paper 精读：Swin Transformer 通过层级式特征图和移动窗口自注意力，将计算复杂度降为线性，成为首个全面替代 CNN 的通用视觉骨干网络。'
 draft: false
 image: '/static/blog/swin-transformer/complexity-comparison.png'
-tags: [Paper, CV, DL, Paper Reading]
+tags: [Paper, DL, CV]
 ---
 
 <PaperCard
@@ -13,7 +13,7 @@ tags: [Paper, CV, DL, Paper Reading]
 	links={[
 		{ label: "论文原文", url: "https://arxiv.org/abs/2103.14030" },
 		{ label: "AI 总结", url: "/static/blog/swin-transformer/ai-summary.html" },
-		{ label: "代码实战", url: "https://colab.research.google.com/github/yunshenwuchuxun/yunshen-blogv1/blob/main/papers/Swin-Transformer/16_Swin_Transformer_%E4%BB%A3%E7%A0%81%E5%AE%9E%E6%88%98.ipynb" },
+		{ label: "代码实战", url: "https://colab.research.google.com/github/yunshenwuchuxun/yunshen-blogv1/blob/main/papers/Swin-Transformer/code.ipynb" },
 	]}
 />
 
@@ -186,7 +186,7 @@ Swin 在检测任务上的表现震惊了整个 CV 界。在同等参数和 FLOP
 
 完整代码包含两种实现——从零手写核心组件 vs 调用 torchvision 预训练模型：
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/yunshenwuchuxun/yunshen-blogv1/blob/main/papers/Swin-Transformer/16_Swin_Transformer_%E4%BB%A3%E7%A0%81%E5%AE%9E%E6%88%98.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/yunshenwuchuxun/yunshen-blogv1/blob/main/papers/Swin-Transformer/code.ipynb)
 
 ### 实现 A：从零手写 Swin Transformer
 
