@@ -26,6 +26,15 @@ export const projects: Project[] = [
 		summary: '基于 Next.js 16 的个人博客，支持 MDX、主题切换与流畅动画',
 	},
 	{
+		title: 'latex-paper-skills',
+		src: 'latex-paper-skills-review.png',
+		color: '#dcfce7',
+		slug: 'latex-paper-skills',
+		role: 'AI Research Tooling Developer',
+		summary:
+			'面向 ML/AI 论文写作的模块化 LaTeX 技能框架，覆盖选题、写作、审计与编译全流程',
+	},
+	{
 		title: 'Aphex Planner',
 		src: 'planner-app.webp',
 		color: '#dbeafe',
@@ -88,6 +97,12 @@ export interface ProjectDetail {
 	title: string;
 	subtitle: string;
 	description: string;
+	overviewSections?: {
+		title: string;
+		body: string;
+		image?: string;
+		imageAlt?: string;
+	}[];
 	features: { title: string; description: string }[];
 	techStack: { category: string; items: string[] }[];
 	links: { label: string; url: string }[];
@@ -317,6 +332,114 @@ export const projectDetails: Record<string, ProjectDetail> = {
 			'开发者 - 寻找现代化博客模板',
 			'技术写作者 - 需要 MDX 支持的内容平台',
 			'个人站长 - 部署自己的博客站点',
+		],
+		license: 'MIT License – 可在保留版权声明的前提下自由使用、复制与分发',
+	},
+	'latex-paper-skills': {
+		slug: 'latex-paper-skills',
+		title: 'latex-paper-skills',
+		subtitle:
+			'科研 skills：想法、写作、实验、文献、排版一条龙服务，一条 prompt 即可生成有证据、排版好的论文',
+		description: `latex-paper-skills 是一个面向 ML/AI 学术写作的科研 skills 系统。它把想法形成、文献检索、研究规划、章节写作、实验设计、结果回填、引用核验和 LaTeX 排版串成一条完整流水线，让“写论文”第一次像搭建软件工作流一样可组织、可追踪、可复用。
+
+它最强的地方不只是会生成正文，而是能把一条自然语言 prompt 路由成真正可交付的论文流程：先规划、再写作、强制核验证据、自动维护 BibTeX、最后编译成版式规范的 PDF。相比单纯的 prompt 模板，这是一套能稳定产出“有证据、排版好、可复现”论文的研究生产系统。`,
+		overviewSections: [
+			{
+				title: '一条 prompt 到论文 PDF：完整 pipeline 是这个项目的核心竞争力',
+				body: `latex-paper-skills 的定位不是“论文润色工具”，而是科研写作全流程的 skills 系统。README 里把它定义为从 topic 到 compiled PDF 的可移植 AI agent skill bundle，核心路由 skill 会把一个研究想法继续拆成文献搜索、创新 framing、贡献地图、证据矩阵，再根据任务类型分流到综述论文或实证论文写作器。
+
+这意味着用户输入的不再只是一个 prompt，而是一次完整科研流程的起点。系统会把想法、文献、实验、写作、引用、排版组织成可执行工序，最终交付的也不只是文字草稿，而是带证据约束、带 BibTeX、带 LaTeX 排版、可直接编译成 PDF 的论文工程。`,
+				image: '/static/images/project/latex-paper-skills-pipeline.svg',
+				imageAlt: 'latex-paper-skills 从选题到论文 PDF 的总流程图',
+			},
+			{
+				title: 'Skill 体系不是一句“AI 写论文”，而是可分工、可组合的科研工作台',
+				body: `这个仓库最值得单独介绍的，是它把论文生产拆成了一组职责明确的 skills。paper-from-zero 负责总路由；arxiv-paper-writer 负责综述论文；empirical-paper-writer 负责实验论文；latex-rhythm-refiner 负责在不破坏引用位置的前提下优化表达；results-backfill 负责把真实实验结果回填进草稿并生成图表。
+
+在协作层上，collaborating-with-gemini 更偏广度扩展，适合做文献扩写、替代框架与关键词分组；collaborating-with-claude 更偏深度审查，适合做 claim stress-test、证据审计与关键判断；check-collaborators 则负责检查 CLI、认证与接口可用性。换句话说，这不是一个单点功能，而是一个覆盖“想法—文献—写作—实验—排版”的科研工作台。`,
+				image: '/static/blog/latex-paper-skills/review-paper-preview.png',
+				imageAlt: 'latex-paper-skills 综述论文示例预览',
+			},
+			{
+				title: '它为什么强：不是写得快，而是把证据、流程和排版同时做对',
+				body: `很多 AI 写作工具只能快速吐出一篇“像论文的文字”，但 latex-paper-skills 追求的是更难的目标：让结果既有研究证据，又符合论文生产流程，还能在 LaTeX 层面直接交付。README 里反复强调 no prose before approval、Issues CSV is the contract、citations must be verified、never fabricate citations/results/significance claims——这些不是营销词，而是系统设计原则。
+
+配合门禁流程图可以看到，项目把 Kickoff、用户审批、Issues 合同、research/write/verify 循环、节奏润色、citation audit、source scoring、compile 和 warning review 串成了完整状态机。它的强大之处就在这里：一条 prompt 不是换来一篇“看起来像论文”的草稿，而是换来一条能够稳定生成“有证据、排版好、可审计、可编译”论文的科研生产线。`,
+				image: '/static/blog/latex-paper-skills/empirical-paper-preview.png',
+				imageAlt: 'latex-paper-skills 实证论文示例预览',
+			},
+		],
+		features: [
+			{
+				title: '一条 Prompt 到论文 PDF',
+				description:
+					'从主题输入开始，自动路由到文献搜索、规划、写作、引用核验与 LaTeX 编译，最终交付可读可编译的论文工程',
+			},
+			{
+				title: '科研 Skills 全链路',
+				description:
+					'覆盖想法形成、文献检索、综述写作、实验论文、结果回填、文本润色与排版交付，不是单点工具而是完整科研工作台',
+			},
+			{
+				title: '综述 / 实证双论文模式',
+				description:
+					'同时支持 review paper 与 empirical paper，两类论文共享同一套工程化约束与交付标准',
+			},
+			{
+				title: '证据优先写作',
+				description:
+					'每条引用先核验再进入 BibTeX，明确禁止伪造 citation、results 或 significance claims，让生成结果更可信',
+			},
+			{
+				title: '门禁式工作流',
+				description:
+					'通过审批门禁、Issues CSV 合同与 research/write/verify/compile 循环约束 Agent，减少失控写作与结构漂移',
+			},
+			{
+				title: '多模型协作与结果回填',
+				description:
+					'利用 Claude / Gemini 做深度审查与广度扩展，并支持把真实实验结果和图表回填进已有论文草稿',
+			},
+		],
+		techStack: [
+			{ category: '核心语言', items: ['Python 3.8+', 'TeX'] },
+			{
+				category: '论文工具链',
+				items: ['LaTeX', 'BibTeX', 'latexmk / pdflatex'],
+			},
+			{
+				category: 'Agent Runtime',
+				items: ['Claude Code', 'Codex CLI 兼容 Skill 工作流'],
+			},
+			{ category: '数据与状态', items: ['SQLite', 'arXiv registry / cache'] },
+			{
+				category: '辅助脚本',
+				items: ['引用审计', '来源排序', '风格检查', '编译验证'],
+			},
+		],
+		links: [
+			{
+				label: 'GitHub',
+				url: 'https://github.com/yunshenwuchuxun/latex-paper-skills',
+			},
+			{
+				label: '设计博客',
+				url: '/blog/latex-paper-skills',
+			},
+		],
+		usage: [
+			'克隆仓库：git clone https://github.com/yunshenwuchuxun/latex-paper-skills.git',
+			'准备 Python 3.8+ 与 LaTeX 环境（pdflatex / bibtex 或 latexmk）',
+			'在支持 SKILL.md 的 agent runtime 中打开项目',
+			'使用 paper-from-zero、arxiv-paper-writer 或 empirical-paper-writer 启动写作流程',
+			'如为实证论文，可在实验完成后通过 results-backfill 回填结果并重新编译',
+		],
+		targetUsers: [
+			'AI / ML 研究者 - 需要更系统的论文写作工作流',
+			'研究生与博士生 - 需要从选题到成稿的结构化支持',
+			'综述论文作者 - 需要更稳定的文献梳理与引用审计流程',
+			'实证研究作者 - 希望先搭建论文骨架、后补实验结果',
+			'研究团队 - 需要可审计、可复用的 AI 协作写作流程',
 		],
 		license: 'MIT License – 可在保留版权声明的前提下自由使用、复制与分发',
 	},

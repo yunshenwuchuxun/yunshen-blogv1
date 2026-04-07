@@ -1,0 +1,521 @@
+---
+title: 'Agent Skills 实战：从 Skill 设计方法到 latex-paper-skills 论文工作流'
+publishedAt: '2026-03-04T12:00:00'
+summary: '从 Skill 设计方法讲到 latex-paper-skills 的完整实战：详解如何把论文写作拆成可复用的 Agent Skills，以及 Gate-Contract-Verify、双路径工作流、引用审计、多模型协作与编译交付。'
+draft: false
+image: '/static/images/project/latex-paper-skills-review.png'
+tags: [AI, Skill, Paper, LaTeX]
+---
+
+## 引言：为什么论文写作比代码生成更难 Skill 化
+
+在上一篇文章中，我们系统梳理了 [Agent Skills 开放标准](/blog/agent-skills) 的设计哲学：Skill 不是一段超长 prompt，而是一份可被稳定触发、可被长期维护的任务协议。那篇文章回答的是“Skill 应该怎么设计”。
+
+本文想回答一个更具体的问题：<strong>如果把 Agent Skills 真正落到论文写作这种长链路任务里，它最后会长成什么样？</strong>
+
+我选择的例子是 `latex-paper-skills`。它不是那种“帮你一键写完论文”的工具，更像一套分阶段的论文工作流：从选题、规划、证据整理，到章节写作、引用核验、结果回填，再到 LaTeX 编译，前后是连起来的。
+这类项目非常适合拿来分析 Skill 设计，因为论文写作天然比普通代码任务更难：
+
+- 它不是一步完成，而是长链路任务
+- 它不是只看文本质量，还要看引用、结构与可编译性
+- 它不是“生成就结束”，而是必须交付 LaTeX 工程和 PDF 结果
+- 它不能只靠一句 prompt 成功，而需要流程治理
+
+所以，`latex-paper-skills` 值得分析的地方，不只是“它能写论文”，而是<strong>它如何把论文写作收敛成一个工程上可控的 Skill 系统</strong>。
+
+## 先抓住问题：为什么论文写作不能只靠一个大 Prompt
+
+很多人第一次尝试让 AI 写论文时，都会走向同一个直觉：给模型一个足够详细的 prompt，让它直接输出完整论文。
+
+这个思路短期看很自然，长期看却几乎一定失控。原因很简单：论文写作不是一次生成任务，而是一连串彼此耦合的子任务。
+
+| 子任务 | 需要解决什么 | 只靠大 Prompt 会怎样 |
+| --- | --- | --- |
+| 选题与范围收敛 | 明确研究边界和目标问题 | 容易题目过大或结构漂移 |
+| 大纲设计 | 先搭骨架再展开章节 | 模型直接写正文，结构先天失衡 |
+| 文献检索与分类 | 找到可信来源并组织主题 | 引用真假混杂，分类松散 |
+| 正文写作 | 按章节推进论证 | 容易上下文遗忘、重复和跑题 |
+| 引用核验 | 检查 BibTeX 与来源一致性 | 最终引用不可追溯 |
+| LaTeX 编译交付 | 输出真正能维护的论文工程 | 只得到聊天文本，无法投稿 |
+
+所以，论文写作最核心的挑战，不是“文字怎么生成”，而是<strong>流程怎么收敛</strong>。
+
+`latex-paper-skills` 的价值，正是在这里：它没有把“写论文”视为一个生成任务，而是把它拆成一套可编排的 Skills 与可验证的阶段。
+
+## 从 Skill 设计角度看：一个好的论文写作 Skill 应该满足什么
+
+如果把上一篇文章的 Skill 设计方法套到论文写作场景，一个成熟的论文写作 Skill 至少要回答五个问题：
+
+| 设计问题 | 在论文写作中具体意味着什么 |
+| --- | --- |
+| 什么时候触发 | 用户是要写综述，还是实证论文，还是从零开始搭论文工程 |
+| 先做什么后做什么 | 是先规划、后写作，还是直接生成正文 |
+| 哪些信息必须立即知道 | 题目范围、论文类型、输出格式、是否已有实验结果 |
+| 哪些信息应该按需加载 | 引用规范、BibTeX 规则、写作风格、可视化模板 |
+| 怎样判断完成得好 | 是否结构稳定、引用可信、工程可编译、最终可交付 |
+
+这五个问题决定了：一个论文 Skill 绝不能只是“帮我写 paper”。它必须更像一个<strong>研究写作协议</strong>。
+
+从这个角度看，`latex-paper-skills` 的设计是很典型的工程化答案：
+
+- 用多个 Skills 而不是一个超大 Skill 来承担不同阶段
+- 用 Gate 把“计划批准”和“正文写作”强制分开
+- 用 Issues contract 定义可追踪的执行单元
+- 用脚本负责确定性动作，用 Agent 负责创造性动作
+- 用引用审计、结果回填和编译 QA 保证最终交付质量
+
+换句话说，它不是把 prompt 写得更长，而是把复杂度拆得更清楚。
+
+## 项目全景：一个 Skill Bundle 如何组织论文工作流
+
+`latex-paper-skills` 最值得学习的一点，是它不是单个 Skill，而是一个面向论文生产的 <strong>Skill Bundle</strong>。
+
+先看 README 里的整体流程图，会更容易理解这个仓库为什么不是“一个 prompt”，而是一套分阶段协作的写作系统：
+
+![latex-paper-skills Pipeline Overview](/static/images/project/latex-paper-skills-pipeline.svg)
+
+从项目已有说明可以提炼出三条主工作流入口：
+
+```text
+latex-paper-skills/
+├─ paper-from-zero         # 从选题开始，搭建完整论文工作流
+├─ arxiv-paper-writer      # 综述论文路径
+├─ empirical-paper-writer  # 实证论文路径
+├─ results-backfill        # 实验结果回填
+├─ 引用审计 / 来源排序 / 编译验证脚本
+└─ LaTeX / BibTeX / registry / cache 工具链
+```
+
+这个结构本身就体现了一个很重要的 Skill 设计原则：<strong>单一职责 + 协同编排</strong>。
+
+- `paper-from-zero` 负责从零启动研究写作流程
+- `arxiv-paper-writer` 负责综述类论文的主路径
+- `empirical-paper-writer` 负责实验型论文的主路径
+- `results-backfill` 负责后期把真实结果写回论文
+- 各类审计与编译脚本负责把不该交给模型猜的部分固化下来
+
+这比“一个 Skill 既负责规划、又负责写作、又负责审计、还负责编译”要稳定得多。
+
+README 里还有一个容易被忽略、但其实非常重要的设计：这个仓库不只是“一个写作 Skill Bundle”，它还内置了专门的<strong>协作型 co-pilot skills</strong>，用于把不同模型放进明确的工作流角色里。
+
+| Skill | What it does |
+| --- | --- |
+| `collaborating-with-gemini` | Breadth co-pilot via Gemini CLI. Structured JSON + session persistence. |
+| `collaborating-with-claude` | Depth co-pilot via Claude Code CLI. Claim stress-testing and evidence audit. |
+| `check-collaborators` | Health check — verifies CLI installation, auth, and API reachability. |
+
+这三者并不是“可有可无的附加功能”，而是多模型协作真正落地的关键。
+
+- `collaborating-with-gemini` 更偏 **breadth**：适合做 literature expansion、关键词扩展、替代表述探索。也就是说，当主流程需要更广的文献覆盖、更发散的 framing 时，让 Gemini 扮演“广度副驾驶”。
+- `collaborating-with-claude` 更偏 **depth**：适合做 claim stress-testing、evidence audit、路由判断。也就是说，当你已经有一个论断或章节结构，想检查它是否站得住、证据是否足够、推理是否严密时，让 Claude 扮演“深度副驾驶”。
+- `check-collaborators` 则是健康检查层：在协作正式开始前，先验证 CLI 是否安装、认证是否可用、API 是否可达，避免主流程跑到一半才发现协作环境不可用。
+
+这个设计非常值得单独拿出来讲，因为它把“多模型协作”从一句口号变成了一个明确的分工系统：
+
+```text
+主工作流 Skill
+  ├─ Gemini：负责广度扩展（更多文献、更多 framing、更多备选角度）
+  ├─ Claude：负责深度校验（论断压力测试、证据审计、关键判断）
+  └─ Check：负责在协作前确认两侧 CLI / auth / API 都正常
+```
+
+很多项目一提“多模型协作”，本质上只是换着问不同模型；而 `latex-paper-skills` 更进一步：<strong>它给不同模型分配了不同职责</strong>。这才是真正工程化的协作设计。
+
+## 协作 Skills：为什么要把 Gemini 和 Claude 分成广度与深度
+
+这三个协作 skills 值得单独拆出来讲，因为它们并不是“顺手加上的工具”，而是在回答一个很现实的问题：<strong>当主工作流已经足够复杂时，怎样让外部模型参与协作而不把流程搞乱？</strong>
+
+一种低水平的做法是：主 Agent 卡住时，随便再问一个模型。这样当然也可能有帮助，但问题是角色不清楚，输出格式不稳定，会话状态也容易断裂。
+
+README 给出的做法更成熟：
+
+- 让 `collaborating-with-gemini` 负责 **breadth**
+- 让 `collaborating-with-claude` 负责 **depth**
+- 让 `check-collaborators` 先做 **health check**
+
+这个分工背后有一套很清晰的工程逻辑。
+
+### `collaborating-with-gemini`：广度副驾驶
+
+Gemini 在这里扮演的不是“另一个主模型”，而是一个专门负责扩展搜索空间的 co-pilot。README 对它的描述非常清楚：
+
+- `Breadth co-pilot via Gemini CLI`
+- `Structured JSON + session persistence`
+
+为什么要把“广度”单独拆出来？因为论文写作里有很多阶段，本质上不是要一个最精确的答案，而是要更多候选方向：
+
+- 文献还能往哪些子主题扩展
+- 同一个问题还有哪些不同 framing
+- 这个章节是否有被忽略的关键词簇
+- 有没有更适合 survey 结构的组织方式
+
+这些任务的共同特点是：<strong>先扩展搜索空间，再收缩判断</strong>。Gemini 在这里更像一个发散型研究助理。
+
+### `collaborating-with-claude`：深度副驾驶
+
+Claude 在这个系统里承担的是另一类任务。README 对它的定位是：
+
+- `Depth co-pilot via Claude Code CLI`
+- `Claim stress-testing and evidence audit`
+
+也就是说，它更适合处理那些需要“压强测试”的环节：
+
+- 这个 claim 真的被现有证据支持吗
+- 这段综述是不是过度概括了某条研究结论
+- 这组引用是否足以支撑这一段话
+- 某个章节的路由判断是否合理
+
+和 Gemini 的“广度扩展”不同，这里强调的是<strong>往下钻</strong>：不是再多找几个方向，而是检查当前方向是否足够扎实。
+
+### `check-collaborators`：协作前先做健康检查
+
+这是一个很容易被忽略但非常工程化的细节。README 里把它定义为：
+
+- `Health check`
+- `verifies CLI installation, auth, and API reachability`
+
+很多多模型系统的问题，不是模型能力，而是协作环境不稳定：CLI 没装好、没登录、API 不通、权限过期。`check-collaborators` 的意义，就是把这些问题前置到工作流开始前解决，而不是等主流程已经生成了一半内容才失败。
+
+从 Skill 设计角度看，这其实是在给“多模型协作”补上一个常常被忽略的系统层：<strong>依赖健康检查</strong>。
+
+## 从 README 看真实执行路径：从 `paper-from-zero` 到最终交付
+
+如果说前面几节是在讲“这个系统为什么这样设计”，那这一节就是在回答“它真实跑起来是什么样”。README 给出的入口其实已经很明确：
+
+```text
+Use the paper-from-zero skill. My topic is: <your topic>
+Use the arxiv-paper-writer skill. Write a review article about <topic>.
+Use the empirical-paper-writer skill. Write an experimental paper about <topic>.
+```
+
+把这些入口串起来看，`latex-paper-skills` 的实战执行路径大致可以还原成下面这样。
+
+### 路径 1：从 `paper-from-zero` 启动
+
+这是最完整、也最能体现项目设计思想的一条主路径。
+
+```text
+paper-from-zero
+  → Topic / literature search / innovation framing
+  → 判断是 review 还是 empirical
+  → 路由到 arxiv-paper-writer 或 empirical-paper-writer
+  → 进入 Gate / Issues / Writing Loop
+  → 需要时调用 collaborator skills
+  → 进入 citation audit / compile / delivery
+```
+
+也就是说，`paper-from-zero` 并不是上来就写正文，而是先把一组最基本的交接件做出来。根据 `BEGINNER_WORKFLOW.zh-CN` 的思路，起步阶段更稳妥的产物通常是：
+
+- `brief/topic-brief.md`
+- `brief/contribution-map.yaml`
+- `brief/evidence-matrix.csv`
+- `plan/outline-contract.md`
+- `plan/router-decision.md`
+
+这些文件的作用都很实际：
+
+- `topic-brief` 用来把题目范围收紧
+- `contribution-map` 用来把创新点写成结构，而不是写成口号
+- `evidence-matrix` 用来给 claim 配证据，并标清 `planned / placeholder / verified`
+- `outline-contract` 用来固定章节骨架
+- `router-decision` 用来决定后面走综述还是实证
+
+这一步非常关键，因为它把“我有一个模糊想法”转成了“我已经有一套可以继续施工的交接件”。换句话说，项目一开始追求的不是正文，而是施工图。
+
+## Skill 设计方法一：先分论文类型，再分工作流路径
+
+一个常见错误，是把所有论文写作都视为同一种任务。实际上，综述论文和实证论文虽然都叫“论文”，但流程差异很大。
+
+### 综述论文路径
+
+为了让这条路径更直观，可以直接看一个综述论文产出的预览示例：
+
+![Review paper preview](/static/blog/latex-paper-skills/review-paper-preview.png)
+
+综述类论文最难的是：
+
+- 主题边界要收敛
+- 文献要系统化组织
+- 分类结构要稳定
+- 引用密度和来源可信度要持续检查
+
+所以它更适合采用这样一条 Skill 链路：
+
+```text
+选题 → 轻量检索 → 大纲设计 → 章节写作 → 引用核验 → 编译交付
+```
+
+如果把 README 里的执行入口对应进去，综述路径通常就是：
+
+```text
+paper-from-zero → arxiv-paper-writer → collaborator skills（按需） → citation audit → compile
+```
+
+这条路径最适合在这些时刻调用协作 skills：
+
+- 用 `collaborating-with-gemini` 扩展文献子主题、关键词簇、替代分类方法
+- 用 `collaborating-with-claude` 审核关键 claim、检查 evidence 是否扎实、判断某段综述是否过度总结
+
+如果按 `BEGINNER_WORKFLOW.zh-CN` 的说法，这一阶段最重要的不是“多写一点”，而是先把结构立住：先收敛题目，再组织文献，再按合同写。很多返工，恰恰不是因为模型不会写，而是因为一开始没有把范围、分类和证据关系理清。
+
+也就是说，综述路径里的多模型协作，不是“谁来替我写”，而是“谁来帮我扩广度，谁来帮我压深度”。
+
+### 实证论文路径
+
+为了让这条路径更直观，可以直接看一个实证论文产出的预览示例：
+
+![Empirical paper preview](/static/blog/latex-paper-skills/empirical-paper-preview.png)
+
+实证型论文的难点则不同：
+
+- 实验结果往往最后才稳定
+- 方法、实验设置、相关工作可以先写
+- 图表、误差分析、结论要后回填
+- 论文写作和实验推进通常是并行的
+
+所以它更适合：
+
+```text
+问题定义 → 论文骨架 → 方法/相关工作/实验设计 → 等待实验收敛 → results-backfill → 编译 QA
+```
+
+如果把 README 的主入口映射到实证场景，它更像是：
+
+```text
+paper-from-zero → empirical-paper-writer → 实验推进 → results-backfill → compile / QA
+```
+
+这条路径之所以重要，是因为它承认了一个真实科研事实：<strong>实验和写作经常不同步</strong>。很多论文不是“先有完整结果，再开始写”，而是方法、相关工作、实验设计和论文骨架先成型，最终结果后补。
+
+`BEGINNER_WORKFLOW.zh-CN` 里有个判断很实用：标题里如果已经出现 `improves`、`outperforms`、`reduces`、`yields` 这类词，通常就不该走综述流了，而应该尽早进入实证路径。因为这类主张天然需要数字、表格和实验设计来支撑。
+
+所以 README 里专门保留了 `results-backfill`，它不是附属脚本，而是整条实证路径里非常关键的收尾机制。
+
+### 路径 4：`results-backfill` 与最终交付
+
+到了这个阶段，系统的目标已经不再是“继续生成内容”，而是把已有工程收敛到可交付状态。
+
+这里还有一个边界很重要，`BEGINNER_WORKFLOW.zh-CN` 说得很明确：结构图可以先做，结果图必须等真实结果；实验代码和运行可以由系统先搭骨架，但真正的实验要在作者自己的环境里跑完，最后再把真实数字灌回论文。
+
+到了这个阶段，通常要处理的是：
+
+- 回填真实实验结果
+- 同步图表、指标和分析段落
+- 重新核验引用与叙述是否一致
+- 跑 LaTeX 编译和最终 QA
+
+这时工作流会从“内容生成导向”切换到“交付验收导向”。这是很多 AI 写作系统没有认真处理的一步，而 `latex-paper-skills` 把它单独抽出来，说明项目真正关心的是论文工程的最终完成度。
+
+## Skill 设计方法二：Gate 先于正文
+
+如果说这个项目只有一个值得被反复强调的设计，那就是：<strong>在用户确认范围和结构之前，不允许 Agent 直接写正文</strong>。
+
+这是论文写作里最关键的流程治理点。
+
+很多 AI 写作系统的问题都不是“不会写”，而是“写得太早”。题目还没收敛，章节还没平衡，模型已经输出了大量看似流畅但无法维护的内容。越往后改，返工成本越高。
+
+`latex-paper-skills` 用的是一种非常工程化的办法：先做 Kickoff，再过 Gate，然后才进入正文生产。
+
+README 里对应的 gated workflow 图也很直观，基本把这个项目的核心哲学画出来了：
+
+![latex-paper-skills Gated Workflow](/static/images/project/latex-paper-skills-gated-workflow.svg)
+
+```text
+Kickoff → Gate → Issues Contract → Writing Loop → QA / Compile
+```
+
+这背后的思想，和上一篇文章里强调的 Skill 设计原则完全一致：<strong>让流程约束替代口头约束</strong>。
+
+与其在 prompt 里重复写“请不要过早写正文”，不如直接把流程拆成两个阶段：
+
+- Gate 前：只能产出计划、骨架、问题拆解
+- Gate 后：才能产出正文与正式交付物
+
+用 `BEGINNER_WORKFLOW.zh-CN` 里的话来说，就是：**只搭骨架，不写正文**。这句话很朴素，但其实比很多花哨说法都更接近问题本质。论文前期最怕的不是写得慢，而是还没想清楚就写成段落，最后改起来牵一发而动全身。
+
+这种设计把“节制生成”变成了工作流的一部分，而不是模型的自觉。
+
+## Skill 设计方法三：用 Contract 把执行单元结构化
+
+论文写作还有一个很难的问题：即使你已经有大纲，模型在长链路任务中仍然容易出现两类失控：
+
+1. **跳步骤**：某一章节还没核验引用，模型已经继续写下一章
+2. **做了但没记录**：新增了工作，但没有被纳入整体进度管理
+
+`latex-paper-skills` 的解决办法，是把写作流程转成一份结构化的执行合同，也就是 Issues contract。
+
+概念上它会长成这样：
+
+```text
+ID,Phase,Title,Target_Citations,Visualization,Status,Verified_Citations
+R1,Research,Skeleton main.tex (no prose),0,N/A,TODO,0
+W1,Writing,Introduction and scope,8,None,TODO,0
+W2,Writing,Foundations and building blocks,10,Fig 1 taxonomy,TODO,0
+Q1,QA,Citations: 100% verified,0,N/A,TODO,0
+Q2,QA,Compile cleanly (latexmk),0,N/A,TODO,0
+```
+
+这件事为什么重要？因为它把“写论文”从自由文本任务，变成了<strong>一组可追踪、可验证、可更新的工作单元</strong>。
+
+`BEGINNER_WORKFLOW.zh-CN` 里有个说法我觉得特别准确：`issues.csv` 不是普通待办，而是施工图。它关心的不是“有没有列任务”，而是每个单元有没有 `Acceptance`、有没有依赖、结果目前是 `planned`、`placeholder` 还是 `verified`，以及什么时候才能真的标记为 `DONE`。
+
+一个成熟 Skill 的本质，从来不是“把模型变聪明”，而是“把任务边界变清楚”。Issues contract 正是这种思想的典型体现。
+
+## Skill 设计方法四：脚本负责确定性，Agent 负责创造性
+
+上一篇文章里我提过一个非常重要的 Skill 设计原则：<strong>能固化成脚本的，就不要每次都靠自然语言解释</strong>。
+
+`latex-paper-skills` 恰好就是这个原则的优秀示范。
+
+论文写作流程里，至少有两类动作：
+
+### 确定性动作
+
+这些动作每次都应该产生一致结果，最适合写成脚本：
+
+- 创建 LaTeX 工程骨架
+- 生成计划文件或任务清单
+- 校验 Issues schema
+- 执行引用审计
+- 导出 BibTeX
+- 运行 LaTeX 编译
+
+### 非确定性动作
+
+这些动作依赖判断、组织和表达，适合交给 Agent：
+
+- 选题范围怎么收敛
+- 文献该怎么分类
+- 这一章应该先讲什么再讲什么
+- 这一段论证怎样更清楚
+- 某个实验结果该如何解释
+
+把这两类动作分开，整个系统就会稳很多。
+
+```text
+确定性任务（脚本）            非确定性任务（Agent）
+├─ 初始化工程                 ├─ 决定论文结构
+├─ 校验计划 / Issues          ├─ 写章节正文
+├─ 引用审计                   ├─ 分类文献与组织论证
+├─ 编译 PDF                   ├─ 润色表达与衔接
+└─ 导出 / 回填结果            └─ 形成最终叙述
+```
+
+这正是 `latex-paper-skills` 和普通“大 Prompt 写论文”最根本的差别：它把应该确定的部分固定下来，把必须创造的部分留给模型。
+
+进一步看，README 里那三个协作型 skills 其实正好补足了“Agent 负责创造性动作”这部分的深度和广度：
+
+- 当主流程需要扩文献、找更多 framing、拉宽候选方向时，可以调用 `collaborating-with-gemini`
+- 当主流程需要检查 claim 是否站得住、证据是否够硬、某个结论是否过度外推时，可以调用 `collaborating-with-claude`
+- 当你不确定协作环境是否准备好时，先跑 `check-collaborators`
+
+这意味着项目里的“非确定性动作”并不只是交给一个模型自由发挥，而是继续被细分成不同的认知角色：**广度探索、深度审计、协作健康检查**。这和前面讲的 Skill 分层方法是一致的——复杂度不是消失了，而是被更细地组织起来了。
+
+## 从实战看：latex-paper-skills 解决了哪些真实问题
+
+如果只从功能列表看，`latex-paper-skills` 似乎是在做几件常见的事：写作、引用、编译、多模型协作。但把它放到真实论文流程里看，它真正解决的是下面几类长期痛点。
+
+### 1. 结构失控
+
+很多 AI 生成的论文最大问题不是句子不通，而是结构漂移：章节重复、层次混乱、题目与正文不一致。
+
+Gate + 计划 + Issues contract 的组合，本质上是在解决结构失控。
+
+### 2. 引用不可追溯
+
+普通写作助手通常把引用当作正文生成后的附属补丁。但正式论文最怕的，恰恰是“看起来像引用，实际上无法追溯”。
+
+把 BibTeX 审计、来源排序和引用核验放进主工作流，是这个项目非常正确的判断。
+
+### 3. 综述与实证不能共用同一套写法
+
+很多工具默认一种论文模板打天下，但真实情况不是这样。综述论文和实证论文的节奏、重点和交付点都不同。双路径设计让这个框架具备了更高的复用性。
+
+### 4. 研究和写作无法并行
+
+很多研究项目直到实验做完才开始写论文，导致写作变成后期集中爆发。`results-backfill` 这一类机制的意义，就是允许研究与写作并行推进，最后把真实结果注入已经搭好的论文骨架。
+
+### 5. 模型协作缺少边界
+
+“多模型协作”如果只是随便换模型，并不会自动更好。真正有效的是给不同模型明确角色：谁负责研究，谁负责修订，谁负责第二意见，谁负责最后审计。`latex-paper-skills` 的思路正是沿这个方向展开的。
+
+## 从工作流设计看：Gate-Contract-Verify 为什么有效
+
+把上面的设计再抽象一层，`latex-paper-skills` 最核心的方法论，可以概括成三个词：<strong>Gate、Contract、Verify</strong>。
+
+| 阶段 | 作用 | 解决什么问题 |
+| --- | --- | --- |
+| Gate | 在写正文前强制确认范围与结构 | 防止过早生成、方向漂移 |
+| Contract | 用结构化任务单元驱动执行 | 防止步骤跳跃、进度不可见 |
+| Verify | 对引用、结果和编译做最终检查 | 防止输出不可交付 |
+
+这个三段式非常值得借鉴，因为它并不只适用于论文写作。它本质上是一种通用的 Agent 工作流约束方法：
+
+- 先阻止错误时间点的行动
+- 再把执行拆成可验证的单元
+- 最后对结果做明确验收
+
+也就是说，`latex-paper-skills` 值得学习的，不只是“论文怎么写”，更是<strong>复杂 Agent Skill 应该怎么控流程</strong>。
+
+## 技术栈与工具链：为什么它天然适合做工程化论文生产
+
+从项目已有信息看，`latex-paper-skills` 的技术栈相当清晰：
+
+| 类别 | 组成 |
+| --- | --- |
+| 核心语言 | Python 3.8+, TeX |
+| 论文工具链 | LaTeX, BibTeX, latexmk / pdflatex |
+| Agent Runtime | Claude Code, Codex CLI 兼容 Skill 工作流 |
+| 数据与状态 | SQLite, arXiv registry / cache |
+| 辅助脚本 | 引用审计、来源排序、风格检查、编译验证 |
+
+这套栈之所以合理，是因为它天然对应了论文写作的几个关键层次：
+
+- Python 脚本负责确定性自动化
+- LaTeX / BibTeX 负责正式学术交付
+- Agent runtime 负责研究与写作过程中的非确定性决策
+- SQLite / registry 负责把检索与引用变成可追溯状态
+
+当这些部分组合在一起，项目输出的就不再只是几段文本，而是一套真正能继续维护和复用的论文工程。
+
+## 快速开始：这个框架应该怎么用
+
+如果你想体验 `latex-paper-skills`，可以从仓库本身开始：
+
+```bash
+git clone https://github.com/yunshenwuchuxun/latex-paper-skills.git
+```
+
+准备环境：
+
+- Python 3.8+
+- LaTeX 环境（`pdflatex` / `bibtex` 或 `latexmk`）
+- 支持 `SKILL.md` 的 agent runtime
+
+然后根据你的任务选择不同入口：
+
+- 从零搭论文流程：`paper-from-zero`
+- 写综述论文：`arxiv-paper-writer`
+- 写实证论文：`empirical-paper-writer`
+- 实验完成后回填结果：`results-backfill`
+
+这几个入口其实正对应了本文前面分析的 Skill 设计方法：先分任务类型，再选工作流路径，而不是一上来就把所有需求都压进同一个 prompt。
+
+## 总结：一个真正成熟的 Skill，不是更长，而是更可控
+
+如果只看表面，`latex-paper-skills` 很容易被误解成“用 AI 写论文”。但把它拆开看，你会发现这个项目真正有价值的地方，是它把 Skill 设计里的几条核心原则都落到了实处：
+
+- <strong>先分边界，再分步骤</strong>
+- <strong>先做 Gate，再写正文</strong>
+- <strong>先把执行单元结构化，再谈自动化</strong>
+- <strong>脚本负责确定性，Agent 负责创造性</strong>
+- <strong>最终验收的是可交付结果，而不是看起来像结果的文本</strong>
+
+这也是我为什么觉得它值得写成一篇博客：它不是在展示“模型又能写一件新东西了”，而是在展示<strong>怎样把一个复杂任务真正 Skill 化</strong>。
+
+对于想做 Agent Skills 的开发者来说，`latex-paper-skills` 提供了一个很好的实战样本；对于想把 AI 引入正式研究写作流程的人来说，它也提供了一个更靠谱的方向：不要只追求更会写的模型，而要追求<strong>更可控的工作流</strong>。
+
+## 项目地址
+
+- GitHub: [yunshenwuchuxun/latex-paper-skills](https://github.com/yunshenwuchuxun/latex-paper-skills)
+- 站内项目页: [/projects/latex-paper-skills](/projects/latex-paper-skills)
