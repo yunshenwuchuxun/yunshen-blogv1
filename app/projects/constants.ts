@@ -10,6 +10,15 @@ export const projects: Project[] = [
 		summary: 'AI 驱动的 Draw.io 图表生成器，用自然语言创建专业图表',
 	},
 	{
+		title: 'latex-paper-skills',
+		src: 'latex-paper-skills-review.png',
+		color: '#dcfce7',
+		slug: 'latex-paper-skills',
+		role: 'AI Research Tooling Developer',
+		summary:
+			'面向 ML/AI 论文写作的模块化 LaTeX 技能框架，覆盖选题、写作、审计与编译全流程',
+	},
+	{
 		title: 'Dynamical System Analyzer',
 		src: 'dynamical-system.png',
 		color: '#e0e7ff',
@@ -24,15 +33,6 @@ export const projects: Project[] = [
 		slug: 'yunshen-blog',
 		role: 'Full Stack Developer',
 		summary: '基于 Next.js 16 的个人博客，支持 MDX、主题切换与流畅动画',
-	},
-	{
-		title: 'latex-paper-skills',
-		src: 'latex-paper-skills-review.png',
-		color: '#dcfce7',
-		slug: 'latex-paper-skills',
-		role: 'AI Research Tooling Developer',
-		summary:
-			'面向 ML/AI 论文写作的模块化 LaTeX 技能框架，覆盖选题、写作、审计与编译全流程',
 	},
 	{
 		title: 'Aphex Planner',
