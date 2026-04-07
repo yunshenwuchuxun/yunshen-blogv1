@@ -11,7 +11,7 @@ interface SunMediumIconHandle {
 	stopAnimation: () => void;
 }
 
-interface SunMediumIconProps extends HTMLAttributes<HTMLDivElement> {
+interface SunMediumIconProps extends HTMLAttributes<HTMLButtonElement> {
 	size?: number;
 }
 
@@ -37,7 +37,7 @@ const SunMediumIcon = forwardRef<SunMediumIconHandle, SunMediumIconProps>(
 			};
 		});
 
-		const handleMouseEnter = (e: React.MouseEvent<HTMLDivElement>) => {
+		const handleMouseEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
 			if (!isControlledRef.current) {
 				controls.start('animate');
 			} else {
@@ -45,7 +45,7 @@ const SunMediumIcon = forwardRef<SunMediumIconHandle, SunMediumIconProps>(
 			}
 		};
 
-		const handleMouseLeave = (e: React.MouseEvent<HTMLDivElement>) => {
+		const handleMouseLeave = (e: React.MouseEvent<HTMLButtonElement>) => {
 			if (!isControlledRef.current) {
 				controls.start('normal');
 			} else {
@@ -54,7 +54,8 @@ const SunMediumIcon = forwardRef<SunMediumIconHandle, SunMediumIconProps>(
 		};
 
 		return (
-			<div
+			<button
+				type='button'
 				className={classNames(
 					`cursor-pointer select-none p-2 hover:bg-accent rounded-md transition-colors duration-200 flex items-center justify-center`,
 					className,
@@ -73,6 +74,7 @@ const SunMediumIcon = forwardRef<SunMediumIconHandle, SunMediumIconProps>(
 					strokeWidth='2'
 					strokeLinecap='round'
 					strokeLinejoin='round'
+					aria-hidden='true'
 				>
 					<circle cx='12' cy='12' r='4' />
 					{[
@@ -94,7 +96,7 @@ const SunMediumIcon = forwardRef<SunMediumIconHandle, SunMediumIconProps>(
 						/>
 					))}
 				</svg>
-			</div>
+			</button>
 		);
 	},
 );

@@ -11,7 +11,7 @@ interface ArrowDownIconHandle {
 	stopAnimation: () => void;
 }
 
-interface ArrowDownIconProps extends HTMLAttributes<HTMLDivElement> {
+interface ArrowDownIconProps extends HTMLAttributes<HTMLButtonElement> {
 	size?: number;
 }
 
@@ -50,7 +50,7 @@ const ArrowDownIcon = forwardRef<ArrowDownIconHandle, ArrowDownIconProps>(
 			};
 		});
 
-		const handleMouseEnter = (e: React.MouseEvent<HTMLDivElement>) => {
+		const handleMouseEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
 			if (!isControlledRef.current) {
 				controls.start('animate');
 			} else {
@@ -58,7 +58,7 @@ const ArrowDownIcon = forwardRef<ArrowDownIconHandle, ArrowDownIconProps>(
 			}
 		};
 
-		const handleMouseLeave = (e: React.MouseEvent<HTMLDivElement>) => {
+		const handleMouseLeave = (e: React.MouseEvent<HTMLButtonElement>) => {
 			if (!isControlledRef.current) {
 				controls.start('normal');
 			} else {
@@ -67,7 +67,8 @@ const ArrowDownIcon = forwardRef<ArrowDownIconHandle, ArrowDownIconProps>(
 		};
 
 		return (
-			<div
+			<button
+				type='button'
 				className={classNames(
 					`cursor-pointer select-none p-2 hover:bg-accent rounded-md transition-colors duration-200 flex items-center justify-center`,
 					className,
@@ -86,6 +87,7 @@ const ArrowDownIcon = forwardRef<ArrowDownIconHandle, ArrowDownIconProps>(
 					strokeWidth='2'
 					strokeLinecap='round'
 					strokeLinejoin='round'
+					aria-hidden='true'
 				>
 					<motion.path
 						d='m19 12-7 7-7-7'
@@ -98,7 +100,7 @@ const ArrowDownIcon = forwardRef<ArrowDownIconHandle, ArrowDownIconProps>(
 						animate={controls}
 					/>
 				</svg>
-			</div>
+			</button>
 		);
 	},
 );

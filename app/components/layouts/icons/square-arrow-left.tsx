@@ -11,7 +11,7 @@ interface SquareArrowLeftIconHandle {
 	stopAnimation: () => void;
 }
 
-interface SquareArrowLeftIconProps extends HTMLAttributes<HTMLDivElement> {
+interface SquareArrowLeftIconProps extends HTMLAttributes<HTMLButtonElement> {
 	size?: number;
 }
 
@@ -52,18 +52,19 @@ const SquareArrowLeftIcon = forwardRef<
 		};
 	});
 
-	const handleMouseEnter = (e: React.MouseEvent<HTMLDivElement>) => {
+	const handleMouseEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
 		if (!isControlledRef.current) controls.start('animate');
 		else onMouseEnter?.(e);
 	};
 
-	const handleMouseLeave = (e: React.MouseEvent<HTMLDivElement>) => {
+	const handleMouseLeave = (e: React.MouseEvent<HTMLButtonElement>) => {
 		if (!isControlledRef.current) controls.start('normal');
 		else onMouseLeave?.(e);
 	};
 
 	return (
-		<div
+		<button
+			type='button'
 			className={classNames(
 				`cursor-pointer select-none p-2 hover:bg-accent rounded-md transition-colors duration-200 flex items-center justify-center`,
 				className,
@@ -82,6 +83,7 @@ const SquareArrowLeftIcon = forwardRef<
 				strokeWidth='2'
 				strokeLinecap='round'
 				strokeLinejoin='round'
+				aria-hidden='true'
 			>
 				<motion.rect
 					width='18'
@@ -106,7 +108,7 @@ const SquareArrowLeftIcon = forwardRef<
 					d='M16 12H8'
 				/>
 			</svg>
-		</div>
+		</button>
 	);
 });
 

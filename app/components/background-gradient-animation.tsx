@@ -137,7 +137,7 @@ export const BackgroundGradientAnimation = ({
 				containerClassName,
 			)}
 		>
-			<svg className='hidden'>
+			<svg className='hidden' aria-hidden='true'>
 				<defs>
 					<filter id='blurMe'>
 						<feGaussianBlur
@@ -209,6 +209,7 @@ export const BackgroundGradientAnimation = ({
 				></div>
 
 				{interactive && (
+					// biome-ignore lint/a11y/noStaticElementInteractions: decorative mouse-tracking element
 					<div
 						ref={interactiveRef}
 						onMouseMove={handleMouseMove}

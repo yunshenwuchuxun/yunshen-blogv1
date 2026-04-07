@@ -14,7 +14,8 @@
       "**/*.jsx",
       "**/*.json",
       "**/*.md",
-      "**/*.mdx"
+      "**/*.mdx",
+      "!!**/next-env.d.ts"
     ]
   },
   "formatter": {

@@ -171,8 +171,8 @@ export function formatDate(date: string, includeRelative = false) {
 export async function getPostFromSlug(slug: string) {
 	const source = stripByteOrderMark(
 		await fs.promises.readFile(
-		path.join(process.cwd(), 'app/blog/posts', `${slug}.mdx`),
-		'utf-8',
+			path.join(process.cwd(), 'app/blog/posts', `${slug}.mdx`),
+			'utf-8',
 		),
 	);
 

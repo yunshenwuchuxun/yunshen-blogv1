@@ -85,10 +85,8 @@
       "Bash(npx biome check:*)",
       "mcp__chrome-devtools__emulate",
       "WebFetch(domain:dreams.plus)",
-      "Bash(cd:*)",
       "Bash(npx next build)",
       "Bash(gh repo view:*)",
-      "Bash(gh api:*)",
       "Bash(git fetch:*)",
       "WebFetch(domain:uestc.de5.net)",
       "mcp__chrome-devtools__close_page",
@@ -127,7 +125,13 @@
       "WebFetch(domain:claude.com)",
       "mcp__filesystem__read_media_file",
       "Bash(powershell.exe -Command \"Get-ChildItem 'F:\\\\Yunshen Blog\\\\papers\\\\MoCo' -Force\")",
-      "Bash(cd \"F:/Yunshen Blog\" && rm -rf .next)"
+      "Bash(cd \"F:/Yunshen Blog\" && rm -rf .next)",
+      "Bash(for d:*)",
+      "Bash(do echo:*)",
+      "Read(//f/Yunshen Blog/**)",
+      "Bash(done)",
+      "WebFetch(domain:colab.research.google.com)",
+      "Bash(gh api:*)"
     ]
   }
 }

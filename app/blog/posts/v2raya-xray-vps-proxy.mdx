@@ -1,0 +1,476 @@
+---
+title: 'Ubuntu 24.04 VPS 代理配置：v2rayA + Xray 手动安装全流程'
+publishedAt: '2026-03-25'
+summary: '面向 Ubuntu 24.04 VPS 的 v2rayA + Xray 手动安装笔记：先跑通代理，再借这条链路给中国大陆 VPS 安装 Docker、配置 Docker daemon 代理，并继续拉取其他镜像。'
+draft: false
+tags: [Linux, VPS, Proxy, Dev]
+---
+
+很多人第一次在云服务器上配代理，卡的不是“不会点面板”，而是<strong>面板还没起来之前，服务器自己就已经出不去了</strong>。GitHub 连不上，Docker 拉不下来，apt 源加不上，最后连用来装代理的软件都拿不到。
+
+这篇文章只做一件事：按照一条最朴素、最稳的路径，把一台 <strong>Ubuntu 24.04 x86_64 VPS</strong> 配成可以自己出站的代理客户端。角色关系也先说清楚：<strong>v2rayA 是管理面板，Xray 是真正负责连出去的核心</strong>。代理核心部分不依赖 Docker，也不要求你一开始就能访问官方 apt 源，而是先走“手动下载包 + 手动部署内核 + Web 面板导入订阅”这条流程；等代理跑通后，再借这条链路去装 Docker 和其他镜像。
+
+## 环境准备：本文适用于什么机器
+
+这篇文章默认环境如下：
+
+| 项目 | 默认值 |
+| --- | --- |
+| 系统 | Ubuntu 24.04 LTS |
+| 架构 | x86_64 / amd64 |
+| 权限 | 具备 `sudo` |
+| 访问方式 | 已能通过 SSH 登录 VPS |
+| 面板端口 | TCP 2017 |
+| 目标 | 让 VPS 自己具备 HTTP / SOCKS 出站代理能力 |
+
+如果你的服务器和上表基本一致，就可以直接照着做。若你是 `arm64` 机器，唯一需要替换的是下载文件名里的架构；如果是 Debian 12，整体流程也一样，只是个别包名与系统提示可能略有差异。
+
+这里还有一个前提：你需要准备好自己的订阅链接，或者至少有一个可导入 v2rayA 的节点配置。本文只负责把客户端环境装起来，不展开服务端搭建。
+
+## 可选前置：Cloudflare Tunnel 路线下先把入站面收紧
+
+如果你后面除了让 VPS 自己出站，还准备把其他服务通过 <strong>Cloudflare Tunnel</strong> 暴露出去，那么建议先把基础环境收拾干净。Cloudflare 官方对 Tunnel 的定义很明确：它本质上是由源站主动向 Cloudflare 建立出站连接，而不是把源站直接暴露在公网入口上 [7]。落到工程上，这条路线最吸引人的点就是三件事：
+
+- <strong>不开额外入站端口</strong>
+- <strong>不用自己折腾公网证书</strong>
+- <strong>尽量隐藏源站真实 IP</strong>
+
+这部分不是 v2rayA / Xray 的强依赖，但很适合作为长期维护一台 VPS 之前的“收拾桌面”步骤。部署前提也很简单：<strong>你有一台能 SSH 登录、有公网 IP、而且至少还能正常出站访问互联网的 VPS</strong>。
+
+### 1. 安装和配置 UFW 防火墙
+
+先装 UFW：
+
+```bash
+sudo apt update
+sudo apt install -y ufw
+```
+
+然后把默认策略收紧，只保留 SSH 入口。下面示例里的 `22/tcp` 要替换成你自己的实际 SSH 端口：
+
+```bash
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow 22/tcp comment 'SSH'
+```
+
+接着启用防火墙并查看状态：
+
+```bash
+echo "y" | sudo ufw enable
+sudo ufw status verbose
+```
+
+如果你和我一样把 SSH 改到了 `22022`，那么输出里至少应该能看到类似下面这一行：
+
+```text
+22022/tcp                  ALLOW IN    Anywhere
+```
+
+这一步的目标不是“把规则写复杂”，而是先建立一个最朴素的默认姿态：<strong>除了你明确允许的端口，其他入站一律不收</strong>。后面无论是挂代理、跑 Docker 还是继续接 Cloudflare Tunnel，这都是更稳的起点。
+
+## 第一步：手动安装 v2rayA
+
+v2rayA 官方文档给了两条 Debian / Ubuntu 安装路线：通过 apt 软件源安装，或者手动安装 `.deb` 包 [1]。如果你的 VPS 一开始就能稳定访问 `apt.v2raya.org`，用软件源当然更省事；但这篇文章故意不走这条路，因为很多国内云服务器恰恰是在这一步卡住。
+
+截至 <strong>2026 年 3 月 25 日</strong>，v2rayA GitHub Releases 页面展示的最新稳定版是 `v2.2.7.4` [2]。下面的文件名就按这个版本写，后续如果版本号更新，只需要把命令里的版本一起替换掉即可。
+
+### 1. 下载 `.deb` 安装包
+
+最推荐的方式不是让服务器硬连 GitHub，而是<strong>先在本地电脑下载，再上传到 VPS</strong>。这样最符合“服务器初始网络很差”的现实。
+
+方法 A：服务器直接下载
+
+```bash
+cd /tmp
+wget https://github.com/v2rayA/v2rayA/releases/download/v2.2.7.4/installer_debian_x64_2.2.7.4.deb
+```
+
+方法 B：本地下载后上传
+
+1. 在本地浏览器打开 v2rayA Releases 页面，下载 `installer_debian_x64_2.2.7.4.deb` [2]。
+2. 把文件上传到服务器的 `/tmp` 目录。
+
+```bash
+scp installer_debian_x64_2.2.7.4.deb user@your-server-ip:/tmp/
+```
+
+如果你之前已经试过别的安装方式，最好先做一次清理，避免旧包状态影响后面的判断：
+
+```bash
+sudo apt purge v2raya -y
+```
+
+### 2. 安装面板
+
+回到 VPS 上，进入 `/tmp` 目录直接安装本地包：
+
+```bash
+cd /tmp
+sudo apt install ./installer_debian_x64_2.2.7.4.deb
+```
+
+这一步完成后，v2rayA 的面板程序已经进入系统，但它此时还只是“外壳”。如果系统里没有合适的内核，面板能打开，也无法真正连出去。
+
+### 3. 启动服务并设为开机自启
+
+v2rayA 官方文档从 1.5 版开始就不再默认替你启动服务，因此这里要手动执行 `systemctl` [1]：
+
+```bash
+sudo systemctl start v2raya.service
+sudo systemctl enable v2raya.service
+```
+
+安装完最好马上看一次状态，确认服务本身没有先挂掉：
+
+```bash
+systemctl status v2raya.service --no-pager
+```
+
+如果你在输出里看到了 `active (running)`，说明第一步已经完成。下一步才是把真正的 Xray 内核装上去。
+
+## 第二步：手动部署 Xray 内核
+
+v2rayA 本身不负责代理协议实现，它要调用后端内核。为了兼容更新的协议与配置格式，实战里通常会直接配 Xray，而不是继续用旧版 V2Ray。Xray-core Releases 页面显示，截至 <strong>2026 年 3 月 25 日</strong>，最新稳定版是 `v26.1.13` [3]。
+
+这里仍然沿用和上一步一样的思路：<strong>优先本地下载上传，服务器直连下载只作为补充</strong>。
+
+### 1. 下载 Xray Core
+
+方法 A：服务器直接下载最新包
+
+```bash
+cd /tmp
+wget -O Xray-linux-64.zip https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-64.zip
+```
+
+方法 B：本地下载后上传
+
+1. 在本地浏览器打开 Xray-core Releases 页面，下载 `Xray-linux-64.zip` [3]。
+2. 上传到服务器 `/tmp`。
+
+```bash
+scp Xray-linux-64.zip user@your-server-ip:/tmp/
+```
+
+然后在服务器端解压：
+
+```bash
+cd /tmp
+sudo apt install unzip -y
+rm -rf xray-core
+unzip Xray-linux-64.zip -d xray-core
+```
+
+### 2. 部署到系统目录
+
+参考 Xray 安装脚本仓库中的文件布局说明，Xray 的二进制通常放在 `/usr/local/bin`，数据文件放在 `/usr/local/share/xray` [4]。我们按这个约定手动部署：
+
+```bash
+sudo install -m 755 xray-core/xray /usr/local/bin/xray
+sudo install -d /usr/local/share/xray
+sudo install -m 644 xray-core/geoip.dat /usr/local/share/xray/geoip.dat
+sudo install -m 644 xray-core/geosite.dat /usr/local/share/xray/geosite.dat
+rm -rf /tmp/Xray-linux-64.zip /tmp/xray-core
+```
+
+装完之后，可以先看两个位置是否已经存在：
+
+```bash
+ls -l /usr/local/bin/xray
+ls -l /usr/local/share/xray
+```
+
+如果 `xray` 可执行文件和 `geoip.dat`、`geosite.dat` 都在，说明第二步已经完成。
+
+## 第三步：处理旧 V2Ray 残留与常见冲突
+
+很多“明明装了 Xray 还是连不上”的问题，不是 Xray 没装好，而是系统里还残留着旧的 `v2ray`，最终面板仍然调到了旧内核。最稳妥的做法就是<strong>把旧 V2Ray 残留清理掉，只保留 `xray`</strong>。
+
+如果你曾经通过 apt 或脚本装过旧版 V2Ray，先执行下面这组命令：
+
+```bash
+sudo apt purge v2ray -y
+sudo rm -f /usr/local/bin/v2ray
+sudo rm -rf /usr/local/share/v2ray
+sudo systemctl restart v2raya.service
+```
+
+重启以后，建议再做两次检查：
+
+```bash
+which xray
+journalctl -u v2raya.service -n 50 --no-pager
+```
+
+这里最常见的几个现象，可以这样判断：
+
+| 现象 | 大概率原因 | 处理方式 |
+| --- | --- | --- |
+| `http://服务器IP:2017` 打不开 | 服务没起来，或安全组没放行 | 先查 `systemctl status`，再检查 2017 端口 |
+| 面板能开，但节点一启动就报错 | 内核没找到，或仍在调用旧 `v2ray` | 确认 `/usr/local/bin/xray` 存在，并清理旧 `v2ray` |
+| 解压后文件没权限执行 | `xray` 没有执行权限 | 重新用 `install -m 755` 部署 |
+| 重启后依然异常 | 安装过程混入了旧状态 | 清理旧包后重新安装 v2rayA 与 Xray |
+
+这一段不要急着在面板里点来点去。先把服务和内核路径理顺，后面 Web 端配置会省很多时间。
+
+## 第四步：进入 Web 面板完成配置
+
+当 v2rayA 服务已经跑起来之后，下一步就是进入 Web 面板完成初始化。
+
+### 1. 放行端口
+
+如果你用的是腾讯云、阿里云、华为云这类云服务器，别忘了在安全组里放行 <strong>TCP 2017</strong>。这是 v2rayA 面板的默认监听端口，官方环境变量文档里也给出了默认监听地址 `0.0.0.0:2017` [5]。
+
+### 2. 首次登录
+
+在浏览器访问：
+
+```text
+http://your-server-ip:2017
+```
+
+第一次进入页面时，按提示创建管理员账号和密码。后面如果你忘了密码，可以用官方 quick start 文档里的方式重置：
+
+```bash
+sudo v2raya --reset-password
+```
+
+### 3. 导入订阅并启动节点
+
+进入面板之后，按这个顺序做：
+
+1. 导入订阅链接，或者直接导入单个节点。
+2. 等节点列表刷新出来。
+3. 先只选中一个节点。
+4. 点击左上角的 `Start` 启动。
+
+这里为什么强调“先选一个节点”？因为第一目标不是把路由和分流玩复杂，而是<strong>先确认核心、面板、订阅、连通性四件事都打通</strong>。单节点先通，比一开始就上复杂分流更容易定位问题。
+
+根据 v2rayA quick start 文档，面板启动后默认会暴露三类代理端口 [6]：
+
+| 类型 | 默认端口 |
+| --- | --- |
+| SOCKS5 | `20170` |
+| HTTP | `20171` |
+| HTTP（带分流规则） | `20172` |
+
+后面做命令行验证时，我们就直接用 `20172`。
+
+## 第五步：验证代理是否真的生效
+
+这一步要避免一个常见误区：<strong>不要用 `ping` 测梯子</strong>。普通 HTTP / SOCKS 代理不会转发 ICMP，所以 `ping google.com` 不通，并不能说明你的代理没配好。
+
+正确的验证方式是 `curl`。
+
+### 1. 直接指定 v2rayA 的 HTTP 代理端口
+
+```bash
+curl -x http://127.0.0.1:20172 -I https://www.google.com
+```
+
+如果你看到了 `HTTP/1.1 200 Connection established`、`200 OK`，或者至少说明 TLS 连接已经成功建立，就说明代理链路是通的。
+
+### 2. 再看一次出口 IP
+
+比只看状态码更稳的方式，是直接看出口 IP 是否已经变化：
+
+```bash
+curl -x http://127.0.0.1:20172 https://ip.sb
+```
+
+如果这里返回的 IP 已经不是你 VPS 自己的公网出口，而是节点对应的出口地址，那么这套链路就已经真正跑通了。
+
+### 3. 为什么这里不用 `ping`
+
+结论很简单：
+
+- `ping` 走的是 ICMP
+- v2rayA 暴露给你的是 HTTP / SOCKS 代理端口
+- 两者不是一回事
+
+所以判断代理是否成功，优先看 `curl`、看出口 IP、看业务请求是否能通，而不是看 `ping`。
+
+## 第六步：让终端里的命令也走代理
+
+面板能连通，不等于 `git clone`、`curl`、`docker pull`、`pip install` 这些命令会自动走代理。大多数 CLI 工具默认还是直接出网，所以你还要补一层环境变量。
+
+### 1. 当前终端临时生效
+
+先在当前 shell 里导出 HTTP / HTTPS 代理：
+
+```bash
+export http_proxy=http://127.0.0.1:20172
+export https_proxy=http://127.0.0.1:20172
+export HTTP_PROXY=http://127.0.0.1:20172
+export HTTPS_PROXY=http://127.0.0.1:20172
+```
+
+设置完以后，不带 `-x` 再测一次：
+
+```bash
+curl -I https://www.google.com
+```
+
+如果这次也能通，说明当前终端环境已经开始复用 v2rayA 提供的本地 HTTP 代理。
+
+### 2. 写入 `~/.bashrc` 做持久化
+
+如果你希望每次 SSH 登录都自动生效，就把同样的变量写进 `~/.bashrc`：
+
+```bash
+echo 'export http_proxy=http://127.0.0.1:20172' >> ~/.bashrc
+echo 'export https_proxy=http://127.0.0.1:20172' >> ~/.bashrc
+echo 'export HTTP_PROXY=http://127.0.0.1:20172' >> ~/.bashrc
+echo 'export HTTPS_PROXY=http://127.0.0.1:20172' >> ~/.bashrc
+source ~/.bashrc
+```
+
+到这一步以后，你的 VPS 终端里大多数主动支持代理的命令行工具都会直接复用这条链路。真正的意义不是“浏览器能打开 Google”，而是之后装软件、拉镜像、同步仓库时，服务器终于能先把自己救活。
+
+## 第七步：通过代理安装 Docker（中国大陆 VPS）
+
+前面把 v2rayA 的代理端口和 shell 环境变量配好，真正的价值现在才体现出来：<strong>这条链路不只给 `curl` 用，也可以顺手救活 Docker 安装流程</strong>。对很多中国大陆机房的 VPS 来说，`get.docker.com`、Docker 官方 apt 源、Docker Hub 往往都不够稳定，所以“先装代理，再装 Docker”会省很多来回折腾。
+
+Docker 官方 Ubuntu 安装文档给了两条长期可维护的安装路线：通过官方 apt 仓库安装，或者手动下载 `.deb` 包安装 [8]。但在一台刚刚被代理救活的机器上，很多人还是会先用 convenience script 快速装起来。这个顺序没有问题，只要你知道自己在做什么。
+
+### 1. 如有旧包，先卸掉冲突项
+
+```bash
+sudo apt remove $(dpkg --get-selections docker.io docker-compose docker-doc podman-docker containerd runc | cut -f1)
+```
+
+### 2. 确认当前终端已经走代理
+
+如果你刚执行过上一节的 `export http_proxy=...` 和 `export https_proxy=...`，当前 shell 已经能通过 v2rayA 的 `20172` 端口出站。保险起见，可以再测一次：
+
+```bash
+curl -I https://get.docker.com
+```
+
+能拿到响应头，就说明接下来执行 Docker 官方脚本时，下载链路大概率是通的。
+
+### 3. 直接通过代理安装 Docker
+
+```bash
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER
+newgrp docker
+```
+
+这一步完成后，先做两次最基础的验证：
+
+```bash
+docker version
+docker run --rm hello-world
+```
+
+如果 `hello-world` 能成功拉取并运行，说明两件事已经成立：
+
+- Docker Engine 本身已经安装好
+- 你的当前代理链路足够支撑 Docker 完成第一次联网拉取
+
+## 第八步：给 Docker daemon 配代理
+
+前面配置的 `http_proxy` / `https_proxy` 只保证<strong>你当前 shell 里的命令</strong>能走代理，但 `docker pull` 真正联网的是 `dockerd` 守护进程。Docker 官方文档提供了两种方式给 daemon 配代理：直接写配置文件，或者通过 systemd 环境变量注入 [9]。这里我更建议用 <strong>systemd drop-in</strong>，原因很简单：它对现有 `daemon.json` 侵入更小，更适合在已经跑起来的机器上追加。
+
+### 1. 创建 systemd drop-in 目录
+
+```bash
+sudo mkdir -p /etc/systemd/system/docker.service.d
+```
+
+### 2. 写入代理配置
+
+下面这份配置直接复用 v2rayA 暴露在本机的 HTTP 代理端口 `20172`：
+
+```bash
+sudo tee /etc/systemd/system/docker.service.d/http-proxy.conf > /dev/null <<'EOF'
+[Service]
+Environment="HTTP_PROXY=http://127.0.0.1:20172"
+Environment="HTTPS_PROXY=http://127.0.0.1:20172"
+Environment="NO_PROXY=localhost,127.0.0.1,::1"
+EOF
+```
+
+这里的意思很直接：
+
+- `HTTP_PROXY` / `HTTPS_PROXY`：让 `dockerd` 拉镜像时复用 v2rayA
+- `NO_PROXY`：本机回环地址不走代理，避免本地链路被错误转发
+
+### 3. 重载并重启 Docker
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+```
+
+### 4. 验证 daemon 已经吃到代理
+
+```bash
+sudo systemctl show --property=Environment docker
+```
+
+如果输出里能看到 `HTTP_PROXY=http://127.0.0.1:20172` 和 `HTTPS_PROXY=http://127.0.0.1:20172`，说明 Docker daemon 已经开始通过 v2rayA 出站。
+
+## 第九步：通过 Docker 继续安装其他镜像
+
+到这里，这台 VPS 的网络链路已经分成了两层：
+
+- <strong>shell 命令</strong> 通过 `http_proxy` / `https_proxy` 走代理
+- <strong>Docker daemon</strong> 通过 systemd 注入的代理走 v2rayA
+
+这意味着你后面继续拉 Cloudflare Tunnel、反代、监控、数据库这些镜像时，成功率会高很多。
+
+### 1. 先测一个最轻的镜像
+
+```bash
+docker pull hello-world
+```
+
+### 2. 再拉一个常用服务镜像
+
+```bash
+docker pull nginx:alpine
+```
+
+### 3. 如果你后面要继续走 Cloudflare Tunnel 路线
+
+可以直接把 `cloudflared` 镜像也提前拉下来：
+
+```bash
+docker pull cloudflare/cloudflared:latest
+```
+
+如果这些镜像都能顺利拉下，说明你的代理已经不只是“浏览器层面可用”，而是已经真正变成了这台机器的基础联网能力。后面无论你是继续挂 Cloudflare Tunnel，还是部署别的容器服务，网络层都不用再从头折腾一遍。
+
+需要额外区分的一点是：Docker 官方关于 proxy configuration 的说明还提到，<strong>daemon 代理、CLI 代理、容器内代理是三件不同的事</strong> [10]。本文现在只处理了最关键的一层，也就是 `dockerd` 拉镜像时怎么出站。如果后面你在 `docker build` 或容器运行期也需要显式代理，再单独给 Docker client 或容器环境变量补配置会更合适。
+
+## 总结
+
+这套流程的关键不在于命令多，而在于顺序不能乱：
+
+1. 先把 v2rayA 面板装起来。
+2. 再把 Xray 内核放到系统约定路径。
+3. 清理旧 `v2ray`，避免内核选择冲突。
+4. 用 Web 面板导入订阅并启动节点。
+5. 用 `curl` 而不是 `ping` 验证链路。
+6. 先给终端补代理环境变量。
+7. 再借这条链路安装 Docker。
+8. 最后给 Docker daemon 单独补代理，继续拉其他镜像。
+
+如果你现在回头看，会发现这篇文章其实一直在做同一件事：<strong>把“面板”“内核”“节点”“终端代理”“Docker daemon”这几层关系拆开</strong>。一旦这些层次不混在一起，排障会简单很多，尤其适合中国大陆机房里那种“先把代理救活，后面所有基础设施再接着装”的场景。
+
+## 参考资料
+
+1. [v2rayA 官方文档：Debian / Ubuntu 安装](https://v2raya.org/docs/prologue/installation/debian/) — 官方提供的 Debian / Ubuntu 安装方式，包含软件源和手动安装 `.deb` 两条路径。
+2. [v2rayA GitHub Releases](https://github.com/v2rayA/v2rayA/releases) — 查询最新稳定版安装包名称与架构文件的入口。
+3. [Xray-core GitHub Releases](https://github.com/XTLS/Xray-core/releases) — 查询最新 Xray Core 压缩包与版本号。
+4. [XTLS/Xray-install](https://github.com/XTLS/Xray-install) — Xray 官方安装脚本仓库，文档里说明了推荐的二进制与数据文件落盘位置。
+5. [v2rayA 官方文档：环境变量和命令行参数](https://v2raya.org/docs/manual/variable-argument/) — 用于确认 v2rayA 的默认监听地址与可选环境变量。
+6. [v2rayA 官方文档：快速上手](https://v2raya.org/en/docs/prologue/quick-start/) — 用于确认 Web 面板初始化流程以及默认代理端口 `20170`、`20171`、`20172`。
+7. [Cloudflare Tunnel 文档](https://developers.cloudflare.com/tunnel/) — 用于说明 Tunnel 的工作方式，以及为什么它适合作为“不额外暴露源站端口”的入口方案。
+8. [Docker 官方文档：Install Docker Engine on Ubuntu](https://docs.docker.com/engine/install/ubuntu/) — 用于确认 Ubuntu 24.04 的官方安装路径，以及 convenience script 之外的长期维护方案。
+9. [Docker 官方文档：Daemon proxy configuration](https://docs.docker.com/engine/daemon/proxy/) — 用于配置 `dockerd` 的 HTTP / HTTPS 代理与验证 systemd 环境变量。
+10. [Docker 官方文档：Proxy configuration](https://docs.docker.com/engine/cli/proxy/) — 用于区分 daemon 代理、Docker CLI 代理和容器运行期代理的边界。
+11. [为国内服务器安装 v2rayA 并配置 Xray 内核 (Ubuntu/Debian)](https://langqi99.com/blog/v2raya-xray-setup/) — 本文流程参考文章，主线沿用了其“手动安装面板 + 手动部署 Xray + curl 验证 + 终端代理变量”的组织方式。

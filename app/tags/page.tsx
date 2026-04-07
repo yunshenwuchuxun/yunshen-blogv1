@@ -37,14 +37,15 @@ export default function TagsPage() {
 			.filter((tag): tag is { tag: string; count: number } => Boolean(tag)),
 	})).filter((group) => group.tags.length > 0);
 
-	const usedTags = new Set(groupedTags.flatMap((group) => group.tags.map(({ tag }) => tag)));
+	const usedTags = new Set(
+		groupedTags.flatMap((group) => group.tags.map(({ tag }) => tag)),
+	);
 	const uncategorizedTags = tags.filter(({ tag }) => !usedTags.has(tag));
 
 	return (
 		<PageContainer>
 			<Header title='Tags' />
 			<div className='space-y-10'>
-
 				{groupedTags.map((group) => (
 					<section key={group.title} className='space-y-3'>
 						<div className='space-y-1'>
