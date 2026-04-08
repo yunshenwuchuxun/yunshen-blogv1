@@ -10,39 +10,39 @@ export type WorkTile = {
 
 export const workTiles: WorkTile[] = [
 	{
-		description: `Here are things`,
-		title: `I've worked on`,
-		image: {
-			src: '/static/images/aphex-apps.webp',
-			width: 600,
-			height: 770,
-		},
-	},
-	{
 		description: 'I built',
-		title: 'Aphex Field',
+		title: 'Smart Drawio',
 		image: {
-			src: '/static/images/field-app.webp',
-			width: 600,
-			height: 554,
+			src: '/static/images/project/smart-drawio.png',
+			width: 1912,
+			height: 924,
 		},
 	},
 	{
-		description: `I maintained`,
-		title: 'Aphex Planner',
+		description: 'AI Research Tooling Developer',
+		title: 'latex-paper-skills',
 		image: {
-			src: '/static/images/planner-app.webp',
-			width: 600,
-			height: 717,
+			src: '/static/images/project/latex-paper-skills-review.png',
+			width: 1426,
+			height: 843,
 		},
 	},
 	{
-		description: `I built`,
-		title: 'Aphex Publication',
+		description: 'Full Stack Developer',
+		title: 'Dynamical System Analyzer',
 		image: {
-			src: '/static/images/publication-app.webp',
-			width: 600,
-			height: 717,
+			src: '/static/images/project/dynamical-system.png',
+			width: 1283,
+			height: 669,
+		},
+	},
+	{
+		description: 'Full Stack Developer',
+		title: 'Yun Shen Blog',
+		image: {
+			src: '/static/images/project/yunshen-blog.png',
+			width: 1283,
+			height: 669,
 		},
 	},
 ];

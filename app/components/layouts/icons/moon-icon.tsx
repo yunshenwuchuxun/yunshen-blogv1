@@ -11,7 +11,7 @@ interface MoonIconHandle {
 	stopAnimation: () => void;
 }
 
-interface MoonIconProps extends HTMLAttributes<HTMLButtonElement> {
+interface MoonIconProps extends HTMLAttributes<HTMLSpanElement> {
 	size?: number;
 }
 
@@ -43,7 +43,7 @@ const MoonIcon = forwardRef<MoonIconHandle, MoonIconProps>(
 			};
 		});
 
-		const handleMouseEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
+		const handleMouseEnter = (e: React.MouseEvent<HTMLSpanElement>) => {
 			if (!isControlledRef.current) {
 				controls.start('animate');
 			} else {
@@ -51,7 +51,7 @@ const MoonIcon = forwardRef<MoonIconHandle, MoonIconProps>(
 			}
 		};
 
-		const handleMouseLeave = (e: React.MouseEvent<HTMLButtonElement>) => {
+		const handleMouseLeave = (e: React.MouseEvent<HTMLSpanElement>) => {
 			if (!isControlledRef.current) {
 				controls.start('normal');
 			} else {
@@ -59,10 +59,9 @@ const MoonIcon = forwardRef<MoonIconHandle, MoonIconProps>(
 			}
 		};
 		return (
-			<button
-				type='button'
+			<span
 				className={classNames(
-					`cursor-pointer select-none p-2 hover:bg-accent rounded-md transition-colors duration-200 flex items-center justify-center`,
+					'inline-flex items-center justify-center',
 					className,
 				)}
 				onMouseEnter={handleMouseEnter}
@@ -86,7 +85,7 @@ const MoonIcon = forwardRef<MoonIconHandle, MoonIconProps>(
 				>
 					<path d='M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z' />
 				</motion.svg>
-			</button>
+			</span>
 		);
 	},
 );

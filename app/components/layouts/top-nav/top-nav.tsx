@@ -75,23 +75,22 @@ export default function TopNav() {
 		<>
 			<nav
 				className={classNames(
-					'fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-black/80 backdrop-blur-sm border-b border-gray-200/50 dark:border-gray-800/50',
+					'fixed top-0 left-0 right-0 z-50 border-b border-gray-200/50 bg-white/80 backdrop-blur-sm dark:border-gray-800/50 dark:bg-black/80',
 					mukta.className,
 				)}
 			>
 				<div className='mx-auto w-full max-w-5xl px-8 md:px-18'>
-					<div className='relative flex items-center justify-center h-16'>
-						{/* Desktop: Nav links - centered */}
-						<div className='hidden md:flex items-center gap-1'>
+					<div className='relative flex h-16 items-center justify-center'>
+						<div className='hidden items-center gap-1 md:flex'>
 							{navItems.map((item) => (
 								<Link
 									key={item.href}
 									href={item.href}
 									className={classNames(
-										'px-3 py-2 text-base font-semibold rounded-md transition-colors relative',
+										'relative rounded-md px-3 py-2 text-base font-semibold transition-colors',
 										isActive(item.href)
 											? 'text-primary-500'
-											: 'text-gray-700 dark:text-gray-300 hover:text-primary-500 dark:hover:text-primary-500',
+											: 'text-gray-700 hover:text-primary-500 dark:text-gray-300 dark:hover:text-primary-500',
 									)}
 								>
 									{item.label}
@@ -106,13 +105,12 @@ export default function TopNav() {
 							))}
 						</div>
 
-						{/* Desktop: Utility - right aligned */}
-						<div className='hidden md:flex items-center gap-1 absolute right-0'>
+						<div className='absolute right-0 hidden items-center gap-1 md:flex'>
 							<button
 								type='button'
 								onClick={() => setSearchOpen(true)}
 								aria-label='Search (⌘K)'
-								className='text-gray-700 dark:text-gray-300 hover:text-primary-500 dark:hover:text-primary-500'
+								className='flex items-center justify-center rounded-md p-2 text-gray-700 transition-colors duration-200 hover:bg-accent hover:text-primary-500 dark:text-gray-300 dark:hover:text-primary-500'
 							>
 								<SearchIcon size={20} />
 							</button>
@@ -127,19 +125,18 @@ export default function TopNav() {
 								}}
 								whileHover={{ scale: 1.1 }}
 								onClick={toggleTheme}
-								className='text-gray-700 dark:text-gray-300 hover:text-primary-500 dark:hover:text-primary-500'
+								className='flex items-center justify-center rounded-md p-2 text-gray-700 transition-colors duration-200 hover:bg-accent hover:text-primary-500 dark:text-gray-300 dark:hover:text-primary-500'
 							>
 								{isDark ? <SunMediumIcon size={20} /> : <MoonIcon size={20} />}
 							</motion.button>
 						</div>
 
-						{/* Mobile: Utility - right aligned */}
-						<div className='md:hidden flex items-center gap-1 absolute right-0'>
+						<div className='absolute right-0 flex items-center gap-1 md:hidden'>
 							<button
 								type='button'
 								onClick={() => setSearchOpen(true)}
 								aria-label='Search'
-								className='text-gray-700 dark:text-gray-300'
+								className='flex items-center justify-center rounded-md p-2 text-gray-700 transition-colors duration-200 hover:bg-accent dark:text-gray-300'
 							>
 								<SearchIcon size={20} />
 							</button>
@@ -153,22 +150,22 @@ export default function TopNav() {
 									transition: { duration: 0.2 },
 								}}
 								onClick={toggleTheme}
-								className='text-gray-700 dark:text-gray-300'
+								className='flex items-center justify-center rounded-md p-2 text-gray-700 transition-colors duration-200 hover:bg-accent dark:text-gray-300'
 							>
 								{isDark ? <SunMediumIcon size={20} /> : <MoonIcon size={20} />}
 							</motion.button>
 						</div>
 					</div>
 
-					<div className='md:hidden pb-3 flex gap-4 overflow-x-auto'>
+					<div className='flex gap-4 overflow-x-auto pb-3 md:hidden'>
 						{navItems.map((item) => (
 							<Link
 								key={item.href}
 								href={item.href}
 								className={classNames(
-									'text-sm font-semibold whitespace-nowrap px-2 py-1 rounded transition-colors',
+									'rounded px-2 py-1 text-sm font-semibold whitespace-nowrap transition-colors',
 									isActive(item.href)
-										? 'text-primary-500 bg-primary-500/10'
+										? 'bg-primary-500/10 text-primary-500'
 										: 'text-gray-700 dark:text-gray-300',
 								)}
 							>

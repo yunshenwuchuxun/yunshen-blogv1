@@ -30,16 +30,32 @@ argument-hint: '[论文关键词，如 resnet]'
 
 使用 `AskUserQuestion` 收集以下信息：
 
-**问题 1 — 源文件路径**
+**问题 1 — canonical source 路径**
 
-请用户提供源文件的路径（支持以下任意组合）：
-- `.md` 文件：论文精读笔记（主要内容来源）
-- `.html` 文件：AI 生成的论文总结页面（可选）
-- `.ipynb` 文件：代码实战 Notebook（可选）
+优先要求用户按以下 canonical source layout 提供或确认论文目录：
+
+```text
+papers/<Paper>/notes.md
+papers/<Paper>/ai-summary.html
+papers/<Paper>/code.ipynb
+```
+
+规则：
+- `papers/<Paper>/` 是唯一 canonical source 目录
+- `notes.md` 是主要内容来源
+- `ai-summary.html` 可选；缺失时不生成「AI 总结」链接
+- `code.ipynb` 可选；缺失时不生成「代码实战」链接，跳过代码实战章节
+- 允许用户先提供旧路径或旧文件名作为原始输入，但正式生成前必须归一化到上述 canonical 路径
+- 根目录或 `papers/<Paper>/` 外的重复源文件/目录不应继续作为工作输入；允许的重复仅限发布产物 `public/static/blog/[slug]/`
+
+典型非 canonical 输入示例：
+- `08_BERT_代码实战.ipynb`
+- `18_AlphaFold2_代码实战.ipynb`
+- 根目录遗留资产目录如 `解释2_assets/`
 
 > 降级策略：
-> - 缺少 `.html` → PaperCard 不生成「AI 总结」链接
-> - 缺少 `.ipynb` 或 Colab URL → PaperCard 不生成「代码实战」链接，跳过代码实战章节
+> - 缺少 `ai-summary.html` → PaperCard 不生成「AI 总结」链接
+> - 缺少 `code.ipynb` → PaperCard 不生成「代码实战」链接，跳过代码实战章节
 > - `PaperCard.links` 至少保留「论文原文」
 
 **问题 2 — 论文元信息**
@@ -56,15 +72,35 @@ argument-hint: '[论文关键词，如 resnet]'
 | 中文标题 | Transformer 论文精读 | frontmatter title |
 | 中文摘要 | Transformer 模型论文精读笔记… | frontmatter summary |
 | 标签 | [Deep Learning, Transformer, Paper Reading] | frontmatter tags |
-| Colab URL | （如有） | PaperCard 代码链接 |
 
 > `publishedAt` 默认使用当天日期，无需用户提供。
+> Colab 链接不再作为用户输入字段；若存在 `papers/<Paper>/code.ipynb`，应基于该 canonical 路径生成代码实战链接。
 
 ---
 
-## Phase 1：源材料分析
+## Phase 1：Canonicalization / Preflight
 
-读取用户提供的源文件，提取以下信息并输出分析摘要：
+在分析内容前，先统一并验证源材料布局：
+
+1. 确认当前论文的 canonical source 目录为 `papers/<Paper>/`
+2. 若用户提供的是旧命名 notebook（如 `08_BERT_代码实战.ipynb`），先迁移/重命名为 `papers/<Paper>/code.ipynb`
+3. 若用户提供的 Markdown 或 HTML 不在 `papers/<Paper>/` 下，先迁移/重命名为 `notes.md` / `ai-summary.html`
+4. 若原始图片或附件位于根目录或 paper 目录外（如 `解释_assets/`、`解释2_assets/`），先迁移到当前 paper 的 source 体系中，再继续生成流程
+5. 明确区分两类重复：
+   - 允许：发布态副本 `public/static/blog/[slug]/...`
+   - 不允许：根目录或 `papers/<Paper>/` 外的重复源文件/目录
+6. 若 canonicalization 未完成，不进入后续生成阶段
+
+输出一份 preflight 摘要，明确：
+- 已确认/迁移的 canonical 文件
+- 发现的非 canonical 输入
+- 需要清理的根目录重复源目录或文件
+
+---
+
+## Phase 2：源材料分析
+
+读取 canonical source 文件，提取以下信息并输出分析摘要：
 
 1. **从 .md 文件提取**：
    - 文章结构（标题层级）
@@ -85,18 +121,19 @@ argument-hint: '[论文关键词，如 resnet]'
 
 ---
 
-## Phase 2：资产准备
+## Phase 3：资产准备
 
 0. **预检**：若 `app/blog/posts/[slug].mdx` 已存在，请求用户确认是否覆盖（默认不覆盖）
 1. 创建静态资产目录：`public/static/blog/[slug]/`
-2. 将 .md 中引用的图片复制到该目录
-3. 若提供了 .html AI 总结文件，复制到该目录并命名为 `ai-summary.html`
+2. 将 `papers/<Paper>/notes.md` 中引用的图片复制到该目录
+3. 若提供了 `papers/<Paper>/ai-summary.html`，复制到该目录并命名为 `ai-summary.html`
 4. 记录所有图片的新路径映射（旧路径 → `/static/blog/[slug]/filename`）
 5. 记录链接可用性标记：`hasAiSummary`、`hasColab`
+6. 明确：`public/static/blog/[slug]/` 是发布态输出目录，不是源目录；源文件仍以 `papers/<Paper>/` 为准
 
 ---
 
-## Phase 3：MDX 生成
+## Phase 4：MDX 生成
 
 按以下标准结构生成 MDX 文件 `app/blog/posts/[slug].mdx`。
 
@@ -117,6 +154,8 @@ tags: [tag1, tag2, ..., Paper Reading]
 
 紧跟 frontmatter 之后，前后各留一个空行。根据可用性标记动态组装 `links` 数组：
 
+若存在 `papers/<Paper>/code.ipynb`，则“代码实战”链接必须基于该 canonical notebook 路径生成；禁止继续使用旧的带编号 notebook 文件名。
+
 **完整示例**（三个链接都可用时）：
 ```jsx
 <PaperCard
@@ -125,7 +164,7 @@ tags: [tag1, tag2, ..., Paper Reading]
 	links={[
 		{ label: "论文原文", url: "https://arxiv.org/abs/1706.03762" },
 		{ label: "AI 总结", url: "/static/blog/transformer/ai-summary.html" },
-		{ label: "代码实战", url: "https://colab.research.google.com/..." },
+		{ label: "代码实战", url: "https://colab.research.google.com/github/yunshenwuchuxun/yunshen-blogv1/blob/main/papers/Transformer/code.ipynb" },
 	]}
 />
 ```
@@ -151,7 +190,7 @@ tags: [tag1, tag2, ..., Paper Reading]
 4. **组件详解**（各关键组件的子章节，用 `### 三级标题`）
 5. **实验结果**（如有关键数据）
 6. **总结**（简洁总结核心贡献）
-7. **代码实战**（嵌入关键代码片段 + Colab 徽章链接；无 .ipynb 则跳过）
+7. **代码实战**（嵌入关键代码片段 + Colab 徽章链接；无 `papers/<Paper>/code.ipynb` 则跳过。若存在 notebook，则徽章链接必须指向该 canonical `code.ipynb`）
 8. **参考文献**（写博客时参考的资料：论文原文、教程视频、技术博客等，而非论文自身的 References）
 
 ---
@@ -206,8 +245,10 @@ $$
 
 允许外链徽章图（如 Colab badge）：
 ```
-✅ [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/...)
+✅ [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/yunshenwuchuxun/yunshen-blogv1/blob/main/papers/Transformer/code.ipynb)
 ```
+
+若使用 Colab 链接，其目标 notebook 必须是 canonical `papers/<Paper>/code.ipynb`，不能是旧的带编号 notebook 文件名。
 
 ### R5：代码块 — 标准 Markdown 语法（优先标注语言）
 
@@ -281,7 +322,7 @@ MDX 将 `{...}` 解析为 JSX 表达式，裸花括号会导致编译错误。
 
 生成 MDX 文件后，执行以下自动检查并修正。
 
-### 硬性规则检查（R1-R11）
+### 硬性规则检查（R1-R13）
 
 | 编号 | 检查项 | 检测方法 |
 |------|--------|---------|
@@ -296,6 +337,8 @@ MDX 将 `{...}` 解析为 JSX 表达式，裸花括号会导致编译错误。
 | R9 | UTF-8 无 BOM | 检查文件头字节 |
 | R10 | Frontmatter 字段完整 | 验证必填字段 + tags 含 Paper Reading |
 | R11 | KaTeX 移动端样式存在 | 检查 `app/tailwind.css` 含 `.katex-display { display: block; overflow-x: auto }` |
+| R12 | 所有 Colab / GitHub notebook 链接都指向 canonical `code.ipynb` | 检查 notebook URL 必须以 `/code.ipynb` 结尾，禁止旧编号 notebook 文件名 |
+| R13 | 不依赖 paper 目录外原始资产路径 | 检查 `notes.md` 与生成结果中不存在 `解释_assets`、`解释2_assets` 或其他 `papers/<Paper>/` 外源路径 |
 
 ### 质量检查（Q1-Q6）
 
@@ -310,21 +353,23 @@ MDX 将 `{...}` 解析为 JSX 表达式，裸花括号会导致编译错误。
 
 R 类检查失败必须自动修正后重新检查。Q 类检查如有问题，输出警告供用户决策。
 
+额外要求：若发现旧 notebook 文件名链接、根目录重复源目录、或 `解释_assets` / `解释2_assets` 这类遗留引用，必须先完成 canonicalization，再继续生成。
+
 ---
 
-## Phase 5：构建验证
+## Phase 6：构建验证
 
 ```bash
-yarn build
+pnpm build
 ```
 
-- 构建成功 → 进入 Phase 6
-- 构建失败 → 分析错误，回到 Phase 4 修正后重试（最多 3 次）
+- 构建成功 → 进入 Phase 7
+- 构建失败 → 分析错误，回到合规检查阶段修正后重试（最多 3 次）
 - 仍失败 → 输出错误详情请用户介入
 
 ---
 
-## Phase 6：发布确认
+## Phase 7：发布确认
 
 输出摘要，等待用户最终确认：
 
@@ -346,8 +391,10 @@ yarn build
 
 ## 护栏
 
-- **不修改现有文件**：仅创建新 MDX 文件和静态资产（R11 的全局 CSS 为基础设施例外，已存在则跳过）
+- **优先 canonicalize 源文件**：若输入不是 `papers/<Paper>/{notes.md, ai-summary.html, code.ipynb}`，先归一化再生成
+- **禁止沿用根目录重复源目录**：如 `解释_assets/`、`解释2_assets/` 仅可作为待迁移遗留输入，不能继续作为稳定 source of truth
+- **允许发布态副本**：`public/static/blog/[slug]/` 下的图片和 `ai-summary.html` 属于发布输出，可与 source 并存
 - **不引入新依赖**：基于现有 pipeline（remarkGfm、remarkMath、rehypeKatex、rehypePrettyCode）
-- **每个 Phase 等待用户确认**：Phase 0 收集输入、Phase 1 分析摘要、Phase 2 资产准备、Phase 3 MDX 生成、Phase 4 检查结果、Phase 6 发布确认
+- **每个 Phase 等待用户确认**：Phase 0 收集输入、Phase 1 preflight 摘要、Phase 2 分析摘要、Phase 3 资产准备、Phase 4 MDX 生成、Phase 5 检查结果、Phase 7 发布确认
 - **不自动 git commit**：完成后提示用户手动 commit 或使用 `/commit`
 - **遵循项目代码风格**：Tab 缩进、单引号、分号、trailing comma
