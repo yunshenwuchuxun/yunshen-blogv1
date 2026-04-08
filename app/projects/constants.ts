@@ -34,62 +34,6 @@ export const projects: Project[] = [
 		role: 'Full Stack Developer',
 		summary: '基于 Next.js 16 的个人博客，支持 MDX、主题切换与流畅动画',
 	},
-	{
-		title: 'Aphex Planner',
-		src: 'planner-app.webp',
-		color: '#dbeafe',
-		url: 'https://aphex.co/planner',
-		role: 'Frontend Developer',
-	},
-	{
-		title: 'Aphex Field',
-		src: 'field-app.webp',
-		color: '#dbeafe',
-		url: 'https://aphex.co/field',
-		role: 'Frontend Developer',
-	},
-	{
-		title: 'Aphex Publication',
-		src: 'publication-app.webp',
-		color: '#dbeafe',
-		url: 'https://aphex.co/publication',
-		role: 'Frontend Developer',
-	},
-	{
-		title: 'Spoken',
-		src: 'spoken.webp',
-		color: '#dbeafe',
-		url: 'https://spoken.io',
-		role: 'Full Stack Developer',
-	},
-	{
-		title: 'Topography Health',
-		src: 'topo.webp',
-		color: '#fef3c7',
-		url: 'https://topographyhealth.com',
-		role: 'Full Stack Developer',
-	},
-	{
-		title: 'SRI Big Data',
-		src: 'bigdata.webp',
-		color: '#fef3c7',
-		url: 'https://sribigdata.com',
-		role: 'Data Engineer',
-	},
-	{
-		title: 'Mathgame',
-		src: 'mathgame.png',
-		color: '#dbeafe',
-		url: 'https://mathgame.io',
-		role: 'Full Stack Developer',
-	},
-	{
-		title: 'Snakegame',
-		src: 'snakegame.png',
-		color: '#c6f6d5',
-		url: 'https://snakegame.io',
-		role: 'Full Stack Developer',
-	},
 ];
 
 export interface ProjectDetail {
