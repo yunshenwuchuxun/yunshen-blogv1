@@ -9,6 +9,7 @@ interface ProjectProps {
 	url?: string;
 	slug?: string;
 	role: string;
+	summary?: string;
 	setModal: (modal: ProjectModal) => void;
 }
 
@@ -18,17 +19,29 @@ export default function ProjectItem({
 	url,
 	slug,
 	role,
+	summary,
 	setModal,
 }: ProjectProps) {
-	const content = (
-		<>
+	const titleAndRole = (
+		<div className='flex w-full items-center justify-between gap-8'>
 			<h2 className='text-2xl transition-all group-hover:-translate-x-3 group-hover:scale-110 sm:text-6xl'>
 				{title}
 			</h2>
-			<p className='text-sm font-light transition-all group-hover:translate-x-3 group-hover:scale-110 sm:text-lg'>
+			<p className='shrink-0 text-right text-base font-light leading-tight transition-all group-hover:translate-x-3 group-hover:scale-110 sm:text-2xl'>
 				{role}
 			</p>
-		</>
+		</div>
+	);
+
+	const content = (
+		<div className='w-full'>
+			{titleAndRole}
+			{summary && (
+				<p className='mt-4 text-left text-[11px] leading-relaxed text-zinc-400 sm:text-xs'>
+					{summary}
+				</p>
+			)}
+		</div>
 	);
 
 	const className =
@@ -39,27 +52,27 @@ export default function ProjectItem({
 
 	if (slug) {
 		return (
-			<Link
-				href={`/projects/${slug}`}
+			<div
+				className={className}
 				onMouseEnter={handleMouseEnter}
 				onMouseLeave={handleMouseLeave}
-				className={className}
 			>
-				{content}
-			</Link>
+				<Link href={`/projects/${slug}`} className='flex-1'>
+					{content}
+				</Link>
+			</div>
 		);
 	}
 
 	return (
-		<a
-			href={url}
-			target='_blank'
+		<div
+			className={className}
 			onMouseEnter={handleMouseEnter}
 			onMouseLeave={handleMouseLeave}
-			className={className}
-			rel='noreferrer'
 		>
-			{content}
-		</a>
+			<a href={url} target='_blank' rel='noreferrer' className='flex-1'>
+				{content}
+			</a>
+		</div>
 	);
 }

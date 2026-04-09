@@ -193,6 +193,52 @@ export default async function ProjectDetailPage(props: {
 					</ul>
 				</section>
 
+				{detail.deployedProjects?.length ? (
+					<section className='space-y-6'>
+						<h2 className='text-2xl font-semibold'>已部署项目</h2>
+						<div className='space-y-4'>
+							{detail.deployedProjects.map((item) => (
+								<div
+									key={item.title}
+									className='rounded-xl border border-gray-200 p-5 dark:border-gray-700'
+								>
+									<div className='flex flex-wrap items-start justify-between gap-3'>
+										<div>
+											<h3 className='text-xl font-semibold text-gray-900 dark:text-gray-100'>
+												{item.title}
+											</h3>
+											<p className='mt-1 text-sm text-gray-500 dark:text-gray-400'>
+												{item.role}
+											</p>
+										</div>
+										<div className='flex flex-wrap gap-3'>
+											<Link
+												href={item.url}
+												target='_blank'
+												rel='noopener noreferrer'
+												className='inline-flex items-center gap-2 rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600'
+											>
+												在线访问
+											</Link>
+											<Link
+												href={item.githubUrl}
+												target='_blank'
+												rel='noopener noreferrer'
+												className='inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800'
+											>
+												GitHub
+											</Link>
+										</div>
+									</div>
+									<p className='mt-4 text-sm leading-7 text-gray-600 dark:text-gray-400'>
+										{item.summary}
+									</p>
+								</div>
+							))}
+						</div>
+					</section>
+				) : null}
+
 				<section className='rounded-lg border border-gray-200 p-4 dark:border-gray-700'>
 					<h2 className='mb-2 text-lg font-semibold'>开源许可</h2>
 					<p className='text-sm text-gray-600 dark:text-gray-400'>

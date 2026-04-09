@@ -1,5 +1,15 @@
 import type { Project } from './types';
 
+interface DeployedProject {
+	title: string;
+	src: string;
+	color: string;
+	role: string;
+	summary: string;
+	url: string;
+	githubUrl: string;
+}
+
 export const projects: Project[] = [
 	{
 		title: 'Smart Drawio',
@@ -34,6 +44,83 @@ export const projects: Project[] = [
 		role: 'Full Stack Developer',
 		summary: '基于 Next.js 16 的个人博客，支持 MDX、主题切换与流畅动画',
 	},
+	{
+		title: 'TavilyProxy',
+		src: 'tavily-proxy.png',
+		color: '#fef3c7',
+		slug: 'tavily-proxy',
+		role: 'Full Stack Developer',
+		summary:
+			'Tavily API 代理与密钥池管理平台，提供统一入口、失败切换与管理后台',
+	},
+	{
+		title: 'One More Thing',
+		src: 'tavily-proxy.png',
+		color: '#fee2e2',
+		slug: 'one-more-thing',
+		role: 'Deployed Tools & Services',
+		summary: '不是主角，但都已经在真实环境里默默干活了。',
+	},
+];
+
+export const extraProjects: DeployedProject[] = [
+	{
+		title: 'CLI Proxy API',
+		src: 'tavily-proxy.png',
+		color: '#dbeafe',
+		role: 'Infra / Tooling Developer',
+		summary:
+			'把命令行能力封装成可调用的 HTTP API，用一个管理面板统一管理和调试 CLI 调用。',
+		url: 'https://uestc.zeabur.app/management.html',
+		githubUrl: 'https://github.com/router-for-me/CLIProxyAPI',
+	},
+	{
+		title: 'grok2api',
+		src: 'tavily-proxy.png',
+		color: '#dcfce7',
+		role: 'Backend Developer',
+		summary: '把 Grok 能力封装成标准化 API 服务，提供管理后台进行配置与监控。',
+		url: 'http://62.234.31.111:8000/admin/login',
+		githubUrl: 'https://github.com/chenyme/grok2api',
+	},
+	{
+		title: 'Cloud Mail',
+		src: 'tavily-proxy.png',
+		color: '#fef3c7',
+		role: 'Mail / Infra Developer',
+		summary: '一个可自建的 Web 邮件服务，用自己的域名和基础设施托管邮箱。',
+		url: 'https://mail.niuaoao.ggff.net/',
+		githubUrl: 'https://github.com/maillab/cloud-mail',
+	},
+	{
+		title: 'Z-Image Turbo',
+		src: 'tavily-proxy.png',
+		color: '#e0f2fe',
+		role: 'Full Stack Developer',
+		summary: '专注图片处理与加速的小工具，用简单界面完成批量转换和优化。',
+		url: 'https://x-pi-inky-99.vercel.app/',
+		githubUrl: 'https://github.com/yunshenwuchuxun/Z-Image-turbo',
+	},
+	{
+		title: 'Render Service Manager',
+		src: 'tavily-proxy.png',
+		color: '#f3e8ff',
+		role: 'Platform / DevOps',
+		summary:
+			'集中管理 Render 平台上的服务实例，一目了然地查看状态、重启和调试。',
+		url: 'https://render-manager.uestc.nyc.mn/',
+		githubUrl: 'https://github.com/ssfun/render-service-manager',
+	},
+	{
+		title: 'cursor2api',
+		src: 'tavily-proxy.png',
+		color: '#fee2e2',
+		role: 'Dev Tooling',
+		summary:
+			'把 Cursor 的能力与工作流暴露为 HTTP API，方便在脚本和其他工具里复用。',
+		url: 'http://62.234.31.111:3010',
+		githubUrl: 'https://github.com/7836246/cursor2api',
+	},
 ];
 
 export interface ProjectDetail {
@@ -53,6 +140,13 @@ export interface ProjectDetail {
 	usage: string[];
 	targetUsers: string[];
 	license: string;
+	deployedProjects?: {
+		title: string;
+		role: string;
+		summary: string;
+		url: string;
+		githubUrl: string;
+	}[];
 }
 
 export const projectDetails: Record<string, ProjectDetail> = {
@@ -63,14 +157,14 @@ export const projectDetails: Record<string, ProjectDetail> = {
 			'用自然语言或参考图片，几秒钟生成可编辑的 Draw.io 图表，适用于科研、架构文档与演示场景',
 		description: `Smart Drawio Next 是一个面向科研图、系统架构图与产品说明图的 AI 绘图工具。它不是把想法直接渲染成一张不可修改的图片，而是把自然语言描述或参考图片转成结构化的 Draw.io 内容，让你得到真正可编辑、可继续优化的图表结果。
 
-整个流程围绕“生成 → 编辑 → 应用 → 优化”展开：用户先输入 prompt 或上传参考图，模型流式生成 XML / JSON，结果会同步进入 Monaco 编辑器与嵌入式 Draw.io 画布；你既可以像写代码一样直接改结构，也可以像传统白板工具一样继续拖拽微调。再配合后处理工具、样式包、多模型配置与本地历史记录，它更像一套完整的图表生产工作台，而不是一次性 demo。`,
+	整个流程围绕“生成 → 编辑 → 应用 → 优化”展开：用户先输入 prompt 或上传参考图，模型流式生成 XML / JSON，结果会同步进入 Monaco 编辑器与嵌入式 Draw.io 画布；你既可以像写代码一样直接改结构，也可以像传统白板工具一样继续拖拽微调。再配合后处理工具、样式包、多模型配置与本地历史记录，它更像一套完整的图表生产工作台，而不是一次性 demo。`,
 		overviewSections: [
 			{
 				title:
 					'从 Prompt 到可编辑图表：这是结构化图表工作流，而不是一次性截图生成',
 				body: `README 里最重要的判断，是把“AI 生成图”从一次性输出升级成可反复迭代的图表工作流。Smart Drawio Next 接收自然语言描述，也支持上传参考图片，然后把结果生成成结构化的 XML / JSON，而不是只吐出一张静态图。这样做的好处非常直接：图生成出来之后，你依然可以继续编辑、继续优化、继续应用到真实的科研、文档和汇报场景里。
 
-对研究者和工程团队来说，这种可编辑性比“单次出图速度”更重要。论文结构图、系统架构图、流程图、时间线图往往都需要多轮修改，如果 AI 只能给你一张图片，你最后还是要重画；而 Smart Drawio Next 生成的是可落进 Draw.io 的内容，所以它在产品定位上更像“AI 加持的专业绘图工作台”。`,
+	对研究者和工程团队来说，这种可编辑性比“单次出图速度”更重要。论文结构图、系统架构图、流程图、时间线图往往都需要多轮修改，如果 AI 只能给你一张图片，你最后还是要重画；而 Smart Drawio Next 生成的是可落进 Draw.io 的内容，所以它在产品定位上更像“AI 加持的专业绘图工作台”。`,
 				image: '/static/images/project/smart-drawio-page.png',
 				imageAlt: 'Smart Drawio Next 主界面截图，展示输入区、编辑器与画布联动',
 			},
@@ -78,7 +172,7 @@ export const projectDetails: Record<string, ProjectDetail> = {
 				title: '代码编辑器 + Draw.io 画布双栈联动，是它真正拉开差距的地方',
 				body: `项目最强的体验不是“AI 会画图”，而是“图生成之后还能像工程对象一样被继续操作”。README 把这一层讲得很清楚：左边是输入与生成控制，中间是 Monaco 编辑器，右边是嵌入式 Draw.io 画布。你可以直接在代码层修改节点、箭头、布局与文本，再一键重新应用；也可以在画布里继续拖动和微调，让生成结果真正融入既有工作流。
 
-这种 code + canvas 的双栈设计非常适合复杂图表：一方面，结构化编辑让你可以精确控制图的逻辑；另一方面，Draw.io 原生的可视化交互保留了普通用户的低门槛操作方式。它不是在编辑器和白板之间二选一，而是把两者的优势拼接到了一起。`,
+	这种 code + canvas 的双栈设计非常适合复杂图表：一方面，结构化编辑让你可以精确控制图的逻辑；另一方面，Draw.io 原生的可视化交互保留了普通用户的低门槛操作方式。它不是在编辑器和白板之间二选一，而是把两者的优势拼接到了一起。`,
 				image: '/static/images/project/smart-drawio-transformer.png',
 				imageAlt: 'Smart Drawio Next 生成的 Transformer 架构图示例',
 			},
@@ -86,7 +180,7 @@ export const projectDetails: Record<string, ProjectDetail> = {
 				title: '它不是只会一类图：科研图、视觉模型图和多模态结构图都能生成',
 				body: `README 的 Gallery 很能说明这个项目的上限。除了通用流程图和架构图，它还展示了 Transformer、Swin Transformer、CLIP、ProSST 等不同风格与内容密度的科研图表示例。这一点很重要，因为真正的图表工具不能只会“画几个盒子”，而要能适应完全不同的信息组织方式：有的图强调模块分层，有的图强调跨模态交互，有的图强调时序和数据流。
 
-从这些示例可以看出，Smart Drawio Next 更像一个图表生成引擎：你可以显式指定图表类型，也可以让模型自动判断；你可以做学术论文里的模型图，也可以做技术文档里的系统图、汇报里的概念图，甚至偏信息可视化风格的演示图。这种跨场景通用性，正是它适合作为 portfolio 项目的原因。`,
+	从这些示例可以看出，Smart Drawio Next 更像一个图表生成引擎：你可以显式指定图表类型，也可以让模型自动判断；你可以做学术论文里的模型图，也可以做技术文档里的系统图、汇报里的概念图，甚至偏信息可视化风格的演示图。这种跨场景通用性，正是它适合作为 portfolio 项目的原因。`,
 				image: '/static/images/project/smart-drawio-swin.png',
 				imageAlt: 'Smart Drawio Next 生成的 Swin Transformer 图表示例',
 			},
@@ -94,7 +188,7 @@ export const projectDetails: Record<string, ProjectDetail> = {
 				title: '多模态输入不是噱头，而是把“参考图改造”为可编辑内容的关键入口',
 				body: `README 强调了这个项目不仅支持文本生成，还支持图片输入。你可以上传一张已有图示、手绘草图、论文截图或参考页面，让 vision 模型先理解其结构，再转成可编辑图表内容。相比单纯的 text-to-diagram，这一步非常实用：现实工作里很多需求并不是“从零开始画”，而是“把这张已有图改成适合我汇报、文档或论文的版本”。
 
-这也是 Smart Drawio Next 在实战里更有价值的原因。它把图片理解、结构重建和后续编辑串成一条链路，让参考图不再只是灵感来源，而是可转换、可重组、可二次创作的输入。对科研和工程用户来说，这类能力比“炫技式自动生成”更贴近真实工作流。`,
+	这也是 Smart Drawio Next 在实战里更有价值的原因。它把图片理解、结构重建和后续编辑串成一条链路，让参考图不再只是灵感来源，而是可转换、可重组、可二次创作的输入。对科研和工程用户来说，这类能力比“炫技式自动生成”更贴近真实工作流。`,
 				image: '/static/images/project/smart-drawio-clip.png',
 				imageAlt: 'Smart Drawio Next 生成的 CLIP 图表示例',
 			},
@@ -102,7 +196,7 @@ export const projectDetails: Record<string, ProjectDetail> = {
 				title: '复杂科研图也能保持结构清晰，这让它更像生产工具而不是展示 Demo',
 				body: `README 里的 ProSST 示例说明，这个项目不仅能处理经典 AI 架构图，也能覆盖更复杂的科研示意场景。此类图通常包含更多层次、更复杂的关系线和更高的信息密度，如果没有后续编辑与后处理能力，很容易生成出“元素都有，但读不明白”的结果。Smart Drawio Next 的优势在于：生成只是起点，后续你还能继续整理结构、调整视觉层级、压缩冗余线条与文本噪声。
 
-因此它适合的不只是“做一张好看的图”，而是“把复杂知识表达整理成真正能被人读懂、能放进论文和文档里的图”。这是科研绘图里很稀缺、也很有说服力的产品能力。`,
+	因此它适合的不只是“做一张好看的图”，而是“把复杂知识表达整理成真正能被人读懂、能放进论文和文档里的图”。这是科研绘图里很稀缺、也很有说服力的产品能力。`,
 				image: '/static/images/project/smart-drawio-prosst.png',
 				imageAlt: 'Smart Drawio Next 生成的 ProSST 图表示例',
 			},
@@ -110,7 +204,7 @@ export const projectDetails: Record<string, ProjectDetail> = {
 				title: '后处理工具链与样式系统，让图表从“能用”走向“能展示”',
 				body: `很多 AI 图表工具的问题不是“生成不出来”，而是“生成出来以后不够像最终交付物”。README 里的 Tools System 正是在解决这个问题：Drawing Tricks 负责对齐、正交连线、统一间距、箭头规范化、跳线等结构修正；Text Tools 负责文本折行、居中、面板化与紧凑排版；Style Presets 与 Style Packs 则负责把整张图一键拉到可展示、可汇报的视觉质量。
 
-这让 Smart Drawio Next 不只是一个生成器，更像一个能把草图打磨成展示级图表的后期系统。你可以先用模型快速起稿，再用工具链把它整理到适合论文、演讲或技术方案评审的精度。这种“生成 + 工具化 refinement”的组合，是这个项目最值得在 portfolio 里强调的地方之一。`,
+	这让 Smart Drawio Next 不只是一个生成器，更像一个能把草图打磨成展示级图表的后期系统。你可以先用模型快速起稿，再用工具链把它整理到适合论文、演讲或技术方案评审的精度。这种“生成 + 工具化 refinement”的组合，是这个项目最值得在 portfolio 里强调的地方之一。`,
 				image: '/static/images/project/smart-drawio-tools-business-clean.png',
 				imageAlt: 'Smart Drawio Next 样式包处理后的商业风格图表示例',
 			},
@@ -210,13 +304,13 @@ export const projectDetails: Record<string, ProjectDetail> = {
 		subtitle: '交互式 2D/3D 动力学系统分析与可视化平台',
 		description: `智能动力学系统分析器是一款基于 Flask 的 Web 应用，专注于线性与非线性动力学系统的分析与可视化。平台支持相图生成、轨迹动画、混沌分析以及离散系统应用的全面研究。
 
-借助自然语言转矩阵的智能功能，用户可以用直观的方式描述系统，平台自动解析并生成专业的数学分析结果。无论是学习动力学系统理论，还是进行科研工作中的系统仿真，都能获得流畅的交互体验。`,
+	借助自然语言转矩阵的智能功能，用户可以用直观的方式描述系统，平台自动解析并生成专业的数学分析结果。无论是学习动力学系统理论，还是进行科研工作中的系统仿真，都能获得流畅的交互体验。`,
 		overviewSections: [
 			{
 				title: '主页面与智能输入：把动力学分析入口做得足够直观',
 				body: `README 里最容易让人建立第一印象的，不是某个单点算法，而是整个入口设计。首页把矩阵输入、特征值分析、系统分类和文本转矩阵放进同一条工作流里，让用户不用先写一堆脚本，就能快速看到系统的基本性质和可视化结果。
 
-这让项目很适合教学和快速探索：初学者可以从线性系统矩阵直接入门，研究者也可以把自然语言描述转成可计算对象，再继续做更深入的相图与轨迹分析。它不是单纯展示公式结果，而是在努力降低动力学系统分析的使用门槛。`,
+	这让项目很适合教学和快速探索：初学者可以从线性系统矩阵直接入门，研究者也可以把自然语言描述转成可计算对象，再继续做更深入的相图与轨迹分析。它不是单纯展示公式结果，而是在努力降低动力学系统分析的使用门槛。`,
 				image: '/static/images/project/dynamical-system-main.png',
 				imageAlt:
 					'智能动力学系统分析器首页，展示矩阵输入、特征值分析与智能输入入口',
@@ -225,7 +319,7 @@ export const projectDetails: Record<string, ProjectDetail> = {
 				title: '线性与非线性系统分析：从平衡点分类到局部稳定性判断',
 				body: `README 展示的线性系统分析页，清楚说明这个项目不是“给出几个数字”的计算器，而是把特征值、相图、向量场和系统分类真正组合到了一起。用户可以直接看到节点、鞍点、焦点等典型行为，也能把代数结果和几何直觉对应起来。
 
-进一步到非线性系统时，平台还能做平衡点检测、雅可比矩阵线性化和局部稳定性分析。对学习者来说，这种从理论定义到图形反馈的闭环很有价值；对做系统建模的人来说，它也能更快地验证方程在局部邻域里的动力学表现。`,
+	进一步到非线性系统时，平台还能做平衡点检测、雅可比矩阵线性化和局部稳定性分析。对学习者来说，这种从理论定义到图形反馈的闭环很有价值；对做系统建模的人来说，它也能更快地验证方程在局部邻域里的动力学表现。`,
 				image: '/static/images/project/dynamical-system-linear-analysis.png',
 				imageAlt: '线性系统分析页面，展示相图、向量场与平衡点行为',
 			},
@@ -233,7 +327,7 @@ export const projectDetails: Record<string, ProjectDetail> = {
 				title: '轨迹绘制与交互动画：把系统演化过程直接动态化',
 				body: `相比静态相图，README 里的轨迹绘制页面更能体现这个项目的交互价值。平台用 Canvas 做实时轨迹动画，不只是画出一条路径，而是让用户观察不同初值下轨迹如何随时间展开、收敛、发散或绕转。
 
-这类动态可视化对解释系统行为非常有效，尤其适合课堂演示、多轨迹对比和参数调节后的即时反馈。它把“系统会怎么动”从抽象概念变成可直接观察的过程，也让这个项目比普通数学可视化工具更有产品感。`,
+	这类动态可视化对解释系统行为非常有效，尤其适合课堂演示、多轨迹对比和参数调节后的即时反馈。它把“系统会怎么动”从抽象概念变成可直接观察的过程，也让这个项目比普通数学可视化工具更有产品感。`,
 				image: '/static/images/project/dynamical-system-trajectory.png',
 				imageAlt: '轨迹绘制页面，展示实时动画与多轨迹对比',
 			},
@@ -241,7 +335,7 @@ export const projectDetails: Record<string, ProjectDetail> = {
 				title: '3D 混沌吸引子与高级分析：从好看的图进一步走向可分析对象',
 				body: `README 里最有表现力的部分之一，是对 Lorenz、Rössler、Chua、Thomas 等经典混沌系统的支持。页面不仅能渲染 3D 吸引子，还把 Lyapunov 指数、Poincaré 截面和分形维数这些更高阶的分析能力放进同一个平台里。
 
-这意味着项目并不满足于“把混沌图画出来”，而是试图把混沌系统研究里常见的几个关键分析视角整合起来。对课程项目来说这已经很完整；对 portfolio 展示来说，这一块也最能体现系统的数学深度和可视化表达能力。`,
+	这意味着项目并不满足于“把混沌图画出来”，而是试图把混沌系统研究里常见的几个关键分析视角整合起来。对课程项目来说这已经很完整；对 portfolio 展示来说，这一块也最能体现系统的数学深度和可视化表达能力。`,
 				image: '/static/images/project/dynamical-system-chaos-analysis.png',
 				imageAlt: '混沌分析页面，展示 3D 吸引子与 Lyapunov 指数相关能力',
 			},
@@ -249,7 +343,7 @@ export const projectDetails: Record<string, ProjectDetail> = {
 				title: '离散系统与实际应用：把 textbook 图形延伸到真实模型场景',
 				body: `README 没有把离散动力学停留在教材式示意图层面，而是把分岔图、蛛网图、回归映射和 Lyapunov 指数这些分析工具，继续延伸到人口动态、离散 SIR、经济蛛网模型等更具体的应用场景。这样做的好处，是用户能把抽象的离散映射行为和实际建模问题联系起来。
 
-从项目展示角度看，这一部分很重要，因为它说明平台不仅适合讲“理论”，也适合讲“问题”。你可以先分析系统什么时候进入周期、分岔或混沌，再把这种行为放回人口、流行病或经济系统里理解，这让整个项目的应用面比单纯的相图工具更宽。`,
+	从项目展示角度看，这一部分很重要，因为它说明平台不仅适合讲“理论”，也适合讲“问题”。你可以先分析系统什么时候进入周期、分岔或混沌，再把这种行为放回人口、流行病或经济系统里理解，这让整个项目的应用面比单纯的相图工具更宽。`,
 				image:
 					'/static/images/project/dynamical-system-discrete-applications.png',
 				imageAlt: '离散动力学实际应用页面，展示人口模型与流行病模型等场景',
@@ -326,7 +420,7 @@ export const projectDetails: Record<string, ProjectDetail> = {
 		subtitle: '基于 Next.js 16 与 React 19 构建的现代个人博客平台',
 		description: `Yun Shen Blog 是一款精心打造的个人博客平台，采用 Next.js 16 App Router 与 React 19 构建，结合 Tailwind CSS v4 实现响应式设计。博客以 MDX 作为内容格式，支持丰富的代码高亮与自定义组件渲染。
 
-平台集成了 Lenis 平滑滚动、GSAP 与 Motion 动画库，配合 View Transition API 实现的主题切换，带来流畅的浏览体验。部署于 Vercel，内置 Analytics 与 Speed Insights，兼顾性能与用户体验。`,
+	平台集成了 Lenis 平滑滚动、GSAP 与 Motion 动画库，配合 View Transition API 实现的主题切换，带来流畅的浏览体验。部署于 Vercel，内置 Analytics 与 Speed Insights，兼顾性能与用户体验。`,
 		features: [
 			{
 				title: 'MDX 博客系统',
@@ -392,6 +486,104 @@ export const projectDetails: Record<string, ProjectDetail> = {
 		],
 		license: 'MIT License – 可在保留版权声明的前提下自由使用、复制与分发',
 	},
+	'tavily-proxy': {
+		slug: 'tavily-proxy',
+		title: 'TavilyProxy',
+		subtitle:
+			'面向 AI Agent 场景的 Tavily Search 代理与密钥池管理平台，提供统一入口、失败切换与可视化后台',
+		description: `Tavily Search 是一个为 LLM / Agent 设计的实时搜索接口，适合做网页检索、事实补充、研究问答，以及 RAG 和自动化工作流中的外部信息获取。它解决的是“让模型拿到最新网页信息”这件事。
+
+	TavilyProxy 解决的则是“如何把 Tavily 稳定接进系统”。它把多把 Tavily API Key 收口成一个统一入口，对外只暴露单一 Master Key，对内负责密钥池调度、失败切换、请求日志和后台管理，更适合长期运行的 Agent、检索流程和内部工具。`,
+		overviewSections: [
+			{
+				title: '先理解 Tavily Search：它适合给 Agent 提供实时外部信息',
+				body: `Tavily Search 不只是普通搜索接口，更适合接进 AI 应用。它可以给 agent 提供最新网页结果，也能服务于研究型问答、RAG 补充检索、内容聚合和自动化工作流。
+
+			  但当调用从“偶尔用一下”变成“长期运行”，工程问题就出现了：API Key 怎么管、额度怎么分配、单 Key 失效怎么办、请求记录怎么追踪。TavilyProxy 就是在这里切入。`,
+			},
+			{
+				title: '统一入口 + 密钥池，让 Tavily 更适合长期运行',
+				body: `TavilyProxy 把多个上游 Tavily API Key 收拢到同一个代理层后面。客户端只需要配置一套 Master Key，就能通过统一地址访问 Tavily，不必在业务代码里自己处理多 Key 切换、额度耗尽或失败重试。
+
+			它会根据额度状态选择可用 Key，并在认证失败、限流或配额问题出现时自动切换，让原本脆弱的单 Key 依赖变成更适合生产使用的可调度资源池。`,
+			},
+			{
+				title: '不只是代理，也是一块可视化运维面板',
+				body: `这个项目不只负责转发请求，还提供完整的 Web 管理后台。你可以管理密钥、查看请求日志、观察额度使用情况，并处理定时维护任务。
+
+			对个人开发者来说，它减少了手动换 Key 和排查问题的摩擦；对团队来说，它让 Tavily 的使用状态更透明，也更容易长期维护。`,
+			},
+			{
+				title: 'MCP 接入，让它可以自然融入 Agent 工具链',
+				body: `TavilyProxy 还提供 MCP endpoint，因此它不只是一个后端代理服务，也可以作为 Claude Code、VS Code 或其他 Agent runtime 里的搜索工具层。
+
+			这意味着它既适合普通应用调用，也适合本地 AI 工作流、团队内部 Agent 平台或统一搜索中间层。这种兼顾 API 代理和 Agent 接入的设计，是它最有辨识度的亮点之一。`,
+			},
+		],
+		features: [
+			{
+				title: '统一 Tavily 访问入口',
+				description:
+					'对外暴露单一 Master Key 与代理地址，客户端无需直接管理多把 Tavily API Key',
+			},
+			{
+				title: '密钥池调度',
+				description:
+					'根据额度状态选择可用 Key，并在相近候选之间随机分配，提高整体配额利用率',
+			},
+			{
+				title: '自动重试与失败切换',
+				description:
+					'当上游出现认证失败、限流或配额问题时，自动切换其他 Key 继续完成请求',
+			},
+			{
+				title: '管理后台与日志',
+				description:
+					'提供 Web UI、密钥管理、请求日志、使用趋势查看与后台运维入口',
+			},
+			{
+				title: '定时维护任务',
+				description: '支持额度重置与日志清理等周期性任务，便于长期稳定运行',
+			},
+			{
+				title: 'MCP Endpoint',
+				description:
+					'可作为 Claude / VS Code 等 Agent 工具链中的搜索服务层接入',
+			},
+		],
+		techStack: [
+			{ category: '后端', items: ['Go'] },
+			{ category: '前端', items: ['Vue 3', 'Vite', 'TypeScript', 'Naive UI'] },
+			{ category: '数据存储', items: ['SQLite'] },
+			{
+				category: '部署',
+				items: ['Docker', 'Docker Compose', 'GHCR 镜像', 'Render Blueprint'],
+			},
+			{
+				category: '接口能力',
+				items: ['HTTP API Proxy', 'MCP Endpoint'],
+			},
+		],
+		links: [
+			{
+				label: 'GitHub',
+				url: 'https://github.com/yunshenwuchuxun/TavilyProxy',
+			},
+		],
+		usage: [
+			'克隆仓库：git clone https://github.com/yunshenwuchuxun/TavilyProxy.git',
+			'使用 Docker Compose 启动：docker-compose up -d',
+			'或用 Docker 运行 GHCR 镜像并挂载 SQLite 数据目录',
+			'如需本地开发，运行 Go 服务端并在 web 目录安装前端依赖后启动 Vite',
+		],
+		targetUsers: [
+			'AI Agent 开发者 - 需要稳定接入 Tavily 搜索能力',
+			'内部工具团队 - 想把多把 Tavily Key 收口成统一服务',
+			'个人开发者 - 希望降低单 Key 耗尽带来的中断风险',
+			'需要运维可视化的团队 - 需要查看请求日志、额度状态与后台统计',
+		],
+		license: 'MIT License – 可在保留版权声明的前提下自由使用、复制与分发',
+	},
 	'latex-paper-skills': {
 		slug: 'latex-paper-skills',
 		title: 'latex-paper-skills',
@@ -399,13 +591,13 @@ export const projectDetails: Record<string, ProjectDetail> = {
 			'科研 skills：想法、写作、实验、文献、排版一条龙服务，一条 prompt 即可生成有证据、排版好的论文',
 		description: `latex-paper-skills 是一个面向 ML/AI 学术写作的科研 skills 系统。它把想法形成、文献检索、研究规划、章节写作、实验设计、结果回填、引用核验和 LaTeX 排版串成一条完整流水线，让“写论文”第一次像搭建软件工作流一样可组织、可追踪、可复用。
 
-它最强的地方不只是会生成正文，而是能把一条自然语言 prompt 路由成真正可交付的论文流程：先规划、再写作、强制核验证据、自动维护 BibTeX、最后编译成版式规范的 PDF。相比单纯的 prompt 模板，这是一套能稳定产出“有证据、排版好、可复现”论文的研究生产系统。`,
+	它最强的地方不只是会生成正文，而是能把一条自然语言 prompt 路由成真正可交付的论文流程：先规划、再写作、强制核验证据、自动维护 BibTeX、最后编译成版式规范的 PDF。相比单纯的 prompt 模板，这是一套能稳定产出“有证据、排版好、可复现”论文的研究生产系统。`,
 		overviewSections: [
 			{
 				title: '一条 prompt 到论文 PDF：完整 pipeline 是这个项目的核心竞争力',
 				body: `latex-paper-skills 的定位不是“论文润色工具”，而是科研写作全流程的 skills 系统。README 里把它定义为从 topic 到 compiled PDF 的可移植 AI agent skill bundle，核心路由 skill 会把一个研究想法继续拆成文献搜索、创新 framing、贡献地图、证据矩阵，再根据任务类型分流到综述论文或实证论文写作器。
 
-这意味着用户输入的不再只是一个 prompt，而是一次完整科研流程的起点。系统会把想法、文献、实验、写作、引用、排版组织成可执行工序，最终交付的也不只是文字草稿，而是带证据约束、带 BibTeX、带 LaTeX 排版、可直接编译成 PDF 的论文工程。`,
+	这意味着用户输入的不再只是一个 prompt，而是一次完整科研流程的起点。系统会把想法、文献、实验、写作、引用、排版组织成可执行工序，最终交付的也不只是文字草稿，而是带证据约束、带 BibTeX、带 LaTeX 排版、可直接编译成 PDF 的论文工程。`,
 				image: '/static/images/project/latex-paper-skills-pipeline.svg',
 				imageAlt: 'latex-paper-skills 从选题到论文 PDF 的总流程图',
 			},
@@ -413,7 +605,7 @@ export const projectDetails: Record<string, ProjectDetail> = {
 				title: 'Skill 体系不是一句“AI 写论文”，而是可分工、可组合的科研工作台',
 				body: `这个仓库最值得单独介绍的，是它把论文生产拆成了一组职责明确的 skills。paper-from-zero 负责总路由；arxiv-paper-writer 负责综述论文；empirical-paper-writer 负责实验论文；latex-rhythm-refiner 负责在不破坏引用位置的前提下优化表达；results-backfill 负责把真实实验结果回填进草稿并生成图表。
 
-在协作层上，collaborating-with-gemini 更偏广度扩展，适合做文献扩写、替代框架与关键词分组；collaborating-with-claude 更偏深度审查，适合做 claim stress-test、证据审计与关键判断；check-collaborators 则负责检查 CLI、认证与接口可用性。换句话说，这不是一个单点功能，而是一个覆盖“想法—文献—写作—实验—排版”的科研工作台。`,
+	在协作层上，collaborating-with-gemini 更偏广度扩展，适合做文献扩写、替代框架与关键词分组；collaborating-with-claude 更偏深度审查，适合做 claim stress-test、证据审计与关键判断；check-collaborators 则负责检查 CLI、认证与接口可用性。换句话说，这不是一个单点功能，而是一个覆盖“想法—文献—写作—实验—排版”的科研工作台。`,
 				image: '/static/blog/latex-paper-skills/review-paper-preview.png',
 				imageAlt: 'latex-paper-skills 综述论文示例预览',
 			},
@@ -421,7 +613,7 @@ export const projectDetails: Record<string, ProjectDetail> = {
 				title: '它为什么强：不是写得快，而是把证据、流程和排版同时做对',
 				body: `很多 AI 写作工具只能快速吐出一篇“像论文的文字”，但 latex-paper-skills 追求的是更难的目标：让结果既有研究证据，又符合论文生产流程，还能在 LaTeX 层面直接交付。README 里反复强调 no prose before approval、Issues CSV is the contract、citations must be verified、never fabricate citations/results/significance claims——这些不是营销词，而是系统设计原则。
 
-配合门禁流程图可以看到，项目把 Kickoff、用户审批、Issues 合同、research/write/verify 循环、节奏润色、citation audit、source scoring、compile 和 warning review 串成了完整状态机。它的强大之处就在这里：一条 prompt 不是换来一篇“看起来像论文”的草稿，而是换来一条能够稳定生成“有证据、排版好、可审计、可编译”论文的科研生产线。`,
+	配合门禁流程图可以看到，项目把 Kickoff、用户审批、Issues 合同、research/write/verify 循环、节奏润色、citation audit、source scoring、compile 和 warning review 串成了完整状态机。它的强大之处就在这里：一条 prompt 不是换来一篇“看起来像论文”的草稿，而是换来一条能够稳定生成“有证据、排版好、可审计、可编译”论文的科研生产线。`,
 				image: '/static/blog/latex-paper-skills/empirical-paper-preview.png',
 				imageAlt: 'latex-paper-skills 实证论文示例预览',
 			},
@@ -499,5 +691,98 @@ export const projectDetails: Record<string, ProjectDetail> = {
 			'研究团队 - 需要可审计、可复用的 AI 协作写作流程',
 		],
 		license: 'MIT License – 可在保留版权声明的前提下自由使用、复制与分发',
+	},
+	'one-more-thing': {
+		slug: 'one-more-thing',
+		title: 'One More Thing',
+		subtitle: '不是主角，但都已经在真实环境里默默干活了。',
+		description: `这里收的是一些已经真正部署出去、并且确实在用的小项目。它们不一定都有完整 case study，也不是作品集里的主角，但都已经从代码仓库走到了真实环境：有的在处理 API 代理，有的在托管邮件，有的在做平台管理和工具接入。
+
+与其把它们平铺成一排独立主项目，我更希望把它们放在同一个入口里看——它们更像一组持续运行的小服务，而不是一组需要长篇讲解的 showcase。`,
+		features: [
+			{
+				title: '真实部署',
+				description: '每个项目都已经有在线地址，不只是仓库里的 demo。',
+			},
+			{
+				title: '问题导向',
+				description:
+					'它们大多是围绕代理、运维、托管和工具接入这些实际需求做出来的。',
+			},
+			{
+				title: '轻量但可用',
+				description: '不是大而全的平台，而是边界清晰、上线就能工作的服务。',
+			},
+		],
+		techStack: [
+			{
+				category: '形态',
+				items: ['Web 工具', '管理后台', 'API 服务', '自部署应用'],
+			},
+			{
+				category: '场景',
+				items: ['代理转发', '邮件托管', '服务管理', '开发者工具'],
+			},
+		],
+		links: [{ label: 'Projects', url: '/projects' }],
+		usage: [
+			'点击下方任一项目进入在线地址',
+			'如需查看实现细节，可直接进入对应 GitHub 仓库',
+			'后续会逐步把占位图替换为各项目真实截图',
+		],
+		targetUsers: [
+			'喜欢看真实上线小工具的人',
+			'对个人部署和自托管服务感兴趣的开发者',
+			'想快速浏览我还做过哪些实用项目的访客',
+		],
+		license: '各项目遵循其各自仓库中的开源许可或发布方式',
+		deployedProjects: [
+			{
+				title: 'CLI Proxy API',
+				role: 'Infra / Tooling Developer',
+				summary:
+					'把命令行能力封装成可调用的 HTTP API，用一个管理面板统一管理和调试 CLI 调用。',
+				url: 'https://uestc.zeabur.app/management.html',
+				githubUrl: 'https://github.com/router-for-me/CLIProxyAPI',
+			},
+			{
+				title: 'grok2api',
+				role: 'Backend Developer',
+				summary:
+					'把 Grok 能力封装成标准化 API 服务，提供管理后台进行配置与监控。',
+				url: 'http://62.234.31.111:8000/admin/login',
+				githubUrl: 'https://github.com/chenyme/grok2api',
+			},
+			{
+				title: 'Cloud Mail',
+				role: 'Mail / Infra Developer',
+				summary: '一个可自建的 Web 邮件服务，用自己的域名和基础设施托管邮箱。',
+				url: 'https://mail.niuaoao.ggff.net/',
+				githubUrl: 'https://github.com/maillab/cloud-mail',
+			},
+			{
+				title: 'Z-Image Turbo',
+				role: 'Full Stack Developer',
+				summary: '专注图片处理与加速的小工具，用简单界面完成批量转换和优化。',
+				url: 'https://x-pi-inky-99.vercel.app/',
+				githubUrl: 'https://github.com/yunshenwuchuxun/Z-Image-turbo',
+			},
+			{
+				title: 'Render Service Manager',
+				role: 'Platform / DevOps',
+				summary:
+					'集中管理 Render 平台上的服务实例，一目了然地查看状态、重启和调试。',
+				url: 'https://render-manager.uestc.nyc.mn/',
+				githubUrl: 'https://github.com/ssfun/render-service-manager',
+			},
+			{
+				title: 'cursor2api',
+				role: 'Dev Tooling',
+				summary:
+					'把 Cursor 的能力与工作流暴露为 HTTP API，方便在脚本和其他工具里复用。',
+				url: 'http://62.234.31.111:3010',
+				githubUrl: 'https://github.com/7836246/cursor2api',
+			},
+		],
 	},
 };
