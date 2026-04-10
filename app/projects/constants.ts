@@ -8,6 +8,8 @@ interface DeployedProject {
 	summary: string;
 	url: string;
 	githubUrl: string;
+	image?: string;
+	imageAlt?: string;
 }
 
 export const projects: Project[] = [
@@ -54,12 +56,12 @@ export const projects: Project[] = [
 			'Tavily API 代理与密钥池管理平台，提供统一入口、失败切换与管理后台',
 	},
 	{
-		title: 'One More Thing',
+		title: 'Small Tools, Real Use',
 		src: 'tavily-proxy.png',
 		color: '#fee2e2',
 		slug: 'one-more-thing',
 		role: 'Deployed Tools & Services',
-		summary: '不是主角，但都已经在真实环境里默默干活了。',
+		summary: '一组已经真正上线、能访问、也还在继续迭代的小工具。',
 	},
 ];
 
@@ -146,6 +148,8 @@ export interface ProjectDetail {
 		summary: string;
 		url: string;
 		githubUrl: string;
+		image?: string;
+		imageAlt?: string;
 	}[];
 }
 
@@ -694,33 +698,36 @@ export const projectDetails: Record<string, ProjectDetail> = {
 	},
 	'one-more-thing': {
 		slug: 'one-more-thing',
-		title: 'One More Thing',
-		subtitle: '不是主角，但都已经在真实环境里默默干活了。',
-		description: `这里收的是一些已经真正部署出去、并且确实在用的小项目。它们不一定都有完整 case study，也不是作品集里的主角，但都已经从代码仓库走到了真实环境：有的在处理 API 代理，有的在托管邮件，有的在做平台管理和工具接入。
+		title: 'Small Tools, Real Use',
+		subtitle:
+			'我会把想法、需求和麻烦事，真正做成能上线、能运行、能继续迭代的小工具。',
+		description: `这一页不是在讲一个完整的大项目，也不是在补作品集里的“其他项目”。它更像一组我已经亲手做出来、并且真的放到线上去跑的小东西：有的解决代理转发，有的补上管理后台，有的承担托管服务，有的只是为了把某个工作流变顺手。
 
-与其把它们平铺成一排独立主项目，我更希望把它们放在同一个入口里看——它们更像一组持续运行的小服务，而不是一组需要长篇讲解的 showcase。`,
+		我更在意的从来不是把故事讲得多完整，而是能不能把东西做出来、接起来、跑起来。对我来说，动手能力不是一句“我会写代码”，而是面对具体问题时，能快速把接口、页面、部署、配置和使用路径一起落成一个真的可用的结果。`,
 		features: [
 			{
-				title: '真实部署',
-				description: '每个项目都已经有在线地址，不只是仓库里的 demo。',
-			},
-			{
-				title: '问题导向',
+				title: '从需求到上线',
 				description:
-					'它们大多是围绕代理、运维、托管和工具接入这些实际需求做出来的。',
+					'我会把零散的问题和想法，尽快收敛成一个能访问、能操作、能交付的在线工具。',
 			},
 			{
-				title: '轻量但可用',
-				description: '不是大而全的平台，而是边界清晰、上线就能工作的服务。',
+				title: '先解决，再包装',
+				description:
+					'这些项目大多不是为了做展示页而生，而是为了把代理、托管、管理、接入这些真实问题先解决掉。',
+			},
+			{
+				title: '做完还要能跑',
+				description:
+					'我关注的不只是写出来，还包括部署、维护、入口设计和后续迭代，让它们在真实环境里持续工作。',
 			},
 		],
 		techStack: [
 			{
-				category: '形态',
+				category: '我会交付的东西',
 				items: ['Web 工具', '管理后台', 'API 服务', '自部署应用'],
 			},
 			{
-				category: '场景',
+				category: '我常处理的问题',
 				items: ['代理转发', '邮件托管', '服务管理', '开发者工具'],
 			},
 		],
@@ -744,6 +751,8 @@ export const projectDetails: Record<string, ProjectDetail> = {
 					'把命令行能力封装成可调用的 HTTP API，用一个管理面板统一管理和调试 CLI 调用。',
 				url: 'https://uestc.zeabur.app/management.html',
 				githubUrl: 'https://github.com/router-for-me/CLIProxyAPI',
+				image: '/static/images/project/CLIProxyAPI.png',
+				imageAlt: 'CLI Proxy API 项目截图',
 			},
 			{
 				title: 'grok2api',
@@ -752,6 +761,8 @@ export const projectDetails: Record<string, ProjectDetail> = {
 					'把 Grok 能力封装成标准化 API 服务，提供管理后台进行配置与监控。',
 				url: 'http://62.234.31.111:8000/admin/login',
 				githubUrl: 'https://github.com/chenyme/grok2api',
+				image: '/static/images/project/grok2api-user.png',
+				imageAlt: 'grok2api 项目截图',
 			},
 			{
 				title: 'Cloud Mail',
@@ -759,6 +770,8 @@ export const projectDetails: Record<string, ProjectDetail> = {
 				summary: '一个可自建的 Web 邮件服务，用自己的域名和基础设施托管邮箱。',
 				url: 'https://mail.niuaoao.ggff.net/',
 				githubUrl: 'https://github.com/maillab/cloud-mail',
+				image: '/static/images/project/cloud-mail.png',
+				imageAlt: 'Cloud Mail 项目截图',
 			},
 			{
 				title: 'Z-Image Turbo',
@@ -766,6 +779,8 @@ export const projectDetails: Record<string, ProjectDetail> = {
 				summary: '专注图片处理与加速的小工具，用简单界面完成批量转换和优化。',
 				url: 'https://x-pi-inky-99.vercel.app/',
 				githubUrl: 'https://github.com/yunshenwuchuxun/Z-Image-turbo',
+				image: '/static/images/project/z-image-turbo-user.png',
+				imageAlt: 'Z-Image Turbo 项目截图',
 			},
 			{
 				title: 'Render Service Manager',
@@ -774,6 +789,8 @@ export const projectDetails: Record<string, ProjectDetail> = {
 					'集中管理 Render 平台上的服务实例，一目了然地查看状态、重启和调试。',
 				url: 'https://render-manager.uestc.nyc.mn/',
 				githubUrl: 'https://github.com/ssfun/render-service-manager',
+				image: '/static/images/project/render-service-manager-user.png',
+				imageAlt: 'Render Service Manager 项目截图',
 			},
 			{
 				title: 'cursor2api',
