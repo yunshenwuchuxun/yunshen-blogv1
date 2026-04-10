@@ -26,7 +26,7 @@ export const projects: Project[] = [
 		src: 'latex-paper-skills-review.png',
 		color: '#dcfce7',
 		slug: 'latex-paper-skills',
-		role: 'AI Research Tooling Developer',
+		role: 'Research Writing Pipeline',
 		summary:
 			'面向 ML/AI 论文写作的模块化 LaTeX 技能框架，覆盖选题、写作、审计与编译全流程',
 	},
@@ -35,7 +35,7 @@ export const projects: Project[] = [
 		src: 'dynamical-system.png',
 		color: '#e0e7ff',
 		slug: 'dynamical-system-analyzer',
-		role: 'Full Stack Developer',
+		role: 'Interactive Dynamics Lab',
 		summary: '智能动力学系统分析平台，可视化相图、混沌吸引子与分岔图',
 	},
 	{
@@ -43,7 +43,7 @@ export const projects: Project[] = [
 		src: 'yunshen-blog.png',
 		color: '#f3e8ff',
 		slug: 'yunshen-blog',
-		role: 'Full Stack Developer',
+		role: 'Personal Digital Garden',
 		summary: '基于 Next.js 16 的个人博客，支持 MDX、主题切换与流畅动画',
 	},
 	{

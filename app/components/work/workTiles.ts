@@ -46,7 +46,7 @@ export const workTiles: WorkTile[] = [
 		],
 	},
 	{
-		description: 'AI Research Tooling Developer',
+		description: 'Research Writing Pipeline',
 		title: 'latex-paper-skills',
 		image: {
 			src: '/static/images/project/latex-paper-skills-review.png',
@@ -69,7 +69,7 @@ export const workTiles: WorkTile[] = [
 		],
 	},
 	{
-		description: 'Full Stack Developer',
+		description: 'Interactive Dynamics Lab',
 		title: 'Dynamical System Analyzer',
 		image: {
 			src: '/static/images/project/dynamical-system.png',
@@ -99,7 +99,7 @@ export const workTiles: WorkTile[] = [
 		previewLayout: 'feature-bottom',
 	},
 	{
-		description: 'Full Stack Developer',
+		description: 'Personal Digital Garden',
 		title: 'Yun Shen Blog',
 		image: {
 			src: '/static/images/project/yunshen-blog.png',
