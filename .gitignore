@@ -47,8 +47,15 @@ yarn-error.log*
 # Build cache
 tsconfig.tsbuildinfo
 
-# Claude local worktrees
+# Claude local files
 .claude/worktrees/
+.claude/settings.local.json
+
+# Local package manager cache
+.pnpm-store/
+
+# OpenSpec local change workspace
+openspec/changes/
 
 # Paper reading - large binary assets only
 /papers/media/
