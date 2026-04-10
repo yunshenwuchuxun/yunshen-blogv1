@@ -50,45 +50,7 @@ export default async function ProjectDetailPage(props: {
 					<p className='text-xl text-gray-600 dark:text-gray-400'>
 						{detail.subtitle}
 					</p>
-					<div className='flex flex-wrap gap-3'>
-						{detail.links.map((link) => (
-							<Link
-								key={link.url}
-								href={link.url}
-								target='_blank'
-								rel='noopener noreferrer'
-								className='inline-flex items-center gap-2 rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600'
-							>
-								{link.label}
-								<svg
-									aria-hidden='true'
-									className='h-4 w-4'
-									fill='none'
-									stroke='currentColor'
-									viewBox='0 0 24 24'
-								>
-									<path
-										strokeLinecap='round'
-										strokeLinejoin='round'
-										strokeWidth={2}
-										d='M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14'
-									/>
-								</svg>
-							</Link>
-						))}
-					</div>
 				</header>
-
-				<div className='overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700'>
-					<Image
-						src={`/static/images/project/${project.src}`}
-						alt={detail.title}
-						width={1200}
-						height={675}
-						className='w-full'
-						priority
-					/>
-				</div>
 
 				<section className='space-y-6'>
 					<h2 className='text-2xl font-semibold'>项目简介</h2>
@@ -163,36 +125,6 @@ export default async function ProjectDetailPage(props: {
 					</div>
 				</section>
 
-				<section className='space-y-4'>
-					<h2 className='text-2xl font-semibold'>快速开始</h2>
-					<div className='space-y-2 rounded-lg bg-gray-100 p-4 dark:bg-gray-800'>
-						{detail.usage.map((step, index) => (
-							<div
-								key={step}
-								className='font-mono text-sm text-gray-700 dark:text-gray-300'
-							>
-								<span className='mr-2 text-primary-500'>{index + 1}.</span>
-								{step}
-							</div>
-						))}
-					</div>
-				</section>
-
-				<section className='space-y-4'>
-					<h2 className='text-2xl font-semibold'>适用人群</h2>
-					<ul className='space-y-2'>
-						{detail.targetUsers.map((user) => (
-							<li
-								key={user}
-								className='flex items-start gap-2 text-gray-600 dark:text-gray-400'
-							>
-								<span className='text-primary-500'>→</span>
-								{user}
-							</li>
-						))}
-					</ul>
-				</section>
-
 				{detail.deployedProjects?.length ? (
 					<section className='space-y-6'>
 						<h2 className='text-2xl font-semibold'>已部署项目</h2>
@@ -200,39 +132,53 @@ export default async function ProjectDetailPage(props: {
 							{detail.deployedProjects.map((item) => (
 								<div
 									key={item.title}
-									className='rounded-xl border border-gray-200 p-5 dark:border-gray-700'
+									className='overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700'
 								>
-									<div className='flex flex-wrap items-start justify-between gap-3'>
-										<div>
-											<h3 className='text-xl font-semibold text-gray-900 dark:text-gray-100'>
-												{item.title}
-											</h3>
-											<p className='mt-1 text-sm text-gray-500 dark:text-gray-400'>
-												{item.role}
-											</p>
+									<div className='p-5'>
+										<div className='flex flex-wrap items-start justify-between gap-3'>
+											<div>
+												<h3 className='text-xl font-semibold text-gray-900 dark:text-gray-100'>
+													{item.title}
+												</h3>
+												<p className='mt-1 text-sm text-gray-500 dark:text-gray-400'>
+													{item.role}
+												</p>
+											</div>
+											<div className='flex flex-wrap gap-3'>
+												<Link
+													href={item.url}
+													target='_blank'
+													rel='noopener noreferrer'
+													className='inline-flex items-center gap-2 rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600'
+												>
+													在线访问
+												</Link>
+												<Link
+													href={item.githubUrl}
+													target='_blank'
+													rel='noopener noreferrer'
+													className='inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800'
+												>
+													GitHub
+												</Link>
+											</div>
 										</div>
-										<div className='flex flex-wrap gap-3'>
-											<Link
-												href={item.url}
-												target='_blank'
-												rel='noopener noreferrer'
-												className='inline-flex items-center gap-2 rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600'
-											>
-												在线访问
-											</Link>
-											<Link
-												href={item.githubUrl}
-												target='_blank'
-												rel='noopener noreferrer'
-												className='inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800'
-											>
-												GitHub
-											</Link>
-										</div>
+										<p className='mt-4 text-sm leading-7 text-gray-600 dark:text-gray-400'>
+											{item.summary}
+										</p>
 									</div>
-									<p className='mt-4 text-sm leading-7 text-gray-600 dark:text-gray-400'>
-										{item.summary}
-									</p>
+									{item.image ? (
+										<div className='border-t border-gray-200 dark:border-gray-700'>
+											<Image
+												src={item.image}
+												alt={item.imageAlt ?? item.title}
+												width={1600}
+												height={900}
+												className='h-auto w-full'
+												loading='eager'
+											/>
+										</div>
+									) : null}
 								</div>
 							))}
 						</div>
