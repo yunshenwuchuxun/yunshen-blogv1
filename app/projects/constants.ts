@@ -57,7 +57,7 @@ export const projects: Project[] = [
 	},
 	{
 		title: 'Small Tools, Real Use',
-		src: 'tavily-proxy.png',
+		src: 'og-image.png',
 		color: '#fee2e2',
 		slug: 'one-more-thing',
 		role: 'Deployed Tools & Services',
@@ -425,6 +425,14 @@ export const projectDetails: Record<string, ProjectDetail> = {
 		description: `Yun Shen Blog 是一款精心打造的个人博客平台，采用 Next.js 16 App Router 与 React 19 构建，结合 Tailwind CSS v4 实现响应式设计。博客以 MDX 作为内容格式，支持丰富的代码高亮与自定义组件渲染。
 
 	平台集成了 Lenis 平滑滚动、GSAP 与 Motion 动画库，配合 View Transition API 实现的主题切换，带来流畅的浏览体验。部署于 Vercel，内置 Analytics 与 Speed Insights，兼顾性能与用户体验。`,
+		overviewSections: [
+			{
+				title: '博客首页与设计风格预览',
+				body: `Yun Shen Blog 以现代个人博客为目标，整体围绕简洁排版、流畅动效与稳定内容呈现展开。封面图展示的是项目首页的整体视觉风格，也对应这个博客最核心的产品形态：把内容、导航、动画和主题体验整合到一个统一界面里。`,
+				image: '/static/images/project/yunshen-blog.png',
+				imageAlt: 'Yun Shen Blog 封面图',
+			},
+		],
 		features: [
 			{
 				title: 'MDX 博客系统',
@@ -500,6 +508,12 @@ export const projectDetails: Record<string, ProjectDetail> = {
 	TavilyProxy 解决的则是“如何把 Tavily 稳定接进系统”。它把多把 Tavily API Key 收口成一个统一入口，对外只暴露单一 Master Key，对内负责密钥池调度、失败切换、请求日志和后台管理，更适合长期运行的 Agent、检索流程和内部工具。`,
 		overviewSections: [
 			{
+				title: 'TavilyProxy 首页界面预览',
+				body: `这张封面图展示的是 TavilyProxy 的首页界面。项目本质上是在 Tavily Search 与实际 AI Agent 系统之间增加一层统一代理与管理平面，因此首页本身就能很好体现它“统一入口 + 后台管理”的产品定位。`,
+				image: '/static/images/project/tavily-proxy.png',
+				imageAlt: 'TavilyProxy 封面图',
+			},
+			{
 				title: '先理解 Tavily Search：它适合给 Agent 提供实时外部信息',
 				body: `Tavily Search 不只是普通搜索接口，更适合接进 AI 应用。它可以给 agent 提供最新网页结果，也能服务于研究型问答、RAG 补充检索、内容聚合和自动化工作流。
 
@@ -569,6 +583,10 @@ export const projectDetails: Record<string, ProjectDetail> = {
 			},
 		],
 		links: [
+			{
+				label: '在线体验',
+				url: 'https://tavily-proxy.onrender.com/',
+			},
 			{
 				label: 'GitHub',
 				url: 'https://github.com/yunshenwuchuxun/TavilyProxy',
@@ -676,7 +694,7 @@ export const projectDetails: Record<string, ProjectDetail> = {
 				url: 'https://github.com/yunshenwuchuxun/latex-paper-skills',
 			},
 			{
-				label: '设计博客',
+				label: '原理介绍',
 				url: '/blog/latex-paper-skills',
 			},
 		],
