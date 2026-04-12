@@ -1,0 +1,732 @@
+---
+title: 'Harness 设计：如何让 Claude 处理长时间自主开发'
+publishedAt: '2026-04-12'
+summary: '从前端设计实验到全栈自主开发，梳理 Anthropic 如何用 harness design 处理长时间任务中的上下文退化、自评失真、任务交接、流程迭代与验证闭环。'
+image: '/static/blog/harness-design-long-running-apps/cover-harness-design.svg'
+draft: false
+tags: [Claude, AI, Agent, Harness Design, Agentic Coding, Tech Blog]
+---
+
+<PaperCard
+	title="Harness design for long-running application development"
+	description="Anthropic Engineering Blog"
+	links={[
+		{ label: '原文', url: 'https://www.anthropic.com/engineering/harness-design-long-running-apps' },
+	]}
+/>
+
+这篇文章整理自 Anthropic 工程博客 <strong>Harness design for long-running application development</strong> 的前半部分，只覆盖到原文 <strong>Scaling to full-stack coding</strong> 之前。
+
+原文真正讨论的重点，不是模型参数本身，而是另一个更工程化的问题：<strong>当任务持续数小时、跨多个阶段、还需要不断评估和纠偏时，外层 harness 应该怎么设计</strong>。
+
+<div className="my-6 rounded-2xl border border-gray-200 bg-gray-50 p-5 dark:border-gray-800 dark:bg-gray-900/60">
+	<p className="m-0 text-sm font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+		Key takeaway
+	</p>
+	<p className="mt-3 mb-0 text-base leading-7 text-gray-800 dark:text-gray-200">
+		这篇文章真正想回答的不是“模型还能不能再强一点”，而是“<strong>当任务开始跨小时运行时，系统外层该如何组织</strong>”。Anthropic 给出的答案不是继续堆 prompt，而是重构整套 harness。
+	</p>
+</div>
+
+## 什么是 harness design
+
+在自主编程场景里，模型能力当然重要，但效果上限往往不只由 prompt 决定，还由外层工作系统决定。原文里的 <strong>harness</strong>，可以理解成一套围绕模型运行的协作框架。
+
+| 组成部分 | 作用 |
+| --- | --- |
+| 任务拆分 | 把长任务切成更可执行的阶段，降低目标漂移 |
+| Agent 分工 | 让规划、执行、评估分别承担不同职责 |
+| 上下文交接 | 把关键状态压缩成可继续执行的 handoff |
+| 检查与打分 | 把“做得好不好”从主观感觉变成可反馈对象 |
+| 继续 / 重置机制 | 决定什么时候延续当前路线，什么时候换一个干净上下文重新开始 |
+
+原文给出的判断很明确：<strong>prompt engineering 能带来提升，但很快会触顶；继续往上走，必须重新设计整个 agent 工作流</strong>。
+
+## 从前端设计实验开始：先把主观质量变得可评分
+
+Anthropic 一开始并不是直接拿这套方法做完整应用开发，而是先放在一个更容易暴露问题的场景里：<strong>前端设计</strong>。
+
+这里的关键难点不是“能不能生成页面”，而是“怎么评价页面是不是足够好”。因为很多高价值判断都带有主观性，比如页面是否高级、布局是否有层次、整体风格是否协调。这类问题不像单元测试那样有明确通过线，因此特别容易暴露 <strong>self-evaluation</strong> 的偏差。
+
+原文在这里借用了一个很直观的结构：
+
+- <strong>Generator</strong> 负责生成页面
+- <strong>Evaluator</strong> 负责判断结果质量，并给出改进建议
+
+这一步真正重要的地方，不是“把生成做得更花”，而是<strong>先把原本模糊的主观判断拆成一组能稳定执行的评分标准</strong>。只有评价标准稳定，后续的多轮迭代才有意义。
+
+## 为什么要先解决评估问题
+
+如果评估标准本身不稳定，那么多 agent 反馈系统就很难真正改进。Generator 不知道自己该优化什么，Evaluator 也无法持续输出一致判断。
+
+所以原文先做的事情不是“让模型多生成几版”，而是先把“好设计”拆成若干更具体的方向。
+
+| 评分维度 | 关注点 | 作用 |
+| --- | --- | --- |
+| 布局清晰度 | 信息区块是否容易理解 | 降低页面阅读成本 |
+| 视觉层级 | 主次信息是否一眼可分 | 提升引导性 |
+| 配色统一性 | 颜色体系是否协调一致 | 建立整体气质 |
+| 间距与节奏 | 留白、密度、节奏是否稳定 | 提升精致感 |
+| 可用性 | 用户是否知道该做什么 | 保证页面不只是“好看” |
+| 现代感与风格 | 是否有明显的审美表达 | 防止结果流于模板化 |
+
+这一步把原本模糊的主观质量，变成了可比较、可批评、可迭代的对象。
+
+## 同一套思路如何迁移到长时间自主编程
+
+前端设计实验有效之后，Anthropic 把同样的方法迁移到了更难的问题上：<strong>让 Claude 在长时间任务里持续开发完整应用</strong>。
+
+这里延续了两个非常关键的工程原则。
+
+### 任务分解
+
+完整应用开发太复杂，不能指望模型一次性从头写到尾。任务越长，越容易出现这些问题：
+
+- 目标逐渐模糊
+- 忘记前面约束
+- 中途偏离主线
+- 后期草率收尾
+
+所以第一步一定是 <strong>decomposition</strong>。大任务要先拆成更小、更明确的阶段，例如需求分析、方案设计、数据模型设计、前后端实现、测试修复和部署准备。
+
+任务拆分的意义，不只是减少复杂度，更是让每一轮 agent 都围绕一个更清晰的局部目标展开。
+
+<div className="my-6 grid gap-4 md:grid-cols-2">
+	<div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900/60">
+		<p className="m-0 text-sm font-semibold text-gray-900 dark:text-gray-100">任务分解在解决什么</p>
+		<ul className="mt-3 mb-0 space-y-2 pl-5 text-sm leading-6 text-gray-700 dark:text-gray-300">
+			<li>把“大而模糊”的目标变成可执行阶段</li>
+			<li>减少 agent 在长流程里的目标漂移</li>
+			<li>让每一轮输出都能被检查和接续</li>
+		</ul>
+	</div>
+	<div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900/60">
+		<p className="m-0 text-sm font-semibold text-gray-900 dark:text-gray-100">如果不拆会怎样</p>
+		<ul className="mt-3 mb-0 space-y-2 pl-5 text-sm leading-6 text-gray-700 dark:text-gray-300">
+			<li>目标逐渐模糊</li>
+			<li>前面约束被遗忘</li>
+			<li>中途偏离主线，后期草率收尾</li>
+		</ul>
+	</div>
+</div>
+
+### 用结构化产物传递上下文
+
+第二个原则是：<strong>不要把长任务的连续性寄托在聊天历史上</strong>。
+
+原文使用的是 <strong>structured artifacts</strong>。它们像工程交接文档，用来在不同 session、不同 agent 之间传递最关键的状态，而不是把整段历史原样背过去。
+
+典型内容包括：
+
+- 当前计划
+- 已完成事项
+- 待办列表
+- 架构说明
+- 接口定义
+- 关键决策记录
+- 测试结果
+
+这样做的目的不是记录一切，而是让下一轮 agent 从<strong>压缩过、结构化、可继续执行</strong>的状态出发。
+
+## 三角色结构：Planner、Generator、Evaluator
+
+把任务分解、结构化交接和独立评估放到一起之后，原文最终形成了一个三角色结构。
+
+| 角色 | 核心职责 | 典型输出 | 主要避免的问题 |
+| --- | --- | --- | --- |
+| <strong>Planner</strong> | 理解最终目标、拆任务、定顺序 | 路线图、阶段计划、优先级 | 一开始就陷入局部实现 |
+| <strong>Generator</strong> | 写代码、搭页面、实现具体功能 | 代码、页面、功能版本 | 只会规划、不落地 |
+| <strong>Evaluator</strong> | 独立检查质量、指出问题、推动下一轮改进 | 评分、critique、改进建议 | 执行者自评过于乐观 |
+
+![Harness design 的三角色闭环](/static/blog/harness-design-long-running-apps/three-agent-loop.svg)
+
+这套结构的意义很明确：<strong>不再让一个模型从头写到尾，而是让系统更接近真实工程团队</strong>。有人负责规划，有人负责执行，有人负责 review。
+
+## 为什么朴素的 agentic coding 效果不稳定
+
+原文接着分析了一个更具体的问题：为什么“让一个 agent 自己长时间写代码”的朴素方案，通常效果不够稳。
+
+结论可以压缩成两个失败模式：
+
+| 失败模式 | 直接表现 | 长期后果 | 对应解法 |
+| --- | --- | --- | --- |
+| 长任务中的上下文问题 | 忘约束、偏主线、重复劳动、草率收尾 | 系统连贯性持续下降 | <strong>context reset</strong> + structured handoff |
+| agent 的自我评估不可靠 | 过度自信、低估问题、过早停手 | 优化方向失真，反馈难以收敛 | 独立 <strong>Evaluator</strong> 审查 |
+
+这两个问题一个影响连续性，一个影响收敛方向。两者叠加后，系统很容易越来越像“看起来在做事”，但实际上已经失控。
+
+<div className="my-6 rounded-2xl border border-amber-200 bg-amber-50 p-5 dark:border-amber-900/60 dark:bg-amber-950/30">
+	<p className="m-0 text-sm font-semibold uppercase tracking-[0.18em] text-amber-700 dark:text-amber-300">
+		Failure pattern
+	</p>
+	<p className="mt-3 mb-0 text-base leading-7 text-amber-900 dark:text-amber-100">
+		最危险的状态不是 agent 停下来，而是它<strong>持续产出、持续汇报进展、看起来很忙</strong>，但核心目标已经悄悄偏掉了。
+	</p>
+</div>
+
+## 失败模式一：上下文过长会破坏连贯性
+
+随着任务推进，对话历史和状态信息会不断增长。上下文越接近上限，模型越容易出现这些问题：
+
+- 忘记早期约束
+- 前后行为不一致
+- 偏离主线
+- 重复劳动
+- 在任务未完成时草率收尾
+
+原文把这种现象总结为：长任务会持续侵蚀模型的 <strong>coherence</strong>。
+
+更隐蔽的一层问题是 <strong>context anxiety</strong>。有些模型会“感觉到”上下文快满，于是开始提前总结、提前宣布完成、不再深入修改，转而做一些像收尾的动作。任务其实没完成，但模型已经想结束了。
+
+![长任务为什么会失控](/static/blog/harness-design-long-running-apps/long-task-failure-mode.svg)
+
+### 解决方法：context reset
+
+Anthropic 给出的做法不是继续堆上下文，而是做 <strong>context reset</strong>：
+
+- 不让同一个 agent 一直背着越来越长的上下文工作
+- 在合适的时候终止当前 agent
+- 启动一个新的 agent
+- 给它一份结构化 handoff，写明已有状态、已完成工作和下一步计划
+
+这样，新 agent 拿到的是一个更干净的起点。它不会被过长历史拖累，也不会延续“上下文快满”的焦虑。
+
+<div className="my-6 rounded-2xl border border-blue-200 bg-blue-50 p-5 dark:border-blue-900/60 dark:bg-blue-950/30">
+	<p className="m-0 text-sm font-semibold uppercase tracking-[0.18em] text-blue-700 dark:text-blue-300">
+		Context reset in one sentence
+	</p>
+	<p className="mt-3 mb-0 text-base leading-7 text-blue-900 dark:text-blue-100">
+		不是把同一个脑子压缩后继续顶着做，而是<strong>换一个新的脑子，只继承结构化交接结果</strong>。
+	</p>
+</div>
+
+## Reset 和 compaction 的区别
+
+原文特别强调：<strong>reset 并不等于 compaction</strong>。
+
+| 方案 | 怎么做 | 优点 | 代价 | 更适合的场景 |
+| --- | --- | --- | --- | --- |
+| <strong>Compaction</strong> | 把长历史总结压缩，再让同一个 agent 基于摘要继续工作 | 保留连续线程，编排较简单 | 旧状态惯性还在，摘要也会带来信息损失 | 任务还没严重失焦，但上下文已偏长 |
+| <strong>Reset</strong> | 旧 agent 停下，新 agent 接手，只读取结构化 handoff | 起点更干净，更能摆脱长上下文退化 | 系统更复杂，token overhead 和 latency 更高 | 任务已经很长，coherence 明显下降 |
+
+![Reset 与 Compaction 对比](/static/blog/harness-design-long-running-apps/reset-vs-compaction.svg)
+
+两者都在处理长上下文，但原文认为，在真正的长任务里，<strong>reset 往往比 compaction 更有效</strong>。当然，它也不是白赚：系统编排会更复杂，token overhead 和 latency 也都会增加。
+
+## 失败模式二：self-evaluation 不可靠
+
+第二个失败模式，是 <strong>self-evaluation</strong> 本身不可靠。
+
+当一个 agent 被要求评价自己刚完成的结果时，常常会出现系统性偏正面的倾向：
+
+- 过度自信
+- 低估问题严重性
+- 误判结果已经“足够好了”
+- 过早停止优化
+
+这意味着，让执行者同时担任裁判，本身就是一种不稳定设计。
+
+原文也指出，这个问题并不只存在于审美任务里。即使任务存在客观反馈，例如代码能否运行、测试能否通过，执行者依然可能高估自己的工作质量。
+
+## 解决方法：把生成和评估拆开
+
+因此，原文给出的关键杠杆不是让同一个 agent 更会自省，而是<strong>把生成和评估明确拆开</strong>。
+
+也就是：
+
+- 一个 agent 负责做事
+- 另一个 agent 负责挑毛病和审查结果
+
+相比让 generator 严厉地批评自己，单独训练或校准一个更 skeptical 的 evaluator，通常更容易，也更稳定。
+
+如果把这和前面的 reset 放在一起，整套设计思路就很清楚了：
+
+<div className="my-6 grid gap-4 md:grid-cols-2">
+	<div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900/60">
+		<p className="m-0 text-sm font-semibold text-gray-900 dark:text-gray-100">杠杆 1：定期换脑子</p>
+		<p className="mt-3 mb-0 text-sm leading-6 text-gray-700 dark:text-gray-300">
+			通过 <strong>context reset</strong> 切断长上下文带来的退化，避免同一个 agent 越做越乱。
+		</p>
+	</div>
+	<div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900/60">
+		<p className="m-0 text-sm font-semibold text-gray-900 dark:text-gray-100">杠杆 2：让别人挑毛病</p>
+		<p className="mt-3 mb-0 text-sm leading-6 text-gray-700 dark:text-gray-300">
+			通过独立 <strong>Evaluator</strong> 拆掉执行者自评偏正面的天然缺陷。
+		</p>
+	</div>
+</div>
+
+## 为什么实验先从前端设计开始
+
+原文先从前端设计做实验，不是因为设计最重要，而是因为这里最容易看出问题。
+
+如果不做额外干预，Claude 往往会生成一类很典型的页面：
+
+- 布局安全
+- 结构规整
+- 功能没有明显问题
+- 但视觉上普通
+- 缺乏个性和设计感
+
+也就是说，它很容易做出<strong>技术上合格、审美上平庸</strong>的结果。这个场景非常适合验证：如果把评估标准做清楚，并让 generator 和 evaluator 分离，结果是否真的能从模板化安全答案推向更强的设计表达。
+
+<div className="my-6 rounded-2xl border border-fuchsia-200 bg-fuchsia-50 p-5 dark:border-fuchsia-900/60 dark:bg-fuchsia-950/30">
+	<p className="m-0 text-sm font-semibold uppercase tracking-[0.18em] text-fuchsia-700 dark:text-fuchsia-300">
+		Why frontend first
+	</p>
+	<p className="mt-3 mb-0 text-base leading-7 text-fuchsia-900 dark:text-fuchsia-100">
+		前端设计是最容易暴露问题的试验场：它能很快区分“<strong>能做出来</strong>”和“<strong>真的做得好</strong>”之间的差距。
+	</p>
+</div>
+
+## 两个关键洞察
+
+原文把这套前端设计 harness 的形成，主要归结为两个洞察。
+
+### 审美不能完全量化，但可以被评分标准逼近
+
+美感本身当然不能被完全压缩成一个数字，但这不意味着它完全无法评估。更实用的做法是：<strong>不要直接去问“它美不美”，而是把主观判断拆成一组设计原则，再围绕这些原则进行评分</strong>。
+
+换句话说，不能直接量化审美，但可以通过一组较稳定的标准，把主观质量逼近成可比较的评价体系。
+
+### 把生成和打分分开，才能形成反馈闭环
+
+只要把 generator 和 evaluator 分开，系统就能形成稳定循环：
+
+1. 生成页面
+2. 评估页面
+3. 输出详细批评
+4. 再生成下一版
+
+反馈闭环一旦稳定，generator 才会真的被持续推着变好。
+
+## 四个评分标准
+
+为了让设计质量变得可评分，原文设计了四条 <strong>grading criteria</strong>，并同时提供给 generator 和 evaluator。
+
+| 标准 | 看什么 | 常见低分表现 | 权重倾向 |
+| --- | --- | --- | --- |
+| <strong>Design quality</strong> | 整体统一性，颜色、字体、布局、图片与细节是否构成一个协调整体 | 东拼西凑、气质不统一、视觉中心不明确 | 高 |
+| <strong>Originality</strong> | 是否做了真正的创造性选择，而不是继续套模板 | 默认组件感强、过度保守、缺乏表达 | 高 |
+| <strong>Craft</strong> | 字体层级、间距一致性、配色和谐度、对比度、排版基本功 | 细节粗糙、节奏混乱、排版松散 | 中 |
+| <strong>Functionality</strong> | 页面是否真正可用，用户是否能理解用途并完成任务 | 能看不能用、交互不清、信息组织混乱 | 中 |
+
+原文也明确表示，这四个标准并不是等权的。相比 Craft 和 Functionality，它更强调 <strong>Design quality</strong> 与 <strong>Originality</strong>，因为模型通常已经比较擅长做“工整、可用”的页面，真正稀缺的是整体气质和原创表达。
+
+## 用 few-shot examples 校准 evaluator
+
+为了让 evaluator 的打分更稳定，原文还使用了一些 <strong>few-shot examples</strong> 来做校准，并在示例中附上详细评分拆解。
+
+这样做有两个直接作用：
+
+- 让 evaluator 的判断更接近作者本人的审美偏好
+- 减少不同轮次之间的 <strong>score drift</strong>
+
+也就是说，few-shot 的价值不只是给例子，更是在稳定评分口径。
+
+## 前端设计循环是如何运行的
+
+原文使用 <strong>Claude Agent SDK</strong> 搭建了整个迭代循环。它不是一个“多出几张视觉稿”的轻流程，而是一个真实的长时间反馈系统。
+
+整体流程可以概括成四步：
+
+| 步骤 | 参与角色 | 动作 | 产出 |
+| --- | --- | --- | --- |
+| 1 | Generator | 生成一个可运行的前端页面 | 初版页面 |
+| 2 | Evaluator | 用 Playwright MCP 真实打开、浏览和交互页面 | 可观察行为与体验反馈 |
+| 3 | Evaluator | 按四个标准打分，并写出详细 critique | 分数 + critique |
+| 4 | Generator | 根据反馈继续 refine，必要时直接 pivot | 下一轮版本 |
+
+![前端设计 feedback loop](/static/blog/harness-design-long-running-apps/frontend-feedback-loop.svg)
+
+下面这个视频来自原始文章，位于前端设计实验部分、也就是 <strong>Scaling to full-stack coding</strong> 之前。它能更直观看到这套 generator-evaluator 循环如何把页面一路推向更复杂的结果。
+
+<video
+	controls
+	preload="metadata"
+	className="my-6 w-full rounded-xl border border-gray-200 dark:border-gray-800"
+>
+	<source
+		src="https://cdn.sanity.io/files/4zrzovbb/website/9877febd34432f7f582aecd0023b951223605c6a.mp4"
+		type="video/mp4"
+	/>
+	你的浏览器不支持 video 标签。可直接访问原视频链接观看。
+</video>
+
+视频来源：Anthropic Engineering 原文页面中的原生 MP4 资源。
+
+## 这个系统为什么会很慢
+
+原文提到，这套系统每次通常会运行 <strong>5 到 15 轮</strong>。由于 evaluator 需要真实浏览页面，而不是瞬时看图打分，所以每一轮都需要实际运行时间。最终，一次完整运行最长可以达到 <strong>4 小时</strong>。
+
+这说明它并不是“快速出几版视觉稿”的轻量流程，而是一个真实的、长时间运行的 agent 反馈系统。
+
+<div className="my-6 grid gap-4 md:grid-cols-3">
+	<div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900/60">
+		<p className="m-0 text-2xl font-semibold text-gray-900 dark:text-gray-100">5–15</p>
+		<p className="mt-2 mb-0 text-sm leading-6 text-gray-600 dark:text-gray-400">通常需要的迭代轮数</p>
+	</div>
+	<div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900/60">
+		<p className="m-0 text-2xl font-semibold text-gray-900 dark:text-gray-100">Playwright</p>
+		<p className="mt-2 mb-0 text-sm leading-6 text-gray-600 dark:text-gray-400">Evaluator 不是只看截图，而是真实浏览与交互</p>
+	</div>
+	<div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900/60">
+		<p className="m-0 text-2xl font-semibold text-gray-900 dark:text-gray-100">4 小时</p>
+		<p className="mt-2 mb-0 text-sm leading-6 text-gray-600 dark:text-gray-400">一次完整运行可能达到的时长上限</p>
+	</div>
+</div>
+
+## Generator 每轮还要决定继续打磨还是直接转向
+
+原文还要求 generator 在每轮评估后，不只是被动接收反馈，还要主动做策略判断：
+
+- 如果分数趋势不错，就沿当前方向继续 <strong>refine</strong>
+- 如果当前方向不理想，就不要只是修修补补，而是直接 <strong>pivot</strong>，尝试完全不同的审美路线
+
+这意味着系统并不是只会做局部小修，它也具备在必要时进行大幅风格转向的能力。
+
+<div className="my-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 dark:border-emerald-900/60 dark:bg-emerald-950/30">
+	<p className="m-0 text-sm font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">
+		Refine vs Pivot
+	</p>
+	<div className="mt-3 grid gap-3 md:grid-cols-2">
+		<div className="rounded-xl border border-emerald-200/80 bg-white/80 p-4 dark:border-emerald-900/60 dark:bg-black/10">
+			<p className="m-0 text-sm font-semibold text-emerald-900 dark:text-emerald-100">Refine</p>
+			<p className="mt-2 mb-0 text-sm leading-6 text-emerald-900/90 dark:text-emerald-100/90">
+				当前方向有效，就持续打磨细节、强化完成度。
+			</p>
+		</div>
+		<div className="rounded-xl border border-emerald-200/80 bg-white/80 p-4 dark:border-emerald-900/60 dark:bg-black/10">
+			<p className="m-0 text-sm font-semibold text-emerald-900 dark:text-emerald-100">Pivot</p>
+			<p className="mt-2 mb-0 text-sm leading-6 text-emerald-900/90 dark:text-emerald-100/90">
+				当前路线不对，就直接换审美方向，而不是在错误轨道上继续修补。
+			</p>
+		</div>
+	</div>
+</div>
+
+## 实验中观察到的结果
+
+原文最后总结了几类比较稳定的现象。
+
+| 现象 | 它说明了什么 |
+| --- | --- |
+| 分数通常会先上升，再进入平台期 | Evaluator 能推动早期快速改进，但提升不是无限持续 |
+| 有些设计平滑优化，有些会突然跳变 | Feedback loop 不只会做微调，也可能触发创意转向 |
+| 评分标准本身也在塑造输出风格 | 评分体系既是测量工具，也是生成方向的隐性控制杆 |
+| 分数上升，不代表最后一版一定最讨喜 | 可评分不等于完全等价于人的最终审美判断 |
+| 迭代越多，设计复杂度通常越高 | 系统会逐步把模型推向更大胆、更复杂的表达 |
+| 即使第一轮，也已经优于完全不加约束的生成 | criteria 本身就已经能把输出从默认模板拉开 |
+
+## 一个代表性案例：荷兰艺术博物馆网站
+
+原文最后分享了一个非常典型的案例：让模型设计一个荷兰艺术博物馆网站。
+
+到第 9 轮时，模型生成的是一个深色、干净、精致的虚构博物馆 landing page，已经很好，也基本符合预期，但仍然属于“优秀但不意外”的答案。
+
+真正有意思的是第 10 轮。模型突然放弃之前路线，把网站重做成一种空间化体验：
+
+- 用 CSS 透视构建一个 3D 房间
+- 地面是棋盘格
+- 画作以更自由的方式悬挂在墙面上
+- 导航不再依赖传统滚动或菜单
+- 用户通过“门洞”在不同展厅之间移动
+
+这已经不再是普通 landing page，而更像一个可以游览的数字展览空间。原文认为，这类结果在单次生成里几乎不会自然出现，而多轮 generator-evaluator 反馈系统，恰恰可能把模型推向这种原本不会主动探索的方向。
+
+## 总结
+
+<div className="my-6 rounded-2xl border border-gray-200 bg-gradient-to-br from-gray-50 to-white p-6 dark:border-gray-800 dark:from-gray-900 dark:to-gray-950">
+	<p className="m-0 text-sm font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+		Summary
+	</p>
+	<div className="mt-4 grid gap-4 md:grid-cols-3">
+		<div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900/60">
+			<p className="m-0 text-sm font-semibold text-gray-900 dark:text-gray-100">01 Prompt 会触顶</p>
+			<p className="mt-2 mb-0 text-sm leading-6 text-gray-700 dark:text-gray-300">
+				单靠 prompt engineering，提升很快会到上限；真正的增益来自 <strong>harness design</strong>。
+			</p>
+		</div>
+		<div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900/60">
+			<p className="m-0 text-sm font-semibold text-gray-900 dark:text-gray-100">02 两个核心失效点</p>
+			<p className="mt-2 mb-0 text-sm leading-6 text-gray-700 dark:text-gray-300">
+				长任务里最关键的不是会不会写，而是能否控制 <strong>上下文退化</strong> 与 <strong>自评失真</strong>。
+			</p>
+		</div>
+		<div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900/60">
+			<p className="m-0 text-sm font-semibold text-gray-900 dark:text-gray-100">03 系统比单体更重要</p>
+			<p className="mt-2 mb-0 text-sm leading-6 text-gray-700 dark:text-gray-300">
+				更稳的方案是通过 <strong>Planner / Generator / Evaluator</strong> 分工、结构化交接与 context reset 来形成可持续迭代的工作流。
+			</p>
+		</div>
+	</div>
+</div>
+
+如果把这套思路放回自主编程场景，它给出的启发非常明确：<strong>高质量 agent 系统的重点，不只是让模型会做事，而是让它能在长时间、多阶段、可审查的流程里持续把事情做对</strong>。
+
+## 从前端实验，走向全栈自主开发
+
+如果说前半篇更像在搭一个“能不能跑通”的试验台，那后半篇才真正进入我更关心的部分：<strong>这套方法能不能扛住完整应用开发这种更长、更重、更容易失控的任务</strong>。
+
+前端设计实验已经证明了两件事：<strong>独立评估是有价值的</strong>，以及<strong>反馈回路确实可以把结果一步步往上推</strong>。但一旦目标从“做一个更好的页面”变成“持续推进一个完整系统”，事情立刻就不一样了。
+
+这一步的难度不是线性增加，而是直接换了问题类型。前端页面再普通，至少还比较容易看出成品长什么样；但全栈任务会同时引入更多新的约束：
+
+- 前后端接口要闭环
+- 数据状态要长期保持一致
+- 改一处功能，可能影响整条流程
+- 任务持续时间更长，更容易中途失焦
+- 最终质量不能只看“像不像”，还要看系统是不是真的能跑
+
+<div className="my-6 rounded-2xl border border-gray-200 bg-gray-50 p-5 dark:border-gray-800 dark:bg-gray-900/60">
+	<p className="m-0 text-sm font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+		Shift of focus
+	</p>
+	<p className="mt-3 mb-0 text-base leading-7 text-gray-800 dark:text-gray-200">
+		到了全栈场景，harness 的目标已经不只是“把结果做得更好看”，而是<strong>让系统在长时间执行中仍然朝完整应用持续收敛</strong>。
+	</p>
+</div>
+
+## 全栈场景下，harness 解决的已经不只是页面质量
+
+如果说前端设计实验主要在解决“如何把主观质量变得可评估”，那么到了全栈任务，harness 关注的维度会明显扩张。
+
+| 维度 | 前端实验更关注什么 | 全栈开发更关注什么 |
+| --- | --- | --- |
+| 目标质量 | 审美、层级、原创性、可用性 | 功能闭环、架构一致性、交付完整度 |
+| 反馈来源 | 页面浏览与人工偏好拟合 | 运行结果、测试、日志、交互、缺陷报告 |
+| 失败表现 | 风格保守、设计平庸、细节粗糙 | 任务偏航、接口断裂、状态错乱、假完成 |
+| 迭代单位 | 页面版本 | 模块、接口、数据流、功能阶段 |
+| 终止条件 | 设计达到较高主观分数 | 系统可运行、可验证、可继续维护 |
+
+如果把前端实验看成是在训练系统“怎么更会挑毛病”，那全栈场景要解决的就是另一件更麻烦的事：<strong>怎么把挑毛病、写代码、跑验证、做交接，全都接到同一条长流程里</strong>。
+
+也正因为这样，后半段读起来就不再像“又一个 prompt 技巧总结”，而更像在讨论一套真正的工程工作流。
+
+## 升级后的架构：编排层、执行层、反馈层
+
+原文后半段谈 architecture 时，我最喜欢的一点是：它不再执着于展示“单个 agent 又学会了什么”，而是把注意力放回到<strong>外层工作系统怎么把不同角色真正组织起来</strong>。
+
+如果用更接近中文工程博客的说法，我会把这套结构压缩成三层。
+
+| 层级 | 负责什么 | 典型产物 |
+| --- | --- | --- |
+| <strong>编排层</strong> | 拆任务、定阶段、做 handoff、决定何时 reset | 计划、阶段目标、交接摘要 |
+| <strong>执行层</strong> | 实现代码、修改页面、连通前后端、修问题 | 代码变更、运行中的应用、功能版本 |
+| <strong>反馈层</strong> | 跑测试、打开应用、收集证据、指出缺陷 | 失败用例、观察记录、评估结论 |
+
+![全栈 harness 的三层结构](/static/blog/harness-design-long-running-apps/fullstack-harness-architecture.svg)
+
+这一层次划分很重要，因为它意味着系统不再把“理解任务、写代码、判断结果”混成一个动作，而是把它们拆成可以持续传递的职责链条。
+
+## 这个 harness 是怎么跑起来的
+
+到这里，后半段最值得借鉴的东西就已经不是某一个提示词，而是整套长任务推进方式。原文先把机制讲清楚，然后马上给出第一个真正的长时间编程案例：用这套 harness 去做一个<strong>复古 2D 游戏制作器</strong>。
+
+整体流程大致是这样：
+
+1. 接收高层目标，明确要构建什么应用
+2. Planner 先把一句话需求扩展成完整规格
+3. Generator 围绕当前阶段实现代码与界面
+4. Evaluator 用 Playwright MCP 真正去操作 UI、检查 API 与状态
+5. 每一轮根据验收结果决定继续推进还是返工
+
+![长任务 harness 的运行生命周期](/static/blog/harness-design-long-running-apps/harness-run-lifecycle.svg)
+
+这里最关键的一点是：<strong>评估依据不再主要来自模型的自述，而来自运行中的证据</strong>。一旦任务进入全栈阶段，这种差别会比前端实验更重要，因为很多问题只有在系统真的跑起来后才会暴露。
+
+原文这个游戏制作器案例里，目标不是只拼一个 demo 页面，而是要把核心创作链路真正打通，包括：
+
+- 关卡编辑器
+- 精灵编辑器
+- 实体行为定义
+- 可试玩模式
+
+更具体一点说，他们先把简单提示扩成了 <strong>16 个功能、10 个 sprint</strong> 的规格，再在每个 sprint 前做一次 contract negotiation，把“这一轮到底算完成什么”说清楚。这个顺序很重要：先定义可验收结果，再让 Generator 去做实现。
+
+先看单 agent 版本。原文这里连续给了三张图，基本就把问题暴露干净了：打开时像个产品、编辑时也像那么回事，但一到真正试玩就断。
+
+![单 agent 版本：打开应用后的初始界面](/static/blog/harness-design-long-running-apps/solo-opening-screen.png)
+
+*单 agent 版本：打开应用后的初始界面。*
+
+![单 agent 版本：在 sprite editor 中创建精灵](/static/blog/harness-design-long-running-apps/solo-sprite-editor.png)
+
+*单 agent 版本：在 sprite editor 中创建精灵。*
+
+![单 agent 版本：尝试玩自己创建的关卡，但没有成功](/static/blog/harness-design-long-running-apps/solo-gameplay-failure.png)
+
+*单 agent 版本：尝试玩自己创建的关卡，但没有成功。*
+
+原文还做了一个很直接的对比：
+
+| 方案 | 运行方式 | 时间 / 成本 | 最终效果 |
+| --- | --- | --- | --- |
+| <strong>单 agent</strong> | 直接从提示开始生成 | 约 20 分钟 / 9 美元 | 看起来像编辑器，但试玩链路是断的 |
+| <strong>完整 harness</strong> | Planner + Generator + Evaluator，多轮验收推进 | 约 6 小时 / 200 美元 | UI 更完整，核心玩法链路真正打通 |
+
+这个案例有代表性，是因为它非常像真实软件开发里最常见的失败模式：<strong>每个界面都像那么回事，但真正一跑主流程就断</strong>。单 agent 版本的问题就很典型：表面上像是一个可以用的编辑器，但真正试玩时就会发现角色虽然能显示出来，却不能正常响应输入；布局也浪费空间，流程不够清晰。原文提到，问题根因之一是<strong>实体定义和运行时连接其实没有真的接上</strong>。
+
+而 harness 版本明显更像一个能工作的产品：编辑器更完整，视口利用更合理，甚至还内置了 AI 生成功能去辅助生成游戏内容。更重要的是，试玩模式终于不是摆设，角色可以真正被操控，主路径被打通了。
+
+完整 harness 版本的几张图，读法也很顺：先是进入应用，再是编辑体验，再到 AI 生成关卡，最后才是真正把游戏跑起来。
+
+![完整 harness 版本：创建新游戏时的初始界面](/static/blog/harness-design-long-running-apps/full-opening-screen.png)
+
+*完整 harness 版本：创建新游戏时的初始界面。*
+
+![完整 harness 版本：更干净、更易用的 sprite editor](/static/blog/harness-design-long-running-apps/full-sprite-editor.png)
+
+*完整 harness 版本：更干净、更易用的 sprite editor。*
+
+![完整 harness 版本：使用内置 AI 功能生成关卡](/static/blog/harness-design-long-running-apps/full-ai-level-generation-1.png)
+
+*完整 harness 版本：使用内置 AI 功能生成关卡。*
+
+![完整 harness 版本：AI 生成关卡后的另一个状态](/static/blog/harness-design-long-running-apps/full-ai-level-generation-2.png)
+
+*完整 harness 版本：AI 生成关卡后的另一个状态。*
+
+![完整 harness 版本：试玩生成出来的游戏](/static/blog/harness-design-long-running-apps/full-generated-gameplay.png)
+
+*完整 harness 版本：试玩生成出来的游戏。*
+
+但这个案例最有价值的地方不是“最后成功了”，而是 Evaluator 抓到的问题非常具体，也非常像真实 QA 会抓出来的东西。原文里提到过几类典型缺陷：
+
+- 矩形填充工具只在拖拽起点和终点放 tile，没有真正填满区域
+- 删除实体的逻辑条件写错，导致选中后无法按预期删除
+- FastAPI 路由顺序错误，`/frames/reorder` 被错误匹配成 `frame_id`
+
+这些问题单看都不“宏大”，但它们恰恰说明了为什么独立评估很重要：<strong>长时间编程里最致命的 bug，很多时候不是模型完全不会做，而是已经做到了 80%，却没人把剩下那 20% 真正验完</strong>。
+
+## 为什么 harness 本身也要不断迭代
+
+原文这里的重点很简单：<strong>harness 不是定稿，它本身也会出问题</strong>。
+
+常见问题主要有四类：
+
+- 拆得太粗，任务容易失焦
+- 拆得太细，流程容易空转
+- handoff 太长，噪音会跟着传下去
+- 评估口径不稳，系统会误以为自己在进步
+
+所以后半段真正关心的，已经不是“要不要 loop”，而是<strong>哪些结构值得继续保留</strong>。
+
+<div className="my-6 grid gap-4 md:grid-cols-2">
+	<div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900/60">
+		<p className="m-0 text-sm font-semibold text-gray-900 dark:text-gray-100">为什么要迭代 harness</p>
+		<p className="mt-3 mb-0 text-sm leading-6 text-gray-700 dark:text-gray-300">
+			因为 agent 的错误不只来自模型能力，也来自流程如何分阶段、如何交接、如何定义“完成”。
+		</p>
+	</div>
+	<div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900/60">
+		<p className="m-0 text-sm font-semibold text-gray-900 dark:text-gray-100">迭代的目标是什么</p>
+		<p className="mt-3 mb-0 text-sm leading-6 text-gray-700 dark:text-gray-300">
+			不是加更多步骤，而是找出哪些结构真的能提升收敛质量，哪些只是让系统看起来更忙。
+		</p>
+	</div>
+</div>
+
+这也是后半段和前半段最不同的地方：前半段是在证明 feedback loop 有价值，后半段则开始追问<strong>什么样的 loop 才值得保留</strong>。
+
+## 为什么后来去掉了 sprint construct
+
+原文后半段一个很重要的变化，就是开始做减法：去掉一层类似 <strong>sprint construct</strong> 的阶段脚手架。
+
+这层结构的好处很明显：
+
+- 方便切段
+- 方便检查里程碑
+- 看起来更像人类团队流程
+
+但问题也同样明显：
+
+- 容易为了满足阶段格式而工作
+- 中间交付变多，不代表有效进展变多
+- 系统会出现“看起来在推进，实际上在空转”的假象
+
+![有 sprint 与无 sprint 的差异](/static/blog/harness-design-long-running-apps/sprint-vs-no-sprint.svg)
+
+| 方案 | 优点 | 代价 | 更适合什么情况 |
+| --- | --- | --- | --- |
+| <strong>带阶段脚手架</strong> | 更清楚地切分大任务，方便阶段检查 | 容易过度形式化，增加中间交接负担 | 任务边界非常模糊、模型仍容易失控时 |
+| <strong>去掉这层脚手架</strong> | 路径更短，围绕真实目标直接推进 | 对评估与交接质量要求更高 | 模型更强、外层验证更稳定时 |
+
+这一段最值得记住的一句话是：<strong>harness 不是越复杂越好，真正重要的是保留承重结构</strong>。
+
+## 更新后的 harness 带来了什么
+
+原文这里接着给了更新后的 V2 harness 案例：用它去做一个运行在浏览器里的 <strong>DAW（数字音频工作站）</strong>。
+
+这一段最关键的变化，其实就一句话：<strong>去掉 sprint 之后，系统仍然能把长任务往前推</strong>。他们保留 Planner 和 Evaluator，但把 Evaluator 改成按构建回合整体验收，而不是每个 sprint 都验。
+
+原文给出的结果也很直接：总耗时约 <strong>3 小时 50 分</strong>，总成本约 <strong>124.70 美元</strong>。第一轮构建连续跑了两个多小时，这至少说明一件事：更轻的 harness 并没有马上失效。
+
+最终产物已经有了 DAW 的核心骨架：
+
+- 编排视图
+- 混音器
+- 传输控制
+- 一个可通过提示驱动的内置代理流程
+
+而且它不只是“界面像 DAW”。原文里给了一个很具体的演示：代理可以根据提示去设节奏和调性、放旋律、加鼓、调混音，再加一点混响。也就是说，系统已经开始具备一条能走通的制作流程。
+
+但 Evaluator 也很快指出，这个结果离“完整”还有距离。第一轮 QA 就发现，很多核心能力还停留在展示层，比如 clip 不能拖动、缺少乐器控制面板、效果器也没有图形化编辑。第二轮 QA 则继续补刀：录音还是 stub，没有真实麦克风采集；clip 不能通过边缘拖拽改长度，也没有 split；EQ 等效果器仍然只是数字滑块，缺少真正的可视化操作。
+
+这里原文没有再塞很多截图，而是直接给了一个演示视频。对 DAW 这种交互很强的应用来说，这样反而更有效。
+
+<video
+	controls
+	preload="metadata"
+	className="my-6 w-full rounded-xl border border-gray-200 dark:border-gray-800"
+>
+	<source
+		src="https://cdn.sanity.io/files/4zrzovbb/website/555910f9adb3938734940224e7a6f4c7cbbbd8f2.mp4"
+		type="video/mp4"
+	/>
+	你的浏览器不支持 video 标签。可直接访问原视频链接观看。
+</video>
+
+视频来源：Anthropic Engineering 原文页面中的原生 MP4 资源。
+
+所以这部分最适合压成一句话：<strong>更新后的 harness 更轻了，但没有放弃验证</strong>。
+
+![更新后的 harness：收益与代价](/static/blog/harness-design-long-running-apps/updated-harness-results.svg)
+
+- 收益：更少被长上下文拖累，更容易围绕真实结果纠偏
+- 代价：系统仍然贵、仍然慢，而且评估设计不好照样会跑偏
+
+## 这篇文章真正说明了什么
+
+把前后两部分放在一起看，这篇文章其实只说明了一件事：<strong>长时间自主开发的瓶颈，不只是模型会不会写，而是系统能不能持续把它约束在正确轨道上</strong>。
+
+所以真正重要的，不只是更强的单轮生成，而是：
+
+- 任务怎么拆
+- 结果怎么验
+- 什么时候该 reset
+- 哪些流程该删掉
+
+<div className="my-6 rounded-2xl border border-gray-200 bg-gradient-to-br from-gray-50 to-white p-6 dark:border-gray-800 dark:from-gray-900 dark:to-gray-950">
+	<p className="m-0 text-sm font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+		Final takeaway
+	</p>
+	<p className="mt-4 mb-0 text-base leading-7 text-gray-800 dark:text-gray-200">
+		对个人开发者来说，最有价值的启发不是“赶紧搭一个更复杂的 multi-agent 系统”，而是先把三件事想清楚：<strong>任务怎么拆、结果怎么验、什么时候该重启而不是硬顶</strong>。
+	</p>
+</div>
+
+## 术语对照
+
+| 术语 | 这篇文章里的中文理解 |
+| --- | --- |
+| <strong>Harness</strong> | 围绕模型运行的外层编排系统 |
+| <strong>Handoff</strong> | 结构化交接，把关键状态交给下一轮 agent |
+| <strong>Context reset</strong> | 停掉旧 agent，用更干净的上下文重新接手 |
+| <strong>Evaluator</strong> | 独立评估者，负责指出问题而不是顺手实现 |
+| <strong>Refine / Pivot</strong> | 沿当前方向继续打磨 / 直接换路线重来 |
+| <strong>Sprint construct</strong> | 阶段性交付脚手架，而不是狭义敏捷冲刺 |
+
+## 参考资料
+
+- Anthropic Engineering. Harness design for long-running application development. https://www.anthropic.com/engineering/harness-design-long-running-apps

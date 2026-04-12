@@ -1,0 +1,38 @@
+<svg width="1200" height="720" viewBox="0 0 1200 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="720" rx="32" fill="#0B1020"/>
+  <rect x="56" y="56" width="1088" height="608" rx="28" fill="#11182D" stroke="#26314D" stroke-width="2"/>
+  <text x="82" y="108" fill="#F8FAFC" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="700">带阶段脚手架 vs 直接推进目标</text>
+  <text x="82" y="146" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="18">原文后半段的重要变化：开始删除某些中间结构，保留真正能提升收敛质量的部分。</text>
+
+  <rect x="92" y="204" width="474" height="386" rx="24" fill="#172036" stroke="#38BDF8" stroke-width="2"/>
+  <text x="122" y="248" fill="#E0F2FE" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">带阶段脚手架</text>
+  <text x="122" y="286" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="18">优点：大任务更容易切段，交付边界更清楚</text>
+
+  <rect x="124" y="330" width="118" height="58" rx="16" fill="#0F172A" stroke="#60A5FA" stroke-width="1.5"/>
+  <text x="183" y="366" text-anchor="middle" fill="#DBEAFE" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="600">Sprint 1</text>
+  <rect x="274" y="330" width="118" height="58" rx="16" fill="#0F172A" stroke="#60A5FA" stroke-width="1.5"/>
+  <text x="333" y="366" text-anchor="middle" fill="#DBEAFE" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="600">Sprint 2</text>
+  <rect x="424" y="330" width="118" height="58" rx="16" fill="#0F172A" stroke="#60A5FA" stroke-width="1.5"/>
+  <text x="483" y="366" text-anchor="middle" fill="#DBEAFE" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="600">Sprint 3</text>
+
+  <path d="M242 359H274" stroke="#60A5FA" stroke-width="4" stroke-linecap="round"/>
+  <path d="M392 359H424" stroke="#60A5FA" stroke-width="4" stroke-linecap="round"/>
+
+  <text x="124" y="452" fill="#FCA5A5" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="600">潜在问题</text>
+  <text x="124" y="486" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="17">• 为了完成阶段格式而推进，而不一定围绕真实目标推进</text>
+  <text x="124" y="516" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="17">• 中间交付变多，但有效进展不一定同步增加</text>
+  <text x="124" y="546" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="17">• 容易出现“看起来很忙，实际在空转”的假推进</text>
+
+  <rect x="634" y="204" width="474" height="386" rx="24" fill="#172036" stroke="#22C55E" stroke-width="2"/>
+  <text x="664" y="248" fill="#DCFCE7" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">更直接地围绕目标推进</text>
+  <text x="664" y="286" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="18">优点：路径更短，把复杂度留给验证与交接，而不是中间格式</text>
+
+  <rect x="690" y="330" width="360" height="66" rx="18" fill="#0F172A" stroke="#22C55E" stroke-width="1.5"/>
+  <text x="870" y="357" text-anchor="middle" fill="#DCFCE7" font-family="Inter, Arial, sans-serif" font-size="19" font-weight="600">目标 → 执行 → 评估 → 下一轮</text>
+  <text x="870" y="383" text-anchor="middle" fill="#BBF7D0" font-family="Inter, Arial, sans-serif" font-size="16">减少不必要的中间包装</text>
+
+  <text x="664" y="452" fill="#86EFAC" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="600">代价与要求</text>
+  <text x="664" y="486" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="17">• 更依赖评估机制是否真的可靠</text>
+  <text x="664" y="516" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="17">• handoff 质量必须足够高，否则更容易失焦</text>
+  <text x="664" y="546" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="17">• 适合模型更强、验证更稳的阶段</text>
+</svg>

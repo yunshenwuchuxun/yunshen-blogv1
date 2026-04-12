@@ -1,0 +1,33 @@
+<svg width="1200" height="760" viewBox="0 0 1200 760" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="760" rx="32" fill="#0B1020"/>
+  <rect x="56" y="56" width="1088" height="648" rx="28" fill="#11182D" stroke="#26314D" stroke-width="2"/>
+  <text x="82" y="108" fill="#F8FAFC" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="700">全栈 harness 的三层结构</text>
+  <text x="82" y="146" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="18">从前端 feedback loop 升级到全栈开发后，系统重点变成编排、执行与验证如何形成长时闭环。</text>
+
+  <rect x="100" y="200" width="1000" height="126" rx="24" fill="#13213B" stroke="#3B82F6" stroke-width="2"/>
+  <text x="130" y="245" fill="#DBEAFE" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">① 编排层</text>
+  <text x="130" y="285" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="18">任务拆解 · 阶段目标 · handoff · context reset · 下一轮优先级</text>
+  <rect x="800" y="222" width="250" height="80" rx="18" fill="#0F172A" stroke="#60A5FA" stroke-width="1.5"/>
+  <text x="925" y="258" text-anchor="middle" fill="#EFF6FF" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="600">Planner</text>
+  <text x="925" y="284" text-anchor="middle" fill="#BFDBFE" font-family="Inter, Arial, sans-serif" font-size="16">负责路线与交接</text>
+
+  <rect x="100" y="350" width="1000" height="142" rx="24" fill="#1A1633" stroke="#8B5CF6" stroke-width="2"/>
+  <text x="130" y="397" fill="#EDE9FE" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">② 执行层</text>
+  <text x="130" y="437" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="18">实现代码 · 连通前后端 · 修改数据流 · 修功能缺陷 · 产出运行中的应用</text>
+  <rect x="800" y="381" width="250" height="88" rx="18" fill="#0F172A" stroke="#A78BFA" stroke-width="1.5"/>
+  <text x="925" y="420" text-anchor="middle" fill="#F5F3FF" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="600">Generator</text>
+  <text x="925" y="448" text-anchor="middle" fill="#DDD6FE" font-family="Inter, Arial, sans-serif" font-size="16">负责把计划落地</text>
+
+  <rect x="100" y="516" width="1000" height="126" rx="24" fill="#34182A" stroke="#F43F5E" stroke-width="2"/>
+  <text x="130" y="562" fill="#FFE4E6" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">③ 反馈层</text>
+  <text x="130" y="602" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="18">运行应用 · 执行测试 · 浏览交互 · 收集日志与截图 · 形成 critique</text>
+  <rect x="800" y="537" width="250" height="82" rx="18" fill="#0F172A" stroke="#FB7185" stroke-width="1.5"/>
+  <text x="925" y="574" text-anchor="middle" fill="#FFF1F2" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="600">Evaluator</text>
+  <text x="925" y="601" text-anchor="middle" fill="#FECDD3" font-family="Inter, Arial, sans-serif" font-size="16">负责根据证据判定质量</text>
+
+  <path d="M600 326V350" stroke="#64748B" stroke-width="4" stroke-linecap="round"/>
+  <path d="M600 492V516" stroke="#64748B" stroke-width="4" stroke-linecap="round"/>
+  <path d="M1088 579C1135 579 1135 214 1088 214" stroke="#FB7185" stroke-width="4" stroke-linecap="round"/>
+  <path d="M1078 226L1098 214L1078 202" stroke="#FB7185" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="1065" y="395" fill="#FDA4AF" font-family="Inter, Arial, sans-serif" font-size="16" transform="rotate(-90 1065 395)">反馈回流，驱动下一轮编排</text>
+</svg>

@@ -1,0 +1,43 @@
+<svg width="1200" height="700" viewBox="0 0 1200 700" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="700" rx="32" fill="#0B1020"/>
+  <rect x="60" y="60" width="1080" height="580" rx="28" fill="#11182D" stroke="#26314D" stroke-width="2"/>
+  <text x="80" y="110" fill="#F8FAFC" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="700">长任务为什么会失控</text>
+  <text x="80" y="150" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="18">原文指出：任务越长，上下文越膨胀，coherence 越容易下降，并诱发 context anxiety。</text>
+
+  <rect x="90" y="250" width="200" height="150" rx="24" fill="#172036" stroke="#38BDF8" stroke-width="2"/>
+  <text x="190" y="305" text-anchor="middle" fill="#E0F2FE" font-family="Inter, Arial, sans-serif" font-size="28">任务变长</text>
+  <text x="190" y="345" text-anchor="middle" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="18">session 变多</text>
+  <text x="190" y="372" text-anchor="middle" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="18">状态持续累积</text>
+
+  <path d="M290 325H390" stroke="#38BDF8" stroke-width="5" stroke-linecap="round"/>
+  <path d="M378 313L398 325L378 337" stroke="#38BDF8" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <rect x="400" y="250" width="220" height="150" rx="24" fill="#172036" stroke="#A78BFA" stroke-width="2"/>
+  <text x="510" y="305" text-anchor="middle" fill="#F5F3FF" font-family="Inter, Arial, sans-serif" font-size="28">上下文膨胀</text>
+  <text x="510" y="345" text-anchor="middle" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="18">历史越来越长</text>
+  <text x="510" y="372" text-anchor="middle" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="18">关键约束更难维持</text>
+
+  <path d="M620 325H720" stroke="#A78BFA" stroke-width="5" stroke-linecap="round"/>
+  <path d="M708 313L728 325L708 337" stroke="#A78BFA" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <rect x="730" y="180" width="180" height="120" rx="24" fill="#172036" stroke="#FB7185" stroke-width="2"/>
+  <text x="820" y="228" text-anchor="middle" fill="#FFF1F2" font-family="Inter, Arial, sans-serif" font-size="24">coherence</text>
+  <text x="820" y="260" text-anchor="middle" fill="#FFF1F2" font-family="Inter, Arial, sans-serif" font-size="24">下降</text>
+  <text x="820" y="286" text-anchor="middle" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="16">忘约束 / 偏主线</text>
+
+  <rect x="730" y="340" width="180" height="120" rx="24" fill="#172036" stroke="#F59E0B" stroke-width="2"/>
+  <text x="820" y="388" text-anchor="middle" fill="#FEF3C7" font-family="Inter, Arial, sans-serif" font-size="24">context</text>
+  <text x="820" y="420" text-anchor="middle" fill="#FEF3C7" font-family="Inter, Arial, sans-serif" font-size="24">anxiety</text>
+  <text x="820" y="446" text-anchor="middle" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="16">提前总结 / 提前收工</text>
+
+  <path d="M910 240H1010" stroke="#FB7185" stroke-width="5" stroke-linecap="round"/>
+  <path d="M998 228L1018 240L998 252" stroke="#FB7185" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M910 400H1010" stroke="#F59E0B" stroke-width="5" stroke-linecap="round"/>
+  <path d="M998 388L1018 400L998 412" stroke="#F59E0B" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <rect x="1020" y="250" width="100" height="140" rx="24" fill="#16311D" stroke="#22C55E" stroke-width="2"/>
+  <text x="1070" y="315" text-anchor="middle" fill="#DCFCE7" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="700">reset</text>
+  <text x="1070" y="348" text-anchor="middle" fill="#BBF7D0" font-family="Inter, Arial, sans-serif" font-size="16">新 agent</text>
+
+  <text x="92" y="510" fill="#E2E8F0" font-family="Inter, Arial, sans-serif" font-size="18">原文给出的关键做法不是继续堆上下文，而是在合适时机停掉旧 agent，用结构化 handoff 启动一个新 agent。</text>
+</svg>

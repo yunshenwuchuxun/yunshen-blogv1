@@ -1,0 +1,25 @@
+<svg width="1200" height="700" viewBox="0 0 1200 700" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="700" rx="32" fill="#0B1020"/>
+  <rect x="56" y="56" width="1088" height="588" rx="28" fill="#11182D" stroke="#26314D" stroke-width="2"/>
+  <text x="82" y="108" fill="#F8FAFC" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="700">更新后的 harness：收益与代价</text>
+  <text x="82" y="146" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="18">后半段的重点不是“更复杂”，而是删掉无效结构后，系统仍能更稳定地围绕真实结果收敛。</text>
+
+  <rect x="108" y="210" width="430" height="348" rx="24" fill="#14281D" stroke="#22C55E" stroke-width="2"/>
+  <text x="138" y="254" fill="#DCFCE7" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">主要收益</text>
+  <text x="138" y="304" fill="#D1FAE5" font-family="Inter, Arial, sans-serif" font-size="18">• 更少被长上下文拖着走</text>
+  <text x="138" y="340" fill="#D1FAE5" font-family="Inter, Arial, sans-serif" font-size="18">• 更容易围绕运行证据而不是自述纠偏</text>
+  <text x="138" y="376" fill="#D1FAE5" font-family="Inter, Arial, sans-serif" font-size="18">• 执行与评估分离后，返工方向更清楚</text>
+  <text x="138" y="412" fill="#D1FAE5" font-family="Inter, Arial, sans-serif" font-size="18">• 更容易把任务持续推进到完整应用</text>
+  <text x="138" y="448" fill="#D1FAE5" font-family="Inter, Arial, sans-serif" font-size="18">• 简化后的流程更聚焦于真实目标</text>
+
+  <rect x="662" y="210" width="430" height="348" rx="24" fill="#34182A" stroke="#F43F5E" stroke-width="2"/>
+  <text x="692" y="254" fill="#FFE4E6" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">主要代价</text>
+  <text x="692" y="304" fill="#FFE4E6" font-family="Inter, Arial, sans-serif" font-size="18">• 外层编排依然复杂</text>
+  <text x="692" y="340" fill="#FFE4E6" font-family="Inter, Arial, sans-serif" font-size="18">• 每轮都要运行、测试、检查，速度不会快</text>
+  <text x="692" y="376" fill="#FFE4E6" font-family="Inter, Arial, sans-serif" font-size="18">• token、时延和实验成本仍然不低</text>
+  <text x="692" y="412" fill="#FFE4E6" font-family="Inter, Arial, sans-serif" font-size="18">• 评估口径若失真，仍可能稳定跑偏</text>
+  <text x="692" y="448" fill="#FFE4E6" font-family="Inter, Arial, sans-serif" font-size="18">• 简化流程不等于完全不需要结构</text>
+
+  <path d="M538 384H662" stroke="#64748B" stroke-width="4" stroke-linecap="round" stroke-dasharray="8 8"/>
+  <text x="600" y="370" text-anchor="middle" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="16">用更贵的组织换来更稳的收敛</text>
+</svg>

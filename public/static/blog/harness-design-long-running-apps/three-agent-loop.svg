@@ -1,0 +1,37 @@
+<svg width="1200" height="640" viewBox="0 0 1200 640" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="640" rx="32" fill="#0B1020"/>
+  <rect x="60" y="60" width="1080" height="520" rx="28" fill="#11182D" stroke="#26314D" stroke-width="2"/>
+  <text x="80" y="110" fill="#F8FAFC" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="700">Harness design 的三角色闭环</text>
+  <text x="80" y="150" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="18">原文主线：规划、执行、评估被拆成不同角色，而不是让一个 agent 单兵作战。</text>
+
+  <rect x="90" y="220" width="280" height="220" rx="24" fill="#172036" stroke="#3B82F6" stroke-width="2"/>
+  <circle cx="230" cy="280" r="34" fill="#1D4ED8"/>
+  <text x="230" y="289" text-anchor="middle" fill="#EFF6FF" font-family="Inter, Arial, sans-serif" font-size="28">🧭</text>
+  <text x="230" y="345" text-anchor="middle" fill="#F8FAFC" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="700">Planner</text>
+  <text x="230" y="382" text-anchor="middle" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="18">拆任务 / 定顺序 / 设路线</text>
+  <text x="230" y="412" text-anchor="middle" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="18">控制整体推进节奏</text>
+
+  <rect x="460" y="220" width="280" height="220" rx="24" fill="#172036" stroke="#8B5CF6" stroke-width="2"/>
+  <circle cx="600" cy="280" r="34" fill="#6D28D9"/>
+  <text x="600" y="289" text-anchor="middle" fill="#F5F3FF" font-family="Inter, Arial, sans-serif" font-size="28">🛠️</text>
+  <text x="600" y="345" text-anchor="middle" fill="#F8FAFC" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="700">Generator</text>
+  <text x="600" y="382" text-anchor="middle" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="18">写代码 / 搭页面 / 实现功能</text>
+  <text x="600" y="412" text-anchor="middle" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="18">承担主要执行工作</text>
+
+  <rect x="830" y="220" width="280" height="220" rx="24" fill="#172036" stroke="#F43F5E" stroke-width="2"/>
+  <circle cx="970" cy="280" r="34" fill="#E11D48"/>
+  <text x="970" y="289" text-anchor="middle" fill="#FFF1F2" font-family="Inter, Arial, sans-serif" font-size="28">🔍</text>
+  <text x="970" y="345" text-anchor="middle" fill="#F8FAFC" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="700">Evaluator</text>
+  <text x="970" y="382" text-anchor="middle" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="18">独立打分 / 找问题 / 给反馈</text>
+  <text x="970" y="412" text-anchor="middle" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="18">不顺手补代码</text>
+
+  <path d="M370 330H450" stroke="#60A5FA" stroke-width="5" stroke-linecap="round"/>
+  <path d="M440 320L460 330L440 340" stroke="#60A5FA" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <path d="M740 330H820" stroke="#A78BFA" stroke-width="5" stroke-linecap="round"/>
+  <path d="M810 320L830 330L810 340" stroke="#A78BFA" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <path d="M970 470C970 545 600 560 600 500" stroke="#FB7185" stroke-width="5" stroke-linecap="round"/>
+  <path d="M588 510L600 490L612 510" stroke="#FB7185" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="790" y="545" fill="#FDA4AF" font-family="Inter, Arial, sans-serif" font-size="18">评估反馈回流，驱动下一轮迭代</text>
+</svg>

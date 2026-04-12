@@ -1,0 +1,53 @@
+<svg width="1200" height="760" viewBox="0 0 1200 760" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="760" rx="32" fill="#0B1020"/>
+  <rect x="56" y="56" width="1088" height="648" rx="28" fill="#11182D" stroke="#26314D" stroke-width="2"/>
+  <text x="82" y="108" fill="#F8FAFC" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="700">长任务 harness 的运行生命周期</text>
+  <text x="82" y="146" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="18">重点不在单次生成，而在一轮轮执行、验证、交接与纠偏如何持续推进同一个目标。</text>
+
+  <rect x="88" y="210" width="180" height="110" rx="22" fill="#172036" stroke="#38BDF8" stroke-width="2"/>
+  <text x="178" y="254" text-anchor="middle" fill="#E0F2FE" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">目标输入</text>
+  <text x="178" y="286" text-anchor="middle" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="16">要构建什么应用</text>
+
+  <rect x="316" y="210" width="180" height="110" rx="22" fill="#172036" stroke="#3B82F6" stroke-width="2"/>
+  <text x="406" y="254" text-anchor="middle" fill="#DBEAFE" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">任务拆解</text>
+  <text x="406" y="286" text-anchor="middle" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="16">阶段目标与优先级</text>
+
+  <rect x="544" y="210" width="180" height="110" rx="22" fill="#172036" stroke="#8B5CF6" stroke-width="2"/>
+  <text x="634" y="254" text-anchor="middle" fill="#F5F3FF" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">执行实现</text>
+  <text x="634" y="286" text-anchor="middle" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="16">编码、改动、联调</text>
+
+  <rect x="772" y="210" width="180" height="110" rx="22" fill="#172036" stroke="#F59E0B" stroke-width="2"/>
+  <text x="862" y="254" text-anchor="middle" fill="#FEF3C7" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">运行验证</text>
+  <text x="862" y="286" text-anchor="middle" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="16">测试、打开、交互</text>
+
+  <rect x="1000" y="210" width="120" height="110" rx="22" fill="#172036" stroke="#F43F5E" stroke-width="2"/>
+  <text x="1060" y="254" text-anchor="middle" fill="#FFF1F2" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">评估</text>
+  <text x="1060" y="286" text-anchor="middle" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="16">判定质量</text>
+
+  <path d="M268 265H316" stroke="#38BDF8" stroke-width="5" stroke-linecap="round"/>
+  <path d="M304 253L324 265L304 277" stroke="#38BDF8" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M496 265H544" stroke="#60A5FA" stroke-width="5" stroke-linecap="round"/>
+  <path d="M532 253L552 265L532 277" stroke="#60A5FA" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M724 265H772" stroke="#A78BFA" stroke-width="5" stroke-linecap="round"/>
+  <path d="M760 253L780 265L760 277" stroke="#A78BFA" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M952 265H1000" stroke="#FBBF24" stroke-width="5" stroke-linecap="round"/>
+  <path d="M988 253L1008 265L988 277" stroke="#FBBF24" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <rect x="190" y="470" width="820" height="138" rx="28" fill="#141C30" stroke="#334155" stroke-width="2"/>
+  <text x="600" y="515" text-anchor="middle" fill="#F8FAFC" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">下一轮决策</text>
+
+  <rect x="242" y="540" width="200" height="48" rx="14" fill="#123524" stroke="#22C55E" stroke-width="1.5"/>
+  <text x="342" y="570" text-anchor="middle" fill="#DCFCE7" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="600">Refine</text>
+
+  <rect x="500" y="540" width="200" height="48" rx="14" fill="#3A2411" stroke="#F59E0B" stroke-width="1.5"/>
+  <text x="600" y="570" text-anchor="middle" fill="#FEF3C7" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="600">Pivot</text>
+
+  <rect x="758" y="540" width="200" height="48" rx="14" fill="#34182A" stroke="#F43F5E" stroke-width="1.5"/>
+  <text x="858" y="570" text-anchor="middle" fill="#FFE4E6" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="600">Reset + Handoff</text>
+
+  <path d="M1060 320C1060 430 940 430 940 470" stroke="#FB7185" stroke-width="4" stroke-linecap="round"/>
+  <path d="M930 458L940 478L950 458" stroke="#FB7185" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M190 608C120 608 120 265 88 265" stroke="#64748B" stroke-width="4" stroke-linecap="round"/>
+  <path d="M100 255L80 265L100 275" stroke="#64748B" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="118" y="420" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="16" transform="rotate(-90 118 420)">进入下一轮</text>
+</svg>

@@ -1,0 +1,31 @@
+<svg width="1200" height="680" viewBox="0 0 1200 680" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="680" rx="32" fill="#0B1020"/>
+  <rect x="60" y="60" width="1080" height="560" rx="28" fill="#11182D" stroke="#26314D" stroke-width="2"/>
+  <text x="80" y="110" fill="#F8FAFC" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="700">前端设计 feedback loop</text>
+  <text x="80" y="150" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="18">原文前半段的核心实验：generator 生成页面，evaluator 用 Playwright MCP 真实操作后再评分。</text>
+
+  <rect x="90" y="250" width="230" height="170" rx="24" fill="#172036" stroke="#8B5CF6" stroke-width="2"/>
+  <text x="205" y="305" text-anchor="middle" fill="#F5F3FF" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">① Generator</text>
+  <text x="205" y="346" text-anchor="middle" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="18">生成可运行页面</text>
+  <text x="205" y="374" text-anchor="middle" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="18">HTML / CSS / JS</text>
+
+  <path d="M320 335H400" stroke="#A78BFA" stroke-width="5" stroke-linecap="round"/>
+  <path d="M388 323L408 335L388 347" stroke="#A78BFA" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <rect x="410" y="250" width="230" height="170" rx="24" fill="#172036" stroke="#38BDF8" stroke-width="2"/>
+  <text x="525" y="305" text-anchor="middle" fill="#E0F2FE" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">② Playwright</text>
+  <text x="525" y="346" text-anchor="middle" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="18">真实打开与操作页面</text>
+  <text x="525" y="374" text-anchor="middle" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="18">浏览 / 交互 / 截图</text>
+
+  <path d="M640 335H720" stroke="#38BDF8" stroke-width="5" stroke-linecap="round"/>
+  <path d="M708 323L728 335L708 347" stroke="#38BDF8" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <rect x="730" y="250" width="230" height="170" rx="24" fill="#172036" stroke="#F43F5E" stroke-width="2"/>
+  <text x="845" y="305" text-anchor="middle" fill="#FFF1F2" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">③ Evaluator</text>
+  <text x="845" y="346" text-anchor="middle" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="18">按四个标准评分</text>
+  <text x="845" y="374" text-anchor="middle" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="18">写详细 critique</text>
+
+  <path d="M845 430C845 520 205 520 205 430" stroke="#FB7185" stroke-width="5" stroke-linecap="round"/>
+  <path d="M193 440L205 420L217 440" stroke="#FB7185" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="525" y="555" text-anchor="middle" fill="#FDA4AF" font-family="Inter, Arial, sans-serif" font-size="18">④ 反馈回流给 Generator，继续 refine 或直接 pivot</text>
+</svg>

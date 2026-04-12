@@ -1,0 +1,47 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="120" y1="60" x2="1080" y2="570" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B1020"/>
+      <stop offset="1" stop-color="#11182D"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="180" y1="140" x2="960" y2="500" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#131D35"/>
+      <stop offset="1" stop-color="#18142F"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" rx="32" fill="url(#bg)"/>
+  <rect x="56" y="56" width="1088" height="518" rx="28" fill="#0F172A" stroke="#24324A" stroke-width="2"/>
+
+  <circle cx="954" cy="176" r="92" fill="#172036" stroke="#3B82F6" stroke-opacity="0.45" stroke-width="2"/>
+  <circle cx="1008" cy="310" r="62" fill="#1A1633" stroke="#8B5CF6" stroke-opacity="0.45" stroke-width="2"/>
+  <circle cx="908" cy="398" r="74" fill="#34182A" stroke="#F43F5E" stroke-opacity="0.45" stroke-width="2"/>
+
+  <rect x="104" y="112" width="620" height="360" rx="28" fill="url(#panel)" stroke="#334155" stroke-width="2"/>
+  <text x="140" y="176" fill="#93C5FD" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700">Anthropic Engineering · Long-running application development</text>
+  <text x="140" y="252" fill="#F8FAFC" font-family="Inter, Arial, sans-serif" font-size="54" font-weight="800">Harness 设计</text>
+  <text x="140" y="318" fill="#E2E8F0" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="700">如何让 Claude 处理</text>
+  <text x="140" y="366" fill="#E2E8F0" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="700">长时间自主开发</text>
+
+  <text x="140" y="426" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="22">context reset · evaluator · handoff · long-running coding</text>
+
+  <rect x="780" y="132" width="284" height="102" rx="22" fill="#13213B" stroke="#3B82F6" stroke-width="2"/>
+  <text x="922" y="173" text-anchor="middle" fill="#DBEAFE" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">编排层</text>
+  <text x="922" y="204" text-anchor="middle" fill="#BFDBFE" font-family="Inter, Arial, sans-serif" font-size="16">拆任务 · handoff · reset</text>
+
+  <rect x="780" y="264" width="284" height="102" rx="22" fill="#1A1633" stroke="#8B5CF6" stroke-width="2"/>
+  <text x="922" y="305" text-anchor="middle" fill="#EDE9FE" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">执行层</text>
+  <text x="922" y="336" text-anchor="middle" fill="#DDD6FE" font-family="Inter, Arial, sans-serif" font-size="16">实现代码 · 推进应用</text>
+
+  <rect x="780" y="396" width="284" height="102" rx="22" fill="#34182A" stroke="#F43F5E" stroke-width="2"/>
+  <text x="922" y="437" text-anchor="middle" fill="#FFE4E6" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">反馈层</text>
+  <text x="922" y="468" text-anchor="middle" fill="#FECDD3" font-family="Inter, Arial, sans-serif" font-size="16">运行验证 · 评估纠偏</text>
+
+  <path d="M724 183H780" stroke="#60A5FA" stroke-width="4" stroke-linecap="round"/>
+  <path d="M768 171L788 183L768 195" stroke="#60A5FA" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M922 234V264" stroke="#A78BFA" stroke-width="4" stroke-linecap="round"/>
+  <path d="M910 252L922 272L934 252" stroke="#A78BFA" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M922 366V396" stroke="#FB7185" stroke-width="4" stroke-linecap="round"/>
+  <path d="M910 384L922 404L934 384" stroke="#FB7185" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <text x="104" y="538" fill="#64748B" font-family="Inter, Arial, sans-serif" font-size="20">Yunshen Blog</text>
+</svg>
