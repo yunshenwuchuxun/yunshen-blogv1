@@ -777,7 +777,7 @@ export const projectDetails: Record<string, ProjectDetail> = {
 				role: 'Backend Developer',
 				summary:
 					'把 Grok 能力封装成标准化 API 服务，提供管理后台进行配置与监控。',
-				url: 'http://62.234.31.111:8000/admin/login',
+				url: 'https://grok2api.yunshen.online/chat',
 				githubUrl: 'https://github.com/chenyme/grok2api',
 				image: '/static/images/project/grok2api-user.png',
 				imageAlt: 'grok2api 项目截图',
