@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720" fill="none">
+  <rect width="1200" height="720" rx="32" fill="#0B1020"/>
+  <rect x="36" y="36" width="1128" height="648" rx="24" fill="#11172A" stroke="#334155"/>
+  <text x="60" y="88" fill="#F8FAFC" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="700">控制信号是怎样一层层堆出来的</text>
+  <text x="60" y="124" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="20">视频生成模型并不是只读一句 caption；更强的可控性往往来自多层监督信号叠加</text>
+
+  <rect x="118" y="178" width="964" height="96" rx="22" fill="#132238" stroke="#38BDF8"/>
+  <text x="154" y="220" fill="#E0F2FE" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="700">自然语言字幕</text>
+  <text x="154" y="252" fill="#BAE6FD" font-family="Inter, Arial, sans-serif" font-size="20">提供主体、动作、场景和高层语义，是最基础的条件输入</text>
+
+  <rect x="158" y="300" width="884" height="96" rx="22" fill="#1C1335" stroke="#A78BFA"/>
+  <text x="194" y="342" fill="#EDE9FE" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="700">结构化字段</text>
+  <text x="194" y="374" fill="#DDD6FE" font-family="Inter, Arial, sans-serif" font-size="20">把内容拆成对象、动作、环境、风格等维度，减少描述粒度不稳定的问题</text>
+
+  <rect x="198" y="422" width="804" height="96" rx="22" fill="#1B2A1A" stroke="#4ADE80"/>
+  <text x="234" y="464" fill="#DCFCE7" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="700">镜头运动标签</text>
+  <text x="234" y="496" fill="#BBF7D0" font-family="Inter, Arial, sans-serif" font-size="20">显式编码推镜、拉镜、平移、跟随等镜头语言，提升 camera control</text>
+
+  <rect x="238" y="544" width="724" height="96" rx="22" fill="#2A1A10" stroke="#F59E0B"/>
+  <text x="274" y="586" fill="#FEF3C7" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="700">质量 / 来源 / 元数据标签</text>
+  <text x="274" y="618" fill="#FDE68A" font-family="Inter, Arial, sans-serif" font-size="20">帮助系统区分样本可靠性与来源，为训练阶段的筛选和组合提供额外上下文</text>
+
+  <path d="M600 274 V 300" stroke="#64748B" stroke-width="4" stroke-dasharray="8 8"/>
+  <path d="M600 396 V 422" stroke="#64748B" stroke-width="4" stroke-dasharray="8 8"/>
+  <path d="M600 518 V 544" stroke="#64748B" stroke-width="4" stroke-dasharray="8 8"/>
+
+  <rect x="868" y="254" width="182" height="210" rx="18" fill="#0F172A" stroke="#475569"/>
+  <text x="894" y="292" fill="#F8FAFC" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700">叠加结果</text>
+  <text x="894" y="330" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="18">信息更密</text>
+  <text x="894" y="360" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="18">控制维度更清晰</text>
+  <text x="894" y="390" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="18">条件分布更稳定</text>
+  <text x="894" y="420" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="18">可学性更强</text>
+
+  <text x="60" y="674" fill="#64748B" font-family="Inter, Arial, sans-serif" font-size="18">一句话概括：caption 让模型知道“画面是什么”，结构化字段和镜头标签让模型进一步知道“该如何生成”和“该如何拍”</text>
+</svg>

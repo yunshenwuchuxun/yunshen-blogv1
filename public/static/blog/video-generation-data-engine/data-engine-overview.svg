@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720" fill="none">
+  <rect width="1200" height="720" rx="32" fill="#0B1020"/>
+  <rect x="36" y="36" width="1128" height="648" rx="24" fill="#11172A" stroke="#334155"/>
+  <text x="60" y="88" fill="#F8FAFC" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="700">视频生成的数据引擎</text>
+  <text x="60" y="124" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="20">从原始视频到训练样本，关键不只是“收集更多数据”，而是逐层过滤、重组并增强监督信号</text>
+
+  <rect x="66" y="190" width="150" height="96" rx="18" fill="#132238" stroke="#38BDF8"/>
+  <text x="94" y="228" fill="#E0F2FE" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">Raw videos</text>
+  <text x="96" y="258" fill="#BAE6FD" font-family="Inter, Arial, sans-serif" font-size="18">互联网原始视频</text>
+
+  <rect x="252" y="170" width="180" height="136" rx="18" fill="#1B2A1A" stroke="#4ADE80"/>
+  <text x="282" y="208" fill="#DCFCE7" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">质量过滤</text>
+  <text x="280" y="240" fill="#BBF7D0" font-family="Inter, Arial, sans-serif" font-size="18">分辨率</text>
+  <text x="280" y="266" fill="#BBF7D0" font-family="Inter, Arial, sans-serif" font-size="18">宽高比 / OCR</text>
+  <text x="280" y="292" fill="#BBF7D0" font-family="Inter, Arial, sans-serif" font-size="18">美学 / 画质</text>
+
+  <rect x="470" y="170" width="180" height="136" rx="18" fill="#1C1335" stroke="#A78BFA"/>
+  <text x="498" y="208" fill="#EDE9FE" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">运动过滤</text>
+  <text x="494" y="240" fill="#DDD6FE" font-family="Inter, Arial, sans-serif" font-size="18">静态视频</text>
+  <text x="494" y="266" fill="#DDD6FE" font-family="Inter, Arial, sans-serif" font-size="18">抖动 / 镜头边界</text>
+  <text x="494" y="292" fill="#DDD6FE" font-family="Inter, Arial, sans-serif" font-size="18">特殊运动效果</text>
+
+  <rect x="688" y="170" width="208" height="136" rx="18" fill="#2A1A10" stroke="#F59E0B"/>
+  <text x="722" y="208" fill="#FEF3C7" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">分布重组</text>
+  <text x="720" y="240" fill="#FDE68A" font-family="Inter, Arial, sans-serif" font-size="18">去重</text>
+  <text x="720" y="266" fill="#FDE68A" font-family="Inter, Arial, sans-serif" font-size="18">概念聚类</text>
+  <text x="720" y="292" fill="#FDE68A" font-family="Inter, Arial, sans-serif" font-size="18">重采样 / 均衡</text>
+
+  <rect x="934" y="170" width="200" height="136" rx="18" fill="#132238" stroke="#38BDF8"/>
+  <text x="956" y="208" fill="#E0F2FE" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">条件构造</text>
+  <text x="964" y="240" fill="#BAE6FD" font-family="Inter, Arial, sans-serif" font-size="18">自然语言字幕</text>
+  <text x="964" y="266" fill="#BAE6FD" font-family="Inter, Arial, sans-serif" font-size="18">结构化字段</text>
+  <text x="964" y="292" fill="#BAE6FD" font-family="Inter, Arial, sans-serif" font-size="18">镜头运动标签</text>
+
+  <rect x="352" y="432" width="500" height="152" rx="20" fill="#111827" stroke="#64748B"/>
+  <text x="380" y="474" fill="#F8FAFC" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">Training samples</text>
+  <text x="380" y="512" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="20">更干净的分布、更稳定的字幕、更显式的控制信号</text>
+  <text x="380" y="542" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="20">→ 影响模型的运动自然度、文本对齐、镜头控制与长尾覆盖</text>
+
+  <path d="M216 238 H 240" stroke="#94A3B8" stroke-width="6" stroke-linecap="round"/>
+  <path d="M432 238 H 458" stroke="#94A3B8" stroke-width="6" stroke-linecap="round"/>
+  <path d="M650 238 H 676" stroke="#94A3B8" stroke-width="6" stroke-linecap="round"/>
+  <path d="M896 238 H 922" stroke="#94A3B8" stroke-width="6" stroke-linecap="round"/>
+  <path d="M228 226 L240 238 L228 250" stroke="#94A3B8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M446 226 L458 238 L446 250" stroke="#94A3B8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M664 226 L676 238 L664 250" stroke="#94A3B8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M910 226 L922 238 L910 250" stroke="#94A3B8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <path d="M159 314 C 210 372, 290 408, 382 442" stroke="#38BDF8" stroke-width="4" stroke-dasharray="8 8"/>
+  <path d="M342 314 C 374 372, 452 408, 520 442" stroke="#4ADE80" stroke-width="4" stroke-dasharray="8 8"/>
+  <path d="M560 314 C 586 368, 646 404, 690 442" stroke="#A78BFA" stroke-width="4" stroke-dasharray="8 8"/>
+  <path d="M792 314 C 790 370, 760 408, 740 442" stroke="#F59E0B" stroke-width="4" stroke-dasharray="8 8"/>
+  <path d="M1034 314 C 980 372, 916 406, 838 442" stroke="#38BDF8" stroke-width="4" stroke-dasharray="8 8"/>
+
+  <text x="60" y="650" fill="#64748B" font-family="Inter, Arial, sans-serif" font-size="18">过滤决定噪声下限，重采样决定训练分布，字幕与标签决定模型最终能接收什么控制信号</text>
+</svg>

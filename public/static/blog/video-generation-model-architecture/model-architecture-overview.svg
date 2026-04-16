@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720" fill="none">
+  <rect width="1200" height="720" rx="32" fill="#0B1020"/>
+  <rect x="36" y="36" width="1128" height="648" rx="24" fill="#11172A" stroke="#334155"/>
+  <text x="60" y="88" fill="#F8FAFC" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="700">视频生成模型的整体工作流</text>
+  <text x="60" y="124" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="20">从像素视频到 latent，再到 token、条件注入和最终生成结果，核心是先压缩，再建模，再解码</text>
+
+  <rect x="72" y="208" width="160" height="110" rx="18" fill="#132238" stroke="#38BDF8"/>
+  <text x="118" y="250" fill="#E0F2FE" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">视频帧</text>
+  <text x="102" y="282" fill="#BAE6FD" font-family="Inter, Arial, sans-serif" font-size="20">原始像素序列</text>
+
+  <rect x="288" y="188" width="190" height="150" rx="18" fill="#1B2A1A" stroke="#4ADE80"/>
+  <text x="324" y="228" fill="#DCFCE7" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">VAE / TAE</text>
+  <text x="324" y="260" fill="#BBF7D0" font-family="Inter, Arial, sans-serif" font-size="20">压缩时空表示</text>
+  <text x="324" y="288" fill="#BBF7D0" font-family="Inter, Arial, sans-serif" font-size="20">减少 token 数量</text>
+  <text x="324" y="316" fill="#BBF7D0" font-family="Inter, Arial, sans-serif" font-size="20">保留空间与时间结构</text>
+
+  <rect x="534" y="208" width="170" height="110" rx="18" fill="#1C1335" stroke="#A78BFA"/>
+  <text x="568" y="250" fill="#EDE9FE" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">Patchify</text>
+  <text x="570" y="282" fill="#DDD6FE" font-family="Inter, Arial, sans-serif" font-size="20">latent → tokens</text>
+
+  <rect x="760" y="168" width="220" height="190" rx="18" fill="#2A1A10" stroke="#F59E0B"/>
+  <text x="798" y="208" fill="#FEF3C7" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">Transformer</text>
+  <text x="790" y="240" fill="#FDE68A" font-family="Inter, Arial, sans-serif" font-size="20">位置编码</text>
+  <text x="790" y="268" fill="#FDE68A" font-family="Inter, Arial, sans-serif" font-size="20">文本 cross-attention</text>
+  <text x="790" y="296" fill="#FDE68A" font-family="Inter, Arial, sans-serif" font-size="20">时间步条件 / AdaLN</text>
+  <text x="790" y="324" fill="#FDE68A" font-family="Inter, Arial, sans-serif" font-size="20">预测去噪或流动方向</text>
+
+  <rect x="1016" y="208" width="120" height="110" rx="18" fill="#132238" stroke="#38BDF8"/>
+  <text x="1046" y="250" fill="#E0F2FE" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">输出</text>
+  <text x="1038" y="282" fill="#BAE6FD" font-family="Inter, Arial, sans-serif" font-size="20">生成 latent</text>
+
+  <rect x="328" y="458" width="220" height="116" rx="18" fill="#0F172A" stroke="#475569"/>
+  <text x="362" y="500" fill="#F8FAFC" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">Decoder</text>
+  <text x="362" y="532" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="20">latent → 视频</text>
+
+  <rect x="640" y="438" width="404" height="156" rx="18" fill="#111827" stroke="#64748B"/>
+  <text x="672" y="478" fill="#F8FAFC" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">核心思想</text>
+  <text x="672" y="514" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="20">1. 先压缩，避免直接在像素空间建模</text>
+  <text x="672" y="544" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="20">2. 再 token 化，让 Transformer 统一处理</text>
+  <text x="672" y="574" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="20">3. 最后通过去噪 / Flow Matching 走向目标样本</text>
+
+  <path d="M232 263 H 276" stroke="#94A3B8" stroke-width="6" stroke-linecap="round"/>
+  <path d="M478 263 H 522" stroke="#94A3B8" stroke-width="6" stroke-linecap="round"/>
+  <path d="M704 263 H 748" stroke="#94A3B8" stroke-width="6" stroke-linecap="round"/>
+  <path d="M980 263 H 1004" stroke="#94A3B8" stroke-width="6" stroke-linecap="round"/>
+  <path d="M264 251 L276 263 L264 275" stroke="#94A3B8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M510 251 L522 263 L510 275" stroke="#94A3B8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M736 251 L748 263 L736 275" stroke="#94A3B8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M992 251 L1004 263 L992 275" stroke="#94A3B8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <path d="M1076 318 C 1038 390, 984 430, 870 462" stroke="#38BDF8" stroke-width="4" stroke-dasharray="8 8"/>
+  <path d="M620 318 C 570 390, 520 426, 470 458" stroke="#A78BFA" stroke-width="4" stroke-dasharray="8 8"/>
+
+  <text x="60" y="652" fill="#64748B" font-family="Inter, Arial, sans-serif" font-size="18">视频生成并不是单个模块的技巧堆叠，而是“压缩表示 + token 化 + 条件注入 + 训练目标”共同协作的结果</text>
+</svg>

@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" fill="none">
+  <rect width="1600" height="900" rx="36" fill="#08111F"/>
+  <rect x="36" y="36" width="1528" height="828" rx="28" fill="#0F172A" stroke="#334155"/>
+
+  <defs>
+    <linearGradient id="archGlow" x1="220" y1="220" x2="1380" y2="700" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38BDF8"/>
+      <stop offset="0.5" stop-color="#A78BFA"/>
+      <stop offset="1" stop-color="#F59E0B"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="96" y="102" width="184" height="38" rx="19" fill="#11233A" stroke="#38BDF8"/>
+  <text x="124" y="128" fill="#BAE6FD" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="700">Model Architecture</text>
+
+  <text x="96" y="236" fill="#F8FAFC" font-family="Inter, Arial, sans-serif" font-size="58" font-weight="800">视频生成模型怎么工作</text>
+  <text x="96" y="312" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="600">从 VAE 压缩、Patchify 到 Flow Matching</text>
+  <text x="96" y="384" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="24">先压缩，再 token 化，再用条件与时间步驱动生成</text>
+
+  <rect x="96" y="496" width="250" height="98" rx="22" fill="#102132" stroke="#38BDF8"/>
+  <text x="128" y="536" fill="#E0F2FE" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">VAE / TAE</text>
+  <text x="128" y="572" fill="#BAE6FD" font-family="Inter, Arial, sans-serif" font-size="22">像素视频 → latent</text>
+
+  <rect x="410" y="496" width="250" height="98" rx="22" fill="#1D1631" stroke="#A78BFA"/>
+  <text x="442" y="536" fill="#EDE9FE" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">Patchify</text>
+  <text x="442" y="572" fill="#DDD6FE" font-family="Inter, Arial, sans-serif" font-size="22">latent → token 序列</text>
+
+  <rect x="724" y="496" width="320" height="98" rx="22" fill="#291C10" stroke="#F59E0B"/>
+  <text x="756" y="536" fill="#FEF3C7" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">Transformer + 条件注入</text>
+  <text x="756" y="572" fill="#FDE68A" font-family="Inter, Arial, sans-serif" font-size="22">位置编码 / Cross-Attn / AdaLN</text>
+
+  <rect x="1108" y="496" width="300" height="98" rx="22" fill="#152416" stroke="#4ADE80"/>
+  <text x="1140" y="536" fill="#DCFCE7" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">Flow Matching</text>
+  <text x="1140" y="572" fill="#BBF7D0" font-family="Inter, Arial, sans-serif" font-size="22">从噪声走向目标样本</text>
+
+  <path d="M346 545 H 390" stroke="#94A3B8" stroke-width="8" stroke-linecap="round"/>
+  <path d="M660 545 H 704" stroke="#94A3B8" stroke-width="8" stroke-linecap="round"/>
+  <path d="M1044 545 H 1088" stroke="#94A3B8" stroke-width="8" stroke-linecap="round"/>
+  <path d="M372 533 L390 545 L372 557" stroke="#94A3B8" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M686 533 L704 545 L686 557" stroke="#94A3B8" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M1070 533 L1088 545 L1070 557" stroke="#94A3B8" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <circle cx="1178" cy="256" r="150" fill="#0B1220" stroke="url(#archGlow)" stroke-width="10"/>
+  <text x="1108" y="240" fill="#F8FAFC" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="800">Model</text>
+  <text x="1070" y="282" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="24">Compression → Tokens</text>
+  <text x="1098" y="316" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="24">→ Denoise / Flow</text>
+
+  <text x="96" y="806" fill="#64748B" font-family="Inter, Arial, sans-serif" font-size="20">Movie Gen · Hunyuan Video · Architecture notes</text>
+</svg>

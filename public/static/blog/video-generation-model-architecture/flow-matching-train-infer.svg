@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720" fill="none">
+  <rect width="1200" height="720" rx="32" fill="#0B1020"/>
+  <rect x="36" y="36" width="1128" height="648" rx="24" fill="#11172A" stroke="#334155"/>
+  <text x="60" y="88" fill="#F8FAFC" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="700">Flow Matching 在训练和推理时分别在做什么</text>
+  <text x="60" y="124" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="20">训练时学“往哪里走”，推理时从噪声出发沿着这条方向场逐步积分到目标样本</text>
+
+  <rect x="88" y="208" width="456" height="350" rx="22" fill="#132238" stroke="#38BDF8"/>
+  <text x="120" y="252" fill="#E0F2FE" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">训练阶段</text>
+  <text x="120" y="292" fill="#BAE6FD" font-family="Inter, Arial, sans-serif" font-size="20">1. 从噪声样本和真实样本之间采样中间状态 X_t</text>
+  <text x="120" y="326" fill="#BAE6FD" font-family="Inter, Arial, sans-serif" font-size="20">2. 把 X_t 和时间步 t 送给模型</text>
+  <text x="120" y="360" fill="#BAE6FD" font-family="Inter, Arial, sans-serif" font-size="20">3. 模型预测当前时刻的“移动方向”</text>
+  <text x="120" y="394" fill="#BAE6FD" font-family="Inter, Arial, sans-serif" font-size="20">4. 优化目标是让预测方向更接近真实流动路径</text>
+  <text x="120" y="450" fill="#E0F2FE" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">学到的不是下一个 token</text>
+  <text x="120" y="484" fill="#BAE6FD" font-family="Inter, Arial, sans-serif" font-size="20">而是一个连续动力系统里的速度场</text>
+
+  <rect x="654" y="208" width="456" height="350" rx="22" fill="#1C1335" stroke="#A78BFA"/>
+  <text x="686" y="252" fill="#EDE9FE" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">推理阶段</text>
+  <text x="686" y="292" fill="#DDD6FE" font-family="Inter, Arial, sans-serif" font-size="20">1. 从纯高斯噪声 X_0 开始</text>
+  <text x="686" y="326" fill="#DDD6FE" font-family="Inter, Arial, sans-serif" font-size="20">2. 在每个时间步上查询模型给出的方向</text>
+  <text x="686" y="360" fill="#DDD6FE" font-family="Inter, Arial, sans-serif" font-size="20">3. 用 ODE 求解器逐步积分更新状态</text>
+  <text x="686" y="394" fill="#DDD6FE" font-family="Inter, Arial, sans-serif" font-size="20">4. 最终走到目标样本 X_1</text>
+  <text x="686" y="450" fill="#EDE9FE" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">所以生成过程更像“流动”</text>
+  <text x="686" y="484" fill="#DDD6FE" font-family="Inter, Arial, sans-serif" font-size="20">而不是离散地一个个预测局部片段</text>
+
+  <circle cx="220" cy="612" r="18" fill="#38BDF8"/>
+  <text x="250" y="618" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="18">噪声或中间状态</text>
+  <circle cx="470" cy="612" r="18" fill="#4ADE80"/>
+  <text x="500" y="618" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="18">目标样本 / 真实分布</text>
+  <path d="M330 612 H 440" stroke="#94A3B8" stroke-width="6" stroke-dasharray="8 8"/>
+  <path d="M420 600 L440 612 L420 624" stroke="#94A3B8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <text x="60" y="674" fill="#64748B" font-family="Inter, Arial, sans-serif" font-size="18">一句话概括：训练时学“方向场”，推理时按这个方向场把噪声连续地推到真实样本上</text>
+</svg>
