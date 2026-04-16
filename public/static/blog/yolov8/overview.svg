@@ -1,0 +1,70 @@
+<svg width="1200" height="720" viewBox="0 0 1200 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="720" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF7FB"/>
+      <stop offset="1" stop-color="#F8FAFC"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#DE1D8D"/>
+      <stop offset="1" stop-color="#7C3AED"/>
+    </linearGradient>
+    <filter id="shadow" x="0" y="0" width="1200" height="720" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#0F172A" flood-opacity="0.10"/>
+    </filter>
+    <style>
+      .title { font: 700 42px Inter, Arial, sans-serif; fill: #0F172A; }
+      .subtitle { font: 400 22px Inter, Arial, sans-serif; fill: #334155; }
+      .label { font: 700 22px Inter, Arial, sans-serif; fill: #0F172A; }
+      .body { font: 400 18px Inter, Arial, sans-serif; fill: #475569; }
+      .small { font: 600 16px Inter, Arial, sans-serif; fill: #64748B; letter-spacing: 0.04em; }
+      .pill { font: 700 16px Inter, Arial, sans-serif; fill: #FFFFFF; }
+      .mini { font: 600 15px Inter, Arial, sans-serif; fill: #334155; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="720" rx="28" fill="url(#bg)"/>
+
+  <rect x="56" y="48" width="196" height="36" rx="18" fill="url(#accent)"/>
+  <text x="154" y="72" text-anchor="middle" class="pill">YOLOv8 Overview</text>
+
+  <text x="56" y="138" class="title">从检测器走向统一多任务框架</text>
+  <text x="56" y="176" class="subtitle">YOLOv8 用 C2f、anchor-free 解耦检测头与统一任务接口，把 Ultralytics YOLO 推向更现代的平台化阶段</text>
+
+  <g filter="url(#shadow)">
+    <rect x="56" y="228" width="320" height="384" rx="24" fill="#FFFFFF"/>
+    <rect x="440" y="228" width="320" height="384" rx="24" fill="#FFFFFF"/>
+    <rect x="824" y="228" width="320" height="384" rx="24" fill="#FFFFFF"/>
+  </g>
+
+  <text x="88" y="276" class="small">ARCHITECTURE</text>
+  <text x="88" y="314" class="label">更现代的结构整理</text>
+  <text x="88" y="358" class="body">• C2f 替代 C3，强化梯度流与特征复用</text>
+  <text x="88" y="392" class="body">• SPPF 与 PAN / FPN 主线继续保留</text>
+  <text x="88" y="426" class="body">• Neck 连接进一步轻量化整理</text>
+  <text x="88" y="460" class="body">• 检测结构升级但没有推翻主路线</text>
+  <rect x="88" y="544" width="204" height="32" rx="16" fill="#FCE7F3"/>
+  <text x="190" y="565" text-anchor="middle" class="mini">是在整理，而不是另起炉灶</text>
+
+  <text x="472" y="276" class="small">HEAD & TRAINING</text>
+  <text x="472" y="314" class="label">更现代的检测机制</text>
+  <text x="472" y="358" class="body">• Anchor-Free 取代传统锚框主线</text>
+  <text x="472" y="392" class="body">• 分类与回归解耦，head 分工更清楚</text>
+  <text x="472" y="426" class="body">• Task-Aligned Assigner 强调任务一致性</text>
+  <text x="472" y="460" class="body">• DFL + IoU 组合进一步强化定位</text>
+  <rect x="472" y="544" width="206" height="32" rx="16" fill="#EDE9FE"/>
+  <text x="575" y="565" text-anchor="middle" class="mini">训练与预测机制一起升级</text>
+
+  <text x="856" y="276" class="small">PLATFORM</text>
+  <text x="856" y="314" class="label">更统一的任务入口</text>
+  <text x="856" y="358" class="body">• 检测、分割、姿态、分类共用框架</text>
+  <text x="856" y="392" class="body">• Python API 与 CLI 工作流更统一</text>
+  <text x="856" y="426" class="body">• n / s / m / l / x 模型家族继续延展</text>
+  <text x="856" y="460" class="body">• 导出部署生态延续到平台化阶段</text>
+  <rect x="856" y="544" width="196" height="32" rx="16" fill="#E0F2FE"/>
+  <text x="954" y="565" text-anchor="middle" class="mini">YOLO 开始变成视觉任务入口</text>
+
+  <path d="M376 420H440" stroke="url(#accent)" stroke-width="6" stroke-linecap="round"/>
+  <path d="M760 420H824" stroke="url(#accent)" stroke-width="6" stroke-linecap="round"/>
+  <path d="M412 404L440 420L412 436" stroke="url(#accent)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M796 404L824 420L796 436" stroke="url(#accent)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

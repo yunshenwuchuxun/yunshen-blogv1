@@ -1,0 +1,70 @@
+<svg width="1200" height="720" viewBox="0 0 1200 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="720" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF7FB"/>
+      <stop offset="1" stop-color="#F8FAFC"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#DE1D8D"/>
+      <stop offset="1" stop-color="#7C3AED"/>
+    </linearGradient>
+    <filter id="shadow" x="0" y="0" width="1200" height="720" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#0F172A" flood-opacity="0.10"/>
+    </filter>
+    <style>
+      .title { font: 700 42px Inter, Arial, sans-serif; fill: #0F172A; }
+      .subtitle { font: 400 22px Inter, Arial, sans-serif; fill: #334155; }
+      .label { font: 700 22px Inter, Arial, sans-serif; fill: #0F172A; }
+      .body { font: 400 18px Inter, Arial, sans-serif; fill: #475569; }
+      .small { font: 600 16px Inter, Arial, sans-serif; fill: #64748B; letter-spacing: 0.04em; }
+      .pill { font: 700 16px Inter, Arial, sans-serif; fill: #FFFFFF; }
+      .mini { font: 600 15px Inter, Arial, sans-serif; fill: #334155; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="720" rx="28" fill="url(#bg)"/>
+
+  <rect x="56" y="48" width="196" height="36" rx="18" fill="url(#accent)"/>
+  <text x="154" y="72" text-anchor="middle" class="pill">YOLOv3 Overview</text>
+
+  <text x="56" y="138" class="title">从实时检测器走向多尺度成熟阶段</text>
+  <text x="56" y="176" class="subtitle">YOLOv3 用多尺度预测、Darknet-53 与独立分类头，补齐 YOLOv2 在小目标与特征表达上的短板</text>
+
+  <g filter="url(#shadow)">
+    <rect x="56" y="228" width="320" height="384" rx="24" fill="#FFFFFF"/>
+    <rect x="440" y="228" width="320" height="384" rx="24" fill="#FFFFFF"/>
+    <rect x="824" y="228" width="320" height="384" rx="24" fill="#FFFFFF"/>
+  </g>
+
+  <text x="88" y="276" class="small">MULTI-SCALE</text>
+  <text x="88" y="314" class="label">更强的小目标检测</text>
+  <text x="88" y="358" class="body">• 13×13 / 26×26 / 52×52 三尺度输出</text>
+  <text x="88" y="392" class="body">• 上采样 + 跨层拼接融合语义与细节</text>
+  <text x="88" y="426" class="body">• 高分辨率检测头补足小目标召回</text>
+  <text x="88" y="460" class="body">• 多尺度目标分工更明确</text>
+  <rect x="88" y="544" width="192" height="32" rx="16" fill="#FCE7F3"/>
+  <text x="184" y="565" text-anchor="middle" class="mini">检测头真正多层级化</text>
+
+  <text x="472" y="276" class="small">BACKBONE</text>
+  <text x="472" y="314" class="label">更深、更稳的特征提取</text>
+  <text x="472" y="358" class="body">• Darknet-53 替代 Darknet-19</text>
+  <text x="472" y="392" class="body">• 残差连接提升深层网络可训练性</text>
+  <text x="472" y="426" class="body">• 1×1 与 3×3 卷积组合延续高效率</text>
+  <text x="472" y="460" class="body">• 在表达能力与速度之间继续平衡</text>
+  <rect x="472" y="544" width="186" height="32" rx="16" fill="#EDE9FE"/>
+  <text x="565" y="565" text-anchor="middle" class="mini">实时性没有被深度拖垮</text>
+
+  <text x="856" y="276" class="small">HEAD DESIGN</text>
+  <text x="856" y="314" class="label">更贴近检测任务本身</text>
+  <text x="856" y="358" class="body">• 保留 anchor-based 偏移预测</text>
+  <text x="856" y="392" class="body">• softmax 转向独立 logistic 分类</text>
+  <text x="856" y="426" class="body">• 每尺度分配 3 个 anchor</text>
+  <text x="856" y="460" class="body">• 输出张量组织更适合 COCO 场景</text>
+  <rect x="856" y="544" width="192" height="32" rx="16" fill="#E0F2FE"/>
+  <text x="952" y="565" text-anchor="middle" class="mini">从快走向快且足够强</text>
+
+  <path d="M376 420H440" stroke="url(#accent)" stroke-width="6" stroke-linecap="round"/>
+  <path d="M760 420H824" stroke="url(#accent)" stroke-width="6" stroke-linecap="round"/>
+  <path d="M412 404L440 420L412 436" stroke="url(#accent)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M796 404L824 420L796 436" stroke="url(#accent)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

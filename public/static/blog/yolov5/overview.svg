@@ -1,0 +1,70 @@
+<svg width="1200" height="720" viewBox="0 0 1200 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="720" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF7FB"/>
+      <stop offset="1" stop-color="#F8FAFC"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#DE1D8D"/>
+      <stop offset="1" stop-color="#7C3AED"/>
+    </linearGradient>
+    <filter id="shadow" x="0" y="0" width="1200" height="720" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#0F172A" flood-opacity="0.10"/>
+    </filter>
+    <style>
+      .title { font: 700 42px Inter, Arial, sans-serif; fill: #0F172A; }
+      .subtitle { font: 400 22px Inter, Arial, sans-serif; fill: #334155; }
+      .label { font: 700 22px Inter, Arial, sans-serif; fill: #0F172A; }
+      .body { font: 400 18px Inter, Arial, sans-serif; fill: #475569; }
+      .small { font: 600 16px Inter, Arial, sans-serif; fill: #64748B; letter-spacing: 0.04em; }
+      .pill { font: 700 16px Inter, Arial, sans-serif; fill: #FFFFFF; }
+      .mini { font: 600 15px Inter, Arial, sans-serif; fill: #334155; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="720" rx="28" fill="url(#bg)"/>
+
+  <rect x="56" y="48" width="196" height="36" rx="18" fill="url(#accent)"/>
+  <text x="154" y="72" text-anchor="middle" class="pill">YOLOv5 Overview</text>
+
+  <text x="56" y="138" class="title">从检测器走向工程化工作流</text>
+  <text x="56" y="176" class="subtitle">YOLOv5 用 PyTorch 工程实现、训练增强与模型缩放，把实时检测器推进到更完整的落地阶段</text>
+
+  <g filter="url(#shadow)">
+    <rect x="56" y="228" width="320" height="384" rx="24" fill="#FFFFFF"/>
+    <rect x="440" y="228" width="320" height="384" rx="24" fill="#FFFFFF"/>
+    <rect x="824" y="228" width="320" height="384" rx="24" fill="#FFFFFF"/>
+  </g>
+
+  <text x="88" y="276" class="small">ENGINEERING</text>
+  <text x="88" y="314" class="label">更完整的训练与部署链路</text>
+  <text x="88" y="358" class="body">• PyTorch 实现更贴近主流工程栈</text>
+  <text x="88" y="392" class="body">• 导出到 ONNX / TensorRT / TFLite</text>
+  <text x="88" y="426" class="body">• 推理脚本与训练脚本更成体系</text>
+  <text x="88" y="460" class="body">• 模型不再只是论文里的结构图</text>
+  <rect x="88" y="544" width="198" height="32" rx="16" fill="#FCE7F3"/>
+  <text x="187" y="565" text-anchor="middle" class="mini">YOLO 开始变成工作流</text>
+
+  <text x="472" y="276" class="small">ARCHITECTURE</text>
+  <text x="472" y="314" class="label">更均衡的结构整理</text>
+  <text x="472" y="358" class="body">• CSPDarknet + C3 保持表达与效率平衡</text>
+  <text x="472" y="392" class="body">• SPPF 用更便宜的方式扩大感受野</text>
+  <text x="472" y="426" class="body">• PAN / FPN 继续强化多尺度融合</text>
+  <text x="472" y="460" class="body">• Head 延续成熟的多尺度检测主线</text>
+  <rect x="472" y="544" width="194" height="32" rx="16" fill="#EDE9FE"/>
+  <text x="569" y="565" text-anchor="middle" class="mini">不是推翻，而是系统整理</text>
+
+  <text x="856" y="276" class="small">SCALING & TRAINING</text>
+  <text x="856" y="314" class="label">更成熟的可用性设计</text>
+  <text x="856" y="358" class="body">• Mosaic 与 AutoAnchor 提升适配性</text>
+  <text x="856" y="392" class="body">• 多尺度训练、EMA、混合精度整合</text>
+  <text x="856" y="426" class="body">• n / s / m / l / x 模型家族更清晰</text>
+  <text x="856" y="460" class="body">• 速度与精度权衡被前置到选型阶段</text>
+  <rect x="856" y="544" width="208" height="32" rx="16" fill="#E0F2FE"/>
+  <text x="960" y="565" text-anchor="middle" class="mini">从单一模型走向产品化体系</text>
+
+  <path d="M376 420H440" stroke="url(#accent)" stroke-width="6" stroke-linecap="round"/>
+  <path d="M760 420H824" stroke="url(#accent)" stroke-width="6" stroke-linecap="round"/>
+  <path d="M412 404L440 420L412 436" stroke="url(#accent)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M796 404L824 420L796 436" stroke="url(#accent)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

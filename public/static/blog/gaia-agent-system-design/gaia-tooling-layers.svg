@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" fill="none">
+  <rect width="1200" height="560" rx="32" fill="#0B1020"/>
+  <rect x="36" y="36" width="1128" height="488" rx="24" fill="#11172A" stroke="#334155"/>
+  <text x="60" y="86" fill="#F8FAFC" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="700">GAIA Agent 的三层工具架构</text>
+  <text x="60" y="122" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="20">通过渐进加载实现优雅降级：依赖缺失时系统仍能工作，只是能力边界不同</text>
+
+  <rect x="120" y="170" width="960" height="92" rx="18" fill="#132238" stroke="#38BDF8"/>
+  <text x="154" y="210" fill="#E0F2FE" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">第一层：基础工具</text>
+  <text x="154" y="242" fill="#BAE6FD" font-family="Inter, Arial, sans-serif" font-size="20">搜索 / 文件读取 / 计算 / run_python</text>
+
+  <rect x="170" y="290" width="860" height="92" rx="18" fill="#1C1335" stroke="#A78BFA"/>
+  <text x="204" y="330" fill="#EDE9FE" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">第二层：扩展工具</text>
+  <text x="204" y="362" fill="#DDD6FE" font-family="Inter, Arial, sans-serif" font-size="20">PDF / Excel / OCR / 音频 / 图像分析</text>
+
+  <rect x="220" y="410" width="760" height="92" rx="18" fill="#2A1A10" stroke="#F59E0B"/>
+  <text x="254" y="450" fill="#FEF3C7" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">第三层：RAG 工具</text>
+  <text x="254" y="482" fill="#FDE68A" font-family="Inter, Arial, sans-serif" font-size="20">rag_query / rag_retrieve / rag_stats + 相似度短路</text>
+
+  <path d="M600 262 V 288" stroke="#94A3B8" stroke-width="5" stroke-dasharray="8 8"/>
+  <path d="M600 382 V 408" stroke="#94A3B8" stroke-width="5" stroke-dasharray="8 8"/>
+
+  <text x="64" y="520" fill="#64748B" font-family="Inter, Arial, sans-serif" font-size="18">设计目标：名字即意图、参数少而清晰、错误可处理、输出可回放。</text>
+</svg>

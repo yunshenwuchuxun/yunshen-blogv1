@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" fill="none">
+  <rect width="1200" height="520" rx="32" fill="#0B1020"/>
+  <rect x="36" y="36" width="1128" height="448" rx="24" fill="#11172A" stroke="#334155"/>
+  <text x="60" y="88" fill="#F8FAFC" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="700">Diffusion 与 Flow Matching 的统一概率路径</text>
+  <text x="60" y="124" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="20">同一条 x<tspan baseline-shift="sub" font-size="14">t</tspan> = α<tspan baseline-shift="sub" font-size="14">t</tspan>x + σ<tspan baseline-shift="sub" font-size="14">t</tspan>ε 路径，只是监督目标与采样解释不同</text>
+
+  <line x1="120" y1="360" x2="1080" y2="360" stroke="#475569" stroke-width="2" stroke-dasharray="8 8"/>
+  <line x1="160" y1="420" x2="160" y2="180" stroke="#475569" stroke-width="2" stroke-dasharray="8 8"/>
+
+  <path d="M180 340 C 330 280, 460 210, 620 190 C 760 172, 890 210, 1020 280" stroke="#F472B6" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="240" cy="320" r="14" fill="#F9A8D4"/>
+  <circle cx="510" cy="220" r="14" fill="#F9A8D4"/>
+  <circle cx="850" cy="205" r="14" fill="#F9A8D4"/>
+
+  <circle cx="180" cy="340" r="30" fill="#1E293B" stroke="#38BDF8" stroke-width="4"/>
+  <text x="145" y="347" fill="#E0F2FE" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">x</text>
+  <text x="124" y="390" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="20">数据端</text>
+
+  <circle cx="1020" cy="280" r="30" fill="#1E293B" stroke="#F59E0B" stroke-width="4"/>
+  <text x="993" y="287" fill="#FEF3C7" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="700">ε</text>
+  <text x="964" y="330" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="20">噪声端</text>
+
+  <rect x="120" y="150" width="288" height="120" rx="18" fill="#132238" stroke="#38BDF8"/>
+  <text x="145" y="188" fill="#E0F2FE" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">Diffusion 视角</text>
+  <text x="145" y="224" fill="#BAE6FD" font-family="Inter, Arial, sans-serif" font-size="20">监督目标：ε̂<tspan baseline-shift="sub" font-size="14">θ</tspan>(x<tspan baseline-shift="sub" font-size="14">t</tspan>, t)</text>
+  <text x="145" y="252" fill="#BAE6FD" font-family="Inter, Arial, sans-serif" font-size="20">采样解释：逐步去噪 / scheduler</text>
+
+  <rect x="792" y="110" width="288" height="120" rx="18" fill="#2A1A10" stroke="#F59E0B"/>
+  <text x="817" y="148" fill="#FEF3C7" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">Flow Matching 视角</text>
+  <text x="817" y="184" fill="#FDE68A" font-family="Inter, Arial, sans-serif" font-size="20">监督目标：v<tspan baseline-shift="sub" font-size="14">θ</tspan>(x<tspan baseline-shift="sub" font-size="14">t</tspan>, t)</text>
+  <text x="817" y="212" fill="#FDE68A" font-family="Inter, Arial, sans-serif" font-size="20">采样解释：ODE 积分 / solver</text>
+
+  <rect x="430" y="300" width="340" height="120" rx="18" fill="#1C1335" stroke="#A78BFA"/>
+  <text x="455" y="338" fill="#EDE9FE" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">统一桥梁</text>
+  <text x="455" y="374" fill="#DDD6FE" font-family="Inter, Arial, sans-serif" font-size="20">x̂ = (x<tspan baseline-shift="sub" font-size="14">t</tspan> - σ<tspan baseline-shift="sub" font-size="14">t</tspan> ε̂) / α<tspan baseline-shift="sub" font-size="14">t</tspan></text>
+  <text x="455" y="402" fill="#DDD6FE" font-family="Inter, Arial, sans-serif" font-size="20">v̂ = a<tspan baseline-shift="sub" font-size="14">t</tspan> x<tspan baseline-shift="sub" font-size="14">t</tspan> + b<tspan baseline-shift="sub" font-size="14">t</tspan> ε̂</text>
+
+  <path d="M408 226 C 450 240, 470 270, 500 300" stroke="#93C5FD" stroke-width="4" stroke-linecap="round"/>
+  <path d="M792 206 C 740 226, 710 258, 680 300" stroke="#FCD34D" stroke-width="4" stroke-linecap="round"/>
+
+  <text x="66" y="468" fill="#64748B" font-family="Inter, Arial, sans-serif" font-size="18">图示：同一条概率路径在“噪声预测”和“速度场预测”两种参数化下的统一理解</text>
+</svg>

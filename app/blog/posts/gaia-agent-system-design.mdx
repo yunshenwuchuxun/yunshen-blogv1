@@ -1,0 +1,456 @@
+---
+title: 'GAIA Agent：从组件设计到评测闭环'
+publishedAt: '2026-04-16'
+summary: '以 harness engineering 的视角解构一个面向 GAIA benchmark 的 Agent 系统：如何组织路由、Loop、工具层、RAG、答案提取与评测闭环，让智能体既能做事，也能被调试、被约束、被验证。'
+draft: false
+image: '/static/blog/gaia-agent-system-design/gaia-architecture.svg'
+tags: [AI, Agent, Tooling]
+---
+
+<PaperCard
+	title="GAIA Agent"
+	description="A LangGraph ReAct system for the GAIA benchmark"
+	links={[
+		{ label: "代码", url: "https://huggingface.co/spaces/hapda12/GAIA" },
+		{ label: "GAIA Benchmark", url: "https://huggingface.co/gaia-benchmark" },
+		{ label: "方法论文", url: "/blog/effective-agents-beyond-gaia" },
+	]}
+/>
+
+很多 Agent 文章都在讲“模型会不会思考”，但真正把系统做稳定时，难点通常不在推理本身，而在 harness engineering：你如何组织输入、限制循环、设计工具接口、做路由短路、收束输出格式，并最终把整条轨迹放进一个可回放、可评测、可持续优化的执行框架里。
+
+GAIA Agent 之所以值得单独写，不是因为它用了 LangGraph 或 ReAct，而是因为它几乎把一个 agent harness 的关键部件都走了一遍：配置管理、路由、Agent Loop、工具分层、RAG、答案提取、预加载和批量评测。把这些部件拆开看，比只盯着“Agent 会不会调用工具”更接近真实工程。
+
+## GAIA benchmark：为什么它更像 harness 测试场
+
+[GAIA](https://huggingface.co/gaia-benchmark) 当然是一个 benchmark，但从工程角度看，它更像是 agent harness 的压力测试场。题目经常同时要求外部检索、附件处理、多步推理和精确输出，这会迫使系统在每一层都暴露真实问题：输入怎么组织、工具怎么选、循环怎么停、输出怎么清洗、失败样本怎么回放。
+
+也正因为如此，GAIA 适合拿来检验的并不只是“模型能力”，而是整套执行框架是不是足够稳。
+
+### 任务分级
+
+| 级别 | 推理步数 | 特点 | 示例 |
+| --- | --- | --- | --- |
+| Level 1 | ≤5 步 | 无需或仅需少量工具调用 | 基础算术、简单事实问题 |
+| Level 2 | 5-10 步 | 推理 + 工具组合使用 | 搜索信息、筛选条件、再计数 |
+| Level 3 | 大量步骤 | 多轮检索、汇总、格式化输出 | 复杂信息整合问题 |
+
+### 为什么这个 benchmark 难
+
+GAIA 的难度并不只是“知识不足”，而是因为它把多个子问题叠在了一起：
+
+- 外部知识检索
+- 文件与多模态处理
+- 多步推理链条
+- 严格的最终输出格式
+
+这意味着一个系统即使“会回答”，也可能因为工具没用好、流程不收敛或者答案格式不对而在评测上失败。
+
+## GAIA Agent 总体架构
+
+从 harness engineering 的视角看，这个 GAIA Agent 做的不是“把一个模型接上几把工具”，而是先搭一个分层执行框架：先让便宜且确定的路径处理已知问题，再把真正需要动态决策的样本送进 LangGraph ReAct 循环，最后通过答案提取与评测闭环把输出收束到 benchmark 可接受的格式。
+
+![GAIA Agent 总体架构](/static/blog/gaia-agent-system-design/gaia-architecture.svg)
+
+这里最值得强调的设计取舍是：<strong>先 workflow，再 agent</strong>。agent loop 不是默认入口，而是路由与短路都无法解决时才启用的高成本路径。这一点非常像 harness 设计里的常见原则：把最贵、最不确定的执行模式放在最后，而不是放在最前。
+
+## 组件一：配置层
+
+如果把 agent harness 看成一个运行时系统，那么配置层就是它的边界条件。最大迭代次数、LLM 超时、工具超时、输出截断、429 重试与批量评测间隔这些参数，本质上都不是“可选调优项”，而是系统约束的一部分。
+
+下面这段配置代码很能说明问题：这些参数看起来分散，实际上共同定义了 harness 的失效方式、收敛速度与成本上限。
+
+```python
+# config.py — 核心配置项
+MAX_ITERATIONS = int(os.getenv("MAX_ITERATIONS", "10"))
+LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "120"))
+TOOL_TIMEOUT = int(os.getenv("TOOL_TIMEOUT", "30"))
+MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", "10000"))
+RATE_LIMIT_RETRY_MAX = int(os.getenv("RATE_LIMIT_RETRY_MAX", "5"))
+RATE_LIMIT_RETRY_BASE_DELAY = float(os.getenv("RATE_LIMIT_RETRY_BASE_DELAY", "10"))
+BATCH_QUESTION_DELAY = float(os.getenv("BATCH_QUESTION_DELAY", "5"))
+```
+
+- 最大迭代次数
+- LLM 超时
+- 工具超时
+- 工具输出截断长度
+- 429 重试次数与指数退避基数
+- 批量评测时的问题间延迟
+
+这层虽然不“智能”，却决定了系统的失效方式。没有这层，Agent Loop 很容易演变成无限循环，或者在批量评测时被速率限制拖垮。换句话说，配置层负责的不是功能，而是系统在压力下如何退化、如何停止、如何保护自己。
+
+配置层的价值在于把 agent 行为的关键维度显式化：
+
+- <strong>迭代控制</strong>：防失控
+- <strong>超时控制</strong>：防卡死
+- <strong>输出控制</strong>：防上下文爆炸
+- <strong>速率控制</strong>：防限流
+
+## 组件二：Agent Loop 与 ReAct 骨架
+
+GAIA Agent 的核心循环可以概括成一个非常典型的 harness 结构：`assistant → tools → assistant`，再由 `should_continue` 决定下一轮是否继续。这里的重点不是“模型会调用工具”，而是循环、状态和停止条件都被包进了一个可控的运行时壳层。
+
+对应到实现上，LangGraph 的 StateGraph 把这个 loop 结构写得非常清楚：
+
+```python
+# agent.py — Graph 构建
+class AgentState(TypedDict):
+    messages: Annotated[Sequence[BaseMessage], add_messages]
+    iteration_count: int
+
+
+def build_agent_graph():
+    graph = StateGraph(AgentState)
+    graph.add_node("assistant", assistant)
+    graph.add_node("tools", ToolNode(ALL_TOOLS))
+    graph.set_entry_point("assistant")
+    graph.add_conditional_edges(
+        "assistant", should_continue,
+        {"tools": "tools", "end": END},
+    )
+    graph.add_edge("tools", "assistant")
+    return graph.compile()
+```
+
+这段代码的意义不在于“用了 LangGraph”，而在于它把 agent loop 从一段隐式控制流变成了一个可读、可调试、可插桩的运行时图。对于 harness engineering 来说，这种显式结构非常重要，因为可观测性总是建立在明确边界之上。
+
+### 为什么 ReAct 在这里有用
+
+在这个系统里，ReAct 的价值不在于“把 Thought 全写出来”，而在于让 Action 和 Observation 可回放：
+
+- LLM 发出 `tool_calls`
+- 工具返回结果写回消息流
+- 下一轮 assistant 根据新 observation 再继续推理
+
+这种轨迹之所以适合工程化，不只是因为“更像人类思考过程”，而是因为它天然适合 harness 记录与回放。你可以在日志里看到每轮做了什么、调用了什么、拿到了什么 observation，也因此能把失败定位到具体节点，而不是只得到一个模糊的“答案错了”。
+
+- 没找到信息
+- 选错了工具
+- 调用了工具但结果没被正确利用
+- 最后没有及时收敛
+
+## 组件三：路由层
+
+GAIA Agent 的路由层本质上承担的是 harness 调度职责。它不是一个简单的前置判断，而是在循环之前、循环之中和循环之后持续决定：哪些问题不值得进入高成本路径，哪些输入必须被强制送往特定工具，哪些状态已经应该停止执行。
+
+1. RAG 短路
+2. 文件类型路由
+3. `should_continue` 结束判断
+
+![GAIA 路由与短路机制](/static/blog/gaia-agent-system-design/gaia-routing.svg)
+
+### RAG 短路
+
+在进入 LangGraph 之前，系统先查知识库。如果相似度足够高，就直接返回答案，不进入 agent loop。
+
+这一步的价值非常明确：
+
+- 已知问题零延迟返回
+- 降低 token 成本
+- 减少不必要的工具调用
+
+短路机制把“智能体的聪明”建立在一个反直觉但很工程化的原则上：<strong>能不思考就不要思考，能直接复用已知答案就不要重新跑一遍流程</strong>。
+
+### 文件类型路由
+
+对于带附件的问题，系统不会让模型完全自由猜测如何处理，而是根据扩展名强制给出解析路径，例如：
+
+- `.xlsx / .xls` → `parse_excel`
+- `.pdf` → `parse_pdf`
+- `.png / .jpg` → `image_ocr` 或 `analyze_image`
+- `.mp3 / .wav` → `transcribe_audio`
+
+这类设计非常关键，因为它把“选哪个工具”从纯推理问题变成了结构化路由问题。
+
+### 是否继续：should_continue
+
+路由层的第三部分，是在每轮 assistant 输出后决定：
+
+- 还有工具调用 → 继续
+- 没有工具调用 → 结束
+- 迭代超上限 → 强制结束
+
+这段判断逻辑很短，但它在 harness 中承担的是全局节拍控制器的角色：
+
+```python
+# agent.py — 路由判断
+def should_continue(state: AgentState) -> Literal["tools", "end"]:
+    last_message = state["messages"][-1]
+    iteration = state.get("iteration_count", 0)
+
+    if iteration >= MAX_ITERATIONS:
+        return "end"
+    if hasattr(last_message, "tool_calls") and last_message.tool_calls:
+        return "tools"
+    return "end"
+```
+
+这个节点其实就是整个系统的节拍器。没有它，ReAct 轨迹就没有明确的终止边界。
+
+## 组件四：工具层
+
+GAIA Agent 的工具层更适合被理解成 harness 的能力面，而不是“工具箱列表”。一个成熟的 agent harness 不只是把工具暴露给模型，还要明确能力分层、依赖关系、降级路径与错误边界。
+
+![GAIA Agent 的三层工具架构](/static/blog/gaia-agent-system-design/gaia-tooling-layers.svg)
+
+### 第一层：基础工具
+
+基础层负责保证系统“最差也能工作”，通常包括：
+
+- 网络搜索
+- 文件读取
+- 基本计算
+- `run_python`
+
+这层是系统的最低能力保障。
+
+### 第二层：扩展工具
+
+扩展层面向更复杂的输入形态：
+
+- PDF 解析
+- Excel 解析
+- OCR
+- 音频转写
+- 图像分析
+
+这层的关键点不只是功能多，而是让系统能处理 benchmark 里那些真正卡人的多模态附件问题。
+
+### 第三层：RAG 工具
+
+RAG 层除了普通检索，还承担两件重要工作：
+
+- 短路返回
+- 生成解题建议
+
+也就是说，这一层既是“知识增强”，也是“成本优化器”。
+
+### 为什么三层设计重要
+
+三层工具架构的核心价值是<strong>优雅降级</strong>。从 harness engineering 的角度看，这意味着：某个高阶能力缺失时，系统不会整体失效，只会退化到更窄的能力边界。
+
+对应实现上，工具加载逻辑本身就体现了这种分层与降级思路：
+
+```python
+# agent.py — 工具渐进加载
+from tools import BASE_TOOLS
+
+try:
+    from extension_tools import EXTENSION_TOOLS
+    ALL_TOOLS = BASE_TOOLS + EXTENSION_TOOLS
+except ImportError:
+    ALL_TOOLS = BASE_TOOLS
+
+try:
+    from rag import RAG_TOOLS
+    ALL_TOOLS = ALL_TOOLS + RAG_TOOLS
+except ImportError:
+    pass
+```
+
+- 没装扩展依赖，系统仍能做基础搜索和推理
+- 没有 FAISS，系统仍能工作，只是没有 RAG 加速
+
+这让 Agent 系统不会因为某个高级能力不可用就整体崩掉。
+
+## 组件五：Python 沙箱与执行安全
+
+`run_python` 是整个 harness 里能力最强、风险也最高的节点。它之所以重要，不只是因为能做复杂计算，还因为一旦把代码执行权交给模型，harness 就必须开始承担运行时隔离与能力约束的责任。
+
+这个项目采用的思路包括：
+
+- 白名单 import
+- 覆盖 `__import__`
+- 受限 builtins
+- stdout 重定向，只返回 `print()` 结果
+
+把这些原则落到代码里，大致是这样：
+
+```python
+# tools.py — run_python 沙箱核心
+ALLOWED_MODULES = {
+    'math': math,
+    're': re_module,
+    'json': json_module,
+    'datetime': datetime_module,
+    'collections': collections_module,
+    'random': random_module,
+    'string': string_module,
+    'itertools': itertools_module,
+    'functools': functools_module,
+}
+
+
+def restricted_import(name, globals=None, locals=None, fromlist=(), level=0):
+    if name not in ALLOWED_MODULES:
+        raise ImportError(f"不允许导入模块 '{name}'")
+    return ALLOWED_MODULES[name]
+
+safe_builtins = {
+    'list': list,
+    'dict': dict,
+    'set': set,
+    'tuple': tuple,
+    'str': str,
+    'int': int,
+    'float': float,
+    'bool': bool,
+    'print': print,
+    'len': len,
+    'range': range,
+    '__import__': restricted_import,
+}
+```
+
+这样的沙箱并不能让 Python 绝对安全，但能把很多显而易见的危险入口封住。对一个把代码执行能力暴露给模型的系统来说，这不是加分项，而是底线。
+
+## 组件六：RAG 层
+
+RAG 在这个系统里不是一个附加 feature，而是 harness 中的低成本知识路径。它的职责并不只是“提供更多上下文”，而是决定哪些问题可以直接短路、哪些问题只需要参考材料、哪些问题才值得继续交给 LLM 与 Agent Loop。
+
+具体到实现，RAG 的关键不只是“检索”，而是把相似度阈值和返回策略编码进 harness：
+
+```python
+# rag.py — 短路查找
+def rag_lookup_answer(question: str, min_similarity: float = 0.85):
+    manager = get_rag_manager()
+    results = manager.retrieve_with_scores(question.strip(), k=1)
+    if not results:
+        return None
+    best_doc, best_score = results[0]
+    similarity = 1.0 / (1.0 + float(best_score))
+    answer = (best_doc.metadata.get("answer") or "").strip()
+    if answer and similarity > min_similarity:
+        return {"answer": answer, "similarity": similarity}
+    return None
+```
+
+- 高相似度：直接返回答案
+- 中等相似度：返回答案候选与参考内容
+- 低相似度：调用 LLM 基于检索内容生成解题建议
+
+这种设计比“永远检索、永远拼接上下文”更实用，因为它把不同置信度下的策略分开了。
+
+### 延迟加载的意义
+
+RAG 管理器里的嵌入模型、向量库和 LLM 都采用延迟初始化。这样做的意义很直接：
+
+- 避免系统启动时过慢
+- 不在不需要时消耗资源
+- 更适合本地调试与多模式运行
+
+这也是 agent 系统里经常被忽略的一点：<strong>启动路径也是系统设计的一部分</strong>。
+
+## 组件七：答案提取层
+
+对 benchmark 型任务来说，答案提取层其实就是 harness 的输出收束器。前面的 Loop、工具和检索都在生成中间轨迹，而这一层负责把开放式输出压缩成评测系统真正需要的最终格式。
+
+这一步如果只靠 prompt 很难稳定，所以系统通常需要单独的后处理逻辑。这个项目里的答案提取管道大致是这样：
+
+```python
+# agent.py — 答案提取管道
+def extract_final_answer(result: dict) -> str:
+    for msg in reversed(messages):
+        if isinstance(msg, AIMessage) and msg.content:
+            if not (hasattr(msg, "tool_calls") and msg.tool_calls):
+                content = msg.content
+                break
+
+    prefix_patterns = [
+        r'^(?:the\s+)?(?:final\s+)?answer\s*(?:is|:)\s*',
+        r'^(?:therefore|thus|so|hence)[,:]?\s*',
+        r'^(?:最终)?答案[是为：:]\s*',
+    ]
+```
+
+因此，答案提取层非常重要。它做的典型工作包括：
+
+- 优先选择真正的最终 AIMessage
+- 去掉常见前缀和尾部解释
+- 提取 JSON 中的目标字段
+- 清理空白、引号和无关格式
+- 对数字做格式化处理，例如移除千分位逗号
+
+这层的本质，是把开放式语言模型输出压缩成 benchmark 所需的精确答案格式。
+
+## 组件八：评测与可观测性
+
+如果只从 harness engineering 的角度选一个最关键组件，我会选评测闭环。不是因为它最“智能”，而是因为没有它，你很难知道系统到底是在变好，还是只是碰巧在几个样例上看起来更好了。
+
+![GAIA 的评测与可观测性闭环](/static/blog/gaia-agent-system-design/gaia-evaluation-loop.svg)
+
+### 评测入口
+
+这个系统至少支持三种典型入口：
+
+- 单题测试：调试单个问题
+- 批量评测：跑回归并看整体正确率
+- 自由问答：做功能验证
+
+批量评测尤其重要，因为它能防止你在修一个 case 时悄悄打坏另外十个 case。实际实现也很直接：逐题求解、逐题提交，再汇总准确率。
+
+```python
+# app.py — 批量评测
+def on_run_evaluation(username: str, num_questions: int, progress=gr.Progress()):
+    questions = get_questions()[:num_questions]
+    correct = 0
+
+    for i, q in enumerate(questions):
+        if i > 0 and BATCH_QUESTION_DELAY > 0:
+            time.sleep(BATCH_QUESTION_DELAY)
+
+        task_id, question = q["task_id"], q["question"]
+        answer = solve_question(question, task_id)
+        submit_result = submit_answer(task_id, answer, username)
+        correct += int(submit_result.get("is_correct", False))
+
+    accuracy = correct / len(questions) * 100
+    return f"正确: {correct}/{len(questions)} ({accuracy:.1f}%)"
+```
+
+### 为什么预加载重要
+
+还有一个很工程但很实际的细节：预加载。通过后台线程预初始化 Agent 与 LLM，可以显著降低首次请求时的冷启动成本。
+
+```python
+# app.py — 后台预加载
+def preload_agent():
+    def _preload():
+        agent = get_agent()
+        get_llm_with_tools()
+    thread = threading.Thread(target=_preload, daemon=True)
+    thread.start()
+
+preload_agent()
+```
+
+这种优化不会改变模型能力，但会明显改善系统的交互体验。对 demo 和真实用户来说，这种差异非常直观。
+
+## 可扩展方向
+
+如果继续往前做，GAIA Agent 至少有几条很自然的扩展方向：
+
+- 把多来源搜索升级成真正的并行检索 + 汇总器
+- 把多附件问题做成 orchestrator-workers 结构
+- 把答案格式评审单独抽成 evaluator 节点
+- 为失败样本建立更系统的错误分类与修复流程
+
+这些扩展的共同目标，不是把系统变得更“炫”，而是让它在复杂输入下更稳、更可解释、更可回归。
+
+## 总结
+
+把 GAIA Agent 放到 harness engineering 的框架里看，会发现它最值得学的不是某一轮 ReAct 推理，而是整套运行时组织方式：配置层负责边界，路由层负责调度，Loop 负责动态决策，工具层负责能力面，RAG 负责低成本知识路径，答案提取层负责输出收束，评测闭环负责持续校正。
+
+这也是我更愿意把它看成一个 agent harness，而不只是一个“会调用工具的智能体 demo”的原因。真正可复用的价值，不在某个 benchmark 分数，而在这套框架如何让系统既能做事，也能被调试、被约束、被验证。
+
+## 延伸阅读
+
+- [构建有效 Agents：方法、Workflow 与 Agent Loop](/blog/effective-agents-beyond-gaia)
+
+## 参考资料
+
+- [GAIA Benchmark](https://huggingface.co/gaia-benchmark)
+- [GAIA Leaderboard](https://huggingface.co/spaces/gaia-benchmark/leaderboard)
+- [LangGraph Documentation](https://langchain-ai.github.io/langgraph/)
+- [Anthropic Engineering: Building effective agents](https://www.anthropic.com/engineering/building-effective-agents)

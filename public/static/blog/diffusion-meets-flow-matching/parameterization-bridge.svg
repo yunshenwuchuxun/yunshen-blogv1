@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" fill="none">
+  <rect width="1200" height="560" rx="32" fill="#0B1020"/>
+  <rect x="36" y="36" width="1128" height="488" rx="24" fill="#11172A" stroke="#334155"/>
+  <text x="60" y="86" fill="#F8FAFC" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="700">从 ε-prediction 到 v-prediction 的换算链路</text>
+  <text x="60" y="122" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="20">先由噪声预测恢复干净样本，再把路径导数改写为 x<tspan baseline-shift="sub" font-size="14">t</tspan> 与 ε 的线性组合</text>
+
+  <rect x="86" y="180" width="250" height="180" rx="20" fill="#132238" stroke="#38BDF8"/>
+  <text x="112" y="225" fill="#E0F2FE" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="700">Step 1</text>
+  <text x="112" y="264" fill="#BAE6FD" font-family="Inter, Arial, sans-serif" font-size="22">模型预测噪声</text>
+  <text x="112" y="312" fill="#F8FAFC" font-family="Inter, Arial, sans-serif" font-size="26">ε̂<tspan baseline-shift="sub" font-size="18">θ</tspan>(x<tspan baseline-shift="sub" font-size="18">t</tspan>, t)</text>
+
+  <rect x="474" y="180" width="250" height="180" rx="20" fill="#1C1335" stroke="#A78BFA"/>
+  <text x="500" y="225" fill="#EDE9FE" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="700">Step 2</text>
+  <text x="500" y="264" fill="#DDD6FE" font-family="Inter, Arial, sans-serif" font-size="22">恢复干净样本估计</text>
+  <text x="500" y="312" fill="#F8FAFC" font-family="Inter, Arial, sans-serif" font-size="24">x̂ = (x<tspan baseline-shift="sub" font-size="16">t</tspan> - σ<tspan baseline-shift="sub" font-size="16">t</tspan> ε̂) / α<tspan baseline-shift="sub" font-size="16">t</tspan></text>
+
+  <rect x="862" y="180" width="250" height="180" rx="20" fill="#2A1A10" stroke="#F59E0B"/>
+  <text x="888" y="225" fill="#FEF3C7" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="700">Step 3</text>
+  <text x="888" y="264" fill="#FDE68A" font-family="Inter, Arial, sans-serif" font-size="22">得到速度参数化</text>
+  <text x="888" y="312" fill="#F8FAFC" font-family="Inter, Arial, sans-serif" font-size="24">v̂ = a<tspan baseline-shift="sub" font-size="16">t</tspan> x<tspan baseline-shift="sub" font-size="16">t</tspan> + b<tspan baseline-shift="sub" font-size="16">t</tspan> ε̂</text>
+
+  <path d="M336 270 H 454" stroke="#94A3B8" stroke-width="6" stroke-linecap="round"/>
+  <path d="M724 270 H 842" stroke="#94A3B8" stroke-width="6" stroke-linecap="round"/>
+  <path d="M438 256 L454 270 L438 284" stroke="#94A3B8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M826 256 L842 270 L826 284" stroke="#94A3B8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <rect x="170" y="404" width="860" height="78" rx="16" fill="#162033" stroke="#475569"/>
+  <text x="198" y="452" fill="#E2E8F0" font-family="Inter, Arial, sans-serif" font-size="22">关键结论：如果 Diffusion 与 Flow Matching 共享同一条概率路径，那么它们学到的并不是两套不同动力学，而是同一动力学的不同坐标表达。</text>
+</svg>

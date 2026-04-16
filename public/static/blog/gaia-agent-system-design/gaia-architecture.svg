@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720" fill="none">
+  <rect width="1200" height="720" rx="32" fill="#0B1020"/>
+  <rect x="36" y="36" width="1128" height="648" rx="24" fill="#11172A" stroke="#334155"/>
+  <text x="60" y="88" fill="#F8FAFC" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="700">GAIA Agent 总体架构</text>
+  <text x="60" y="124" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="20">从问题输入到答案输出，围绕路由、工具、RAG 与评测闭环组织整个智能体系统</text>
+
+  <rect x="72" y="180" width="200" height="110" rx="18" fill="#132238" stroke="#38BDF8"/>
+  <text x="108" y="225" fill="#E0F2FE" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">输入层</text>
+  <text x="108" y="258" fill="#BAE6FD" font-family="Inter, Arial, sans-serif" font-size="20">问题 + Task ID</text>
+
+  <rect x="330" y="180" width="250" height="110" rx="18" fill="#162033" stroke="#A78BFA"/>
+  <text x="360" y="225" fill="#EDE9FE" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">路由层</text>
+  <text x="360" y="258" fill="#DDD6FE" font-family="Inter, Arial, sans-serif" font-size="20">RAG 短路 / 文件类型判断</text>
+
+  <rect x="640" y="160" width="250" height="150" rx="18" fill="#1B2A1A" stroke="#4ADE80"/>
+  <text x="670" y="205" fill="#DCFCE7" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">Agent Loop</text>
+  <text x="670" y="238" fill="#BBF7D0" font-family="Inter, Arial, sans-serif" font-size="20">assistant → tools</text>
+  <text x="670" y="268" fill="#BBF7D0" font-family="Inter, Arial, sans-serif" font-size="20">→ assistant</text>
+
+  <rect x="950" y="180" width="180" height="110" rx="18" fill="#2A1A10" stroke="#F59E0B"/>
+  <text x="984" y="225" fill="#FEF3C7" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">输出层</text>
+  <text x="984" y="258" fill="#FDE68A" font-family="Inter, Arial, sans-serif" font-size="20">最终答案</text>
+
+  <rect x="170" y="410" width="230" height="120" rx="18" fill="#1C1335" stroke="#A78BFA"/>
+  <text x="198" y="455" fill="#EDE9FE" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">配置层</text>
+  <text x="198" y="488" fill="#DDD6FE" font-family="Inter, Arial, sans-serif" font-size="20">超时 / 迭代上限 /</text>
+  <text x="198" y="516" fill="#DDD6FE" font-family="Inter, Arial, sans-serif" font-size="20">速率限制 / 输出截断</text>
+
+  <rect x="445" y="390" width="310" height="160" rx="18" fill="#132238" stroke="#38BDF8"/>
+  <text x="475" y="435" fill="#E0F2FE" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">工具层</text>
+  <text x="475" y="468" fill="#BAE6FD" font-family="Inter, Arial, sans-serif" font-size="20">基础层：搜索 / 文件 / 计算</text>
+  <text x="475" y="496" fill="#BAE6FD" font-family="Inter, Arial, sans-serif" font-size="20">扩展层：PDF / Excel / OCR / 音频</text>
+  <text x="475" y="524" fill="#BAE6FD" font-family="Inter, Arial, sans-serif" font-size="20">RAG 层：检索 / 短路 / 建议生成</text>
+
+  <rect x="815" y="410" width="250" height="120" rx="18" fill="#2A1A10" stroke="#F59E0B"/>
+  <text x="845" y="455" fill="#FEF3C7" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">评测闭环</text>
+  <text x="845" y="488" fill="#FDE68A" font-family="Inter, Arial, sans-serif" font-size="20">单题调试 / 批量评测 /</text>
+  <text x="845" y="516" fill="#FDE68A" font-family="Inter, Arial, sans-serif" font-size="20">可观测与回归验证</text>
+
+  <path d="M272 235 H 318" stroke="#94A3B8" stroke-width="6" stroke-linecap="round"/>
+  <path d="M580 235 H 628" stroke="#94A3B8" stroke-width="6" stroke-linecap="round"/>
+  <path d="M890 235 H 938" stroke="#94A3B8" stroke-width="6" stroke-linecap="round"/>
+  <path d="M306 221 L318 235 L306 249" stroke="#94A3B8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M616 221 L628 235 L616 249" stroke="#94A3B8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M926 221 L938 235 L926 249" stroke="#94A3B8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <path d="M600 310 V 374" stroke="#64748B" stroke-width="4" stroke-dasharray="8 8"/>
+  <path d="M286 410 C 330 360, 390 340, 445 390" stroke="#C084FC" stroke-width="4" stroke-linecap="round"/>
+  <path d="M755 390 C 800 350, 860 350, 915 410" stroke="#FBBF24" stroke-width="4" stroke-linecap="round"/>
+
+  <text x="60" y="634" fill="#64748B" font-family="Inter, Arial, sans-serif" font-size="18">建议阅读顺序：Benchmark → 路由与 Loop → 工具层 → RAG → 评测闭环</text>
+</svg>

@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" fill="none">
+  <rect width="1200" height="560" rx="32" fill="#0B1020"/>
+  <rect x="36" y="36" width="1128" height="488" rx="24" fill="#11172A" stroke="#334155"/>
+  <text x="60" y="86" fill="#F8FAFC" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="700">GAIA Agent 的路由与短路机制</text>
+  <text x="60" y="122" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="20">先用最便宜、最确定的路径回答问题，再把剩余问题交给 Agent Loop</text>
+
+  <rect x="88" y="210" width="190" height="100" rx="18" fill="#132238" stroke="#38BDF8"/>
+  <text x="126" y="252" fill="#E0F2FE" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">输入问题</text>
+  <text x="126" y="282" fill="#BAE6FD" font-family="Inter, Arial, sans-serif" font-size="20">question + task_id</text>
+
+  <rect x="360" y="190" width="240" height="140" rx="18" fill="#1C1335" stroke="#A78BFA"/>
+  <text x="392" y="234" fill="#EDE9FE" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">RAG 预检</text>
+  <text x="392" y="268" fill="#DDD6FE" font-family="Inter, Arial, sans-serif" font-size="20">相似度 &gt; 0.85</text>
+  <text x="392" y="296" fill="#DDD6FE" font-family="Inter, Arial, sans-serif" font-size="20">直接返回答案</text>
+
+  <rect x="680" y="170" width="260" height="180" rx="18" fill="#1B2A1A" stroke="#4ADE80"/>
+  <text x="712" y="214" fill="#DCFCE7" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">进入 Agent Loop</text>
+  <text x="712" y="248" fill="#BBF7D0" font-family="Inter, Arial, sans-serif" font-size="20">文件类型路由</text>
+  <text x="712" y="276" fill="#BBF7D0" font-family="Inter, Arial, sans-serif" font-size="20">工具调用</text>
+  <text x="712" y="304" fill="#BBF7D0" font-family="Inter, Arial, sans-serif" font-size="20">should_continue 决策</text>
+
+  <rect x="998" y="210" width="120" height="100" rx="18" fill="#2A1A10" stroke="#F59E0B"/>
+  <text x="1022" y="252" fill="#FEF3C7" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">答案</text>
+  <text x="1038" y="282" fill="#FDE68A" font-family="Inter, Arial, sans-serif" font-size="20">输出</text>
+
+  <path d="M278 260 H 340" stroke="#94A3B8" stroke-width="6" stroke-linecap="round"/>
+  <path d="M600 260 H 660" stroke="#94A3B8" stroke-width="6" stroke-linecap="round"/>
+  <path d="M940 260 H 978" stroke="#94A3B8" stroke-width="6" stroke-linecap="round"/>
+  <path d="M324 246 L340 260 L324 274" stroke="#94A3B8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M644 246 L660 260 L644 274" stroke="#94A3B8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M962 246 L978 260 L962 274" stroke="#94A3B8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <path d="M812 350 C 880 400, 880 432, 812 470 C 744 432, 744 400, 812 350" fill="#162033" stroke="#64748B"/>
+  <text x="768" y="420" fill="#E2E8F0" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700">继续还是结束？</text>
+
+  <text x="64" y="488" fill="#64748B" font-family="Inter, Arial, sans-serif" font-size="18">核心思想：RAG 短路负责省成本，路由负责减少误用工具，循环负责处理真正动态的问题。</text>
+</svg>

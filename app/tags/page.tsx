@@ -17,7 +17,7 @@ const TOPIC_GROUPS = [
 	{
 		title: 'Research',
 		description: 'Core research and paper-reading topics.',
-		tags: ['Paper', 'DL', 'CV', 'NLP', 'LLM'],
+		tags: ['Paper', 'DL', 'CV', 'NLP', 'LLM', 'GenAI'],
 	},
 	{
 		title: 'Systems',
