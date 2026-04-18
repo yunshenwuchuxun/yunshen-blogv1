@@ -1,0 +1,70 @@
+<svg width="1200" height="720" viewBox="0 0 1200 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="720" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF7FB"/>
+      <stop offset="1" stop-color="#F8FAFC"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#DE1D8D"/>
+      <stop offset="1" stop-color="#7C3AED"/>
+    </linearGradient>
+    <filter id="shadow" x="0" y="0" width="1200" height="720" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#0F172A" flood-opacity="0.10"/>
+    </filter>
+    <style>
+      .title { font: 700 40px Inter, Arial, sans-serif; fill: #0F172A; }
+      .subtitle { font: 400 22px Inter, Arial, sans-serif; fill: #334155; }
+      .label { font: 700 22px Inter, Arial, sans-serif; fill: #0F172A; }
+      .body { font: 400 18px Inter, Arial, sans-serif; fill: #475569; }
+      .small { font: 600 16px Inter, Arial, sans-serif; fill: #64748B; letter-spacing: 0.04em; }
+      .pill { font: 700 16px Inter, Arial, sans-serif; fill: #FFFFFF; }
+      .mini { font: 600 15px Inter, Arial, sans-serif; fill: #334155; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="720" rx="28" fill="url(#bg)"/>
+
+  <rect x="56" y="48" width="196" height="36" rx="18" fill="url(#accent)"/>
+  <text x="154" y="72" text-anchor="middle" class="pill">YOLOv4 Overview</text>
+
+  <text x="56" y="138" class="title">把实时检测器推到工程峰值的一次系统整合</text>
+  <text x="56" y="176" class="subtitle">YOLOv4 用 CSPDarknet53、SPP + PAN、BoF/BoS 与 CIoU Loss，把速度、精度和训练可用性同时推高</text>
+
+  <g filter="url(#shadow)">
+    <rect x="56" y="228" width="320" height="384" rx="24" fill="#FFFFFF"/>
+    <rect x="440" y="228" width="320" height="384" rx="24" fill="#FFFFFF"/>
+    <rect x="824" y="228" width="320" height="384" rx="24" fill="#FFFFFF"/>
+  </g>
+
+  <text x="88" y="276" class="small">BACKBONE + NECK</text>
+  <text x="88" y="314" class="label">结构升级不再是单点补丁</text>
+  <text x="88" y="358" class="body">• CSPDarknet53 提升特征复用并降低冗余</text>
+  <text x="88" y="392" class="body">• SPP 扩大感受野，保留多尺度上下文</text>
+  <text x="88" y="426" class="body">• PAN 自顶向下 + 自底向上融合细节与语义</text>
+  <text x="88" y="460" class="body">• 多尺度 head 延续 YOLOv3 的检测主线</text>
+  <rect x="88" y="544" width="192" height="32" rx="16" fill="#FCE7F3"/>
+  <text x="184" y="565" text-anchor="middle" class="mini">从 backbone 到 head 一体化优化</text>
+
+  <text x="472" y="276" class="small">BAG OF FREEBIES</text>
+  <text x="472" y="314" class="label">训练侧收益被系统化整理</text>
+  <text x="472" y="358" class="body">• Mosaic、SAT、Label Smoothing、DropBlock</text>
+  <text x="472" y="392" class="body">• CmBN、Random Shapes、Cosine LR 调度</text>
+  <text x="472" y="426" class="body">• 不显著增加推理成本，但显著提升效果</text>
+  <text x="472" y="460" class="body">• 体现“训练配方也是模型设计”的思路</text>
+  <rect x="472" y="544" width="186" height="32" rx="16" fill="#EDE9FE"/>
+  <text x="565" y="565" text-anchor="middle" class="mini">把经验技巧变成可复用方法论</text>
+
+  <text x="856" y="276" class="small">LOCALIZATION + SPEED</text>
+  <text x="856" y="314" class="label">精度与实时性同时站稳</text>
+  <text x="856" y="358" class="body">• CIoU Loss 改善框回归质量</text>
+  <text x="856" y="392" class="body">• DIoU-NMS 减少重叠目标误删</text>
+  <text x="856" y="426" class="body">• COCO 上保持高 AP 与实时推理速度</text>
+  <text x="856" y="460" class="body">• 成为经典 anchor-based 检测器峰值代表</text>
+  <rect x="856" y="544" width="192" height="32" rx="16" fill="#E0F2FE"/>
+  <text x="952" y="565" text-anchor="middle" class="mini">快与准第一次如此平衡</text>
+
+  <path d="M376 420H440" stroke="url(#accent)" stroke-width="6" stroke-linecap="round"/>
+  <path d="M760 420H824" stroke="url(#accent)" stroke-width="6" stroke-linecap="round"/>
+  <path d="M412 404L440 420L412 436" stroke="url(#accent)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M796 404L824 420L796 436" stroke="url(#accent)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

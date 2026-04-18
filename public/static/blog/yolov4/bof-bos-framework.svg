@@ -1,0 +1,55 @@
+<svg width="1200" height="720" viewBox="0 0 1200 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="720" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8FAFC"/>
+      <stop offset="1" stop-color="#FFF7FB"/>
+    </linearGradient>
+    <linearGradient id="freebies" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#7C3AED"/>
+      <stop offset="1" stop-color="#A855F7"/>
+    </linearGradient>
+    <linearGradient id="specials" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#DE1D8D"/>
+      <stop offset="1" stop-color="#FB7185"/>
+    </linearGradient>
+    <style>
+      .title { font: 700 42px Inter, Arial, sans-serif; fill: #0F172A; }
+      .subtitle { font: 400 22px Inter, Arial, sans-serif; fill: #334155; }
+      .cardTitle { font: 700 28px Inter, Arial, sans-serif; fill: white; }
+      .body { font: 400 19px Inter, Arial, sans-serif; fill: #0F172A; }
+      .mini { font: 600 16px Inter, Arial, sans-serif; fill: #475569; }
+      .pill { font: 700 15px Inter, Arial, sans-serif; fill: #FFFFFF; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="720" rx="28" fill="url(#bg)"/>
+  <text x="60" y="88" class="title">YOLOv4 的核心方法论：BoF 与 BoS</text>
+  <text x="60" y="126" class="subtitle">它不只是在模型结构上升级，而是把训练技巧、模块设计与后处理经验整理成一套成体系的优化清单</text>
+
+  <rect x="60" y="180" width="500" height="460" rx="28" fill="url(#freebies)"/>
+  <rect x="640" y="180" width="500" height="460" rx="28" fill="url(#specials)"/>
+
+  <rect x="92" y="212" width="158" height="34" rx="17" fill="rgba(255,255,255,0.18)"/>
+  <text x="171" y="234" text-anchor="middle" class="pill">Bag of Freebies</text>
+  <text x="92" y="282" class="cardTitle">训练时生效，推理成本基本不变</text>
+  <text x="92" y="338" class="body">• Mosaic：四图拼接，强化小目标与复杂背景鲁棒性</text>
+  <text x="92" y="378" class="body">• SAT：先扰动图像，再让模型学会抵抗扰动</text>
+  <text x="92" y="418" class="body">• Label Smoothing：缓解过度自信</text>
+  <text x="92" y="458" class="body">• DropBlock / CmBN / Random Shapes / Cosine LR</text>
+  <text x="92" y="536" class="mini">关键词：数据增强、训练稳定性、泛化能力</text>
+  <text x="92" y="572" class="mini">核心判断：很多收益不必来自更重的推理图</text>
+
+  <rect x="672" y="212" width="154" height="34" rx="17" fill="rgba(255,255,255,0.18)"/>
+  <text x="749" y="234" text-anchor="middle" class="pill">Bag of Specials</text>
+  <text x="672" y="282" class="cardTitle">推理时增加少量开销，但明显提效</text>
+  <text x="672" y="338" class="body">• CSPDarknet53：拆分梯度流，减少冗余计算</text>
+  <text x="672" y="378" class="body">• SPP：扩大感受野，补充多尺度上下文</text>
+  <text x="672" y="418" class="body">• PAN：把高层语义与低层定位更紧密融合</text>
+  <text x="672" y="458" class="body">• Mish / SAM / DIoU-NMS：从激活到后处理逐点增强</text>
+  <text x="672" y="536" class="mini">关键词：结构模块、特征融合、局部额外计算</text>
+  <text x="672" y="572" class="mini">核心判断：小代价也值得换关键精度收益</text>
+
+  <path d="M560 410H640" stroke="#CBD5E1" stroke-width="6" stroke-linecap="round" stroke-dasharray="10 10"/>
+  <circle cx="600" cy="410" r="28" fill="#FFFFFF"/>
+  <text x="600" y="417" text-anchor="middle" style="font:700 20px Inter, Arial, sans-serif; fill:#0F172A;">+</text>
+</svg>

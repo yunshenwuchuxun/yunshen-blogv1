@@ -4,7 +4,6 @@ import classNames from 'classnames';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { mukta } from '../../fonts';
-import { SquareArrowLeftIcon } from './icons/square-arrow-left';
 
 interface BackNavigationProps {
 	href?: string;
@@ -19,7 +18,24 @@ export default function BackNavigation({
 
 	const content = (
 		<div className='flex w-full items-center'>
-			<SquareArrowLeftIcon size={20} className='h-9 w-9' />
+			<span className='flex h-9 w-9 items-center justify-center rounded-md transition-colors duration-200 hover:bg-accent'>
+				<svg
+					xmlns='http://www.w3.org/2000/svg'
+					width='20'
+					height='20'
+					viewBox='0 0 24 24'
+					fill='none'
+					stroke='currentColor'
+					strokeWidth='2'
+					strokeLinecap='round'
+					strokeLinejoin='round'
+					aria-hidden='true'
+				>
+					<rect width='18' height='18' x='3' y='3' rx='2' />
+					<path d='m12 8-4 4 4 4' />
+					<path d='M16 12H8' />
+				</svg>
+			</span>
 			<span className='font-bold'>{label}</span>
 			<div className='mx-1 w-full border-b border-primary-500' />
 		</div>

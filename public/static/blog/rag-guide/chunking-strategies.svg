@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="760" viewBox="0 0 1280 760" fill="none">
+  <rect width="1280" height="760" rx="28" fill="#F6F9FD"/>
+  <rect x="26" y="26" width="1228" height="708" rx="24" fill="#FFFFFF" stroke="#D7E2EF"/>
+  <text x="56" y="84" fill="#0F172A" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="800">Chunking 策略对比：切块不是切得整齐，而是切得对</text>
+  <text x="56" y="120" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="20">很多 RAG 的上线问题，最后追根溯源都落在“块切错了”。</text>
+
+  <rect x="58" y="170" width="270" height="230" rx="22" fill="#EEF4FF" stroke="#8FB5FF"/>
+  <text x="108" y="214" fill="#2457D6" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="800">固定窗口</text>
+  <text x="82" y="255" fill="#344054" font-family="Inter, Arial, sans-serif" font-size="19">按 token / 字符数切块，</text>
+  <text x="82" y="284" fill="#344054" font-family="Inter, Arial, sans-serif" font-size="19">通常配合 overlap。</text>
+  <text x="82" y="329" fill="#344054" font-family="Inter, Arial, sans-serif" font-size="19">优点：实现最简单、成本最低</text>
+  <text x="82" y="358" fill="#344054" font-family="Inter, Arial, sans-serif" font-size="19">缺点：最容易切断语义单元</text>
+
+  <rect x="356" y="170" width="270" height="230" rx="22" fill="#ECFDF3" stroke="#7AD8A2"/>
+  <text x="421" y="214" fill="#027A48" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="800">递归分块</text>
+  <text x="380" y="255" fill="#344054" font-family="Inter, Arial, sans-serif" font-size="19">先按段落，再按换行，</text>
+  <text x="380" y="284" fill="#344054" font-family="Inter, Arial, sans-serif" font-size="19">最后才退化为硬切。</text>
+  <text x="380" y="329" fill="#344054" font-family="Inter, Arial, sans-serif" font-size="19">优点：更尊重文档天然边界</text>
+  <text x="380" y="358" fill="#344054" font-family="Inter, Arial, sans-serif" font-size="19">缺点：更依赖文本结构质量</text>
+
+  <rect x="654" y="170" width="270" height="230" rx="22" fill="#FFF7ED" stroke="#F7BE77"/>
+  <text x="726" y="214" fill="#C2410C" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="800">语义分块</text>
+  <text x="678" y="255" fill="#344054" font-family="Inter, Arial, sans-serif" font-size="19">在主题跳变处切断，</text>
+  <text x="678" y="284" fill="#344054" font-family="Inter, Arial, sans-serif" font-size="19">尽量保持语义完整。</text>
+  <text x="678" y="329" fill="#344054" font-family="Inter, Arial, sans-serif" font-size="19">优点：更适合复杂说明文</text>
+  <text x="678" y="358" fill="#344054" font-family="Inter, Arial, sans-serif" font-size="19">缺点：计算更贵、调参更难</text>
+
+  <rect x="952" y="170" width="270" height="230" rx="22" fill="#FDF2F8" stroke="#F6A9D0"/>
+  <text x="987" y="214" fill="#BE185D" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="800">结构感知分块</text>
+  <text x="976" y="255" fill="#344054" font-family="Inter, Arial, sans-serif" font-size="19">利用标题、表格、列表、</text>
+  <text x="976" y="284" fill="#344054" font-family="Inter, Arial, sans-serif" font-size="19">代码块等显式边界。</text>
+  <text x="976" y="329" fill="#344054" font-family="Inter, Arial, sans-serif" font-size="19">优点：最接近真实知识单元</text>
+  <text x="976" y="358" fill="#344054" font-family="Inter, Arial, sans-serif" font-size="19">缺点：依赖源文档结构质量</text>
+
+  <rect x="90" y="470" width="1100" height="200" rx="24" fill="#111827"/>
+  <text x="126" y="518" fill="#FFFFFF" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="800">一个最有用的经验判断</text>
+  <text x="126" y="562" fill="#D7E3F7" font-family="Inter, Arial, sans-serif" font-size="21">如果问题更像“定义、参数、规则”，优先保证小块定位准确。</text>
+  <text x="126" y="596" fill="#D7E3F7" font-family="Inter, Arial, sans-serif" font-size="21">如果问题更像“流程、因果、推导”，要警惕把上下文切得过碎。</text>
+  <text x="126" y="630" fill="#D7E3F7" font-family="Inter, Arial, sans-serif" font-size="21">Overlap 的角色是修补边界，不是替代好的分块策略。</text>
+</svg>

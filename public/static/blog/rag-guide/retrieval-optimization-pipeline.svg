@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1380" height="760" viewBox="0 0 1380 760" fill="none">
+  <rect width="1380" height="760" rx="28" fill="#F6F9FD"/>
+  <rect x="28" y="28" width="1324" height="704" rx="24" fill="#FFFFFF" stroke="#D7E2EF"/>
+  <text x="54" y="84" fill="#0F172A" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="800">检索优化流水线：先把 query 变得可搜，再把候选变得可用</text>
+  <text x="54" y="120" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="20">Dense retrieval 只是起点；高质量 RAG 通常还要经过 rewrite、hybrid、rerank 与 compression。</text>
+
+  <g transform="translate(70 205)">
+    <rect x="0" y="0" width="170" height="94" rx="20" fill="#EEF2FF" stroke="#A5B4FC"/>
+    <text x="48" y="38" fill="#4338CA" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="800">Query</text>
+    <text x="33" y="68" fill="#344054" font-family="Inter, Arial, sans-serif" font-size="18">原始用户问题</text>
+
+    <rect x="214" y="-18" width="228" height="130" rx="20" fill="#ECFDF3" stroke="#7AD8A2"/>
+    <text x="252" y="26" fill="#027A48" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="800">Rewrite / HyDE</text>
+    <text x="243" y="60" fill="#344054" font-family="Inter, Arial, sans-serif" font-size="18">把 query 改得更适合检索</text>
+    <text x="253" y="88" fill="#344054" font-family="Inter, Arial, sans-serif" font-size="18">或先生成假设答案</text>
+
+    <rect x="496" y="-18" width="238" height="130" rx="20" fill="#FFF7ED" stroke="#F7BE77"/>
+    <text x="542" y="26" fill="#C2410C" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="800">Hybrid Retrieval</text>
+    <text x="534" y="60" fill="#344054" font-family="Inter, Arial, sans-serif" font-size="18">dense + sparse 并行召回</text>
+    <text x="556" y="88" fill="#344054" font-family="Inter, Arial, sans-serif" font-size="18">尽量减少漏召回</text>
+
+    <rect x="788" y="-18" width="218" height="130" rx="20" fill="#FDF2F8" stroke="#F6A9D0"/>
+    <text x="852" y="26" fill="#BE185D" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="800">Rerank</text>
+    <text x="825" y="60" fill="#344054" font-family="Inter, Arial, sans-serif" font-size="18">Cross-Encoder / LLM</text>
+    <text x="818" y="88" fill="#344054" font-family="Inter, Arial, sans-serif" font-size="18">把候选按相关性重排</text>
+
+    <rect x="1060" y="-18" width="228" height="130" rx="20" fill="#F5F3FF" stroke="#C4B5FD"/>
+    <text x="1105" y="26" fill="#6D28D9" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="800">Compression</text>
+    <text x="1092" y="60" fill="#344054" font-family="Inter, Arial, sans-serif" font-size="18">句子提取 / 文档过滤</text>
+    <text x="1098" y="88" fill="#344054" font-family="Inter, Arial, sans-serif" font-size="18">把噪声挡在 prompt 外</text>
+
+    <path d="M170 47H214" stroke="#90A4C6" stroke-width="5" stroke-linecap="round"/>
+    <path d="M442 47H496" stroke="#90A4C6" stroke-width="5" stroke-linecap="round"/>
+    <path d="M734 47H788" stroke="#90A4C6" stroke-width="5" stroke-linecap="round"/>
+    <path d="M1006 47H1060" stroke="#90A4C6" stroke-width="5" stroke-linecap="round"/>
+  </g>
+
+  <rect x="128" y="418" width="1120" height="214" rx="24" fill="#111827"/>
+  <text x="164" y="466" fill="#FFFFFF" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="800">为什么生产环境里的 RAG 很少停留在“只做向量检索”</text>
+  <text x="164" y="510" fill="#D7E3F7" font-family="Inter, Arial, sans-serif" font-size="21">• 原始 query 往往太短、太模糊、太复杂，直接拿去搜并不稳定。</text>
+  <text x="164" y="544" fill="#D7E3F7" font-family="Inter, Arial, sans-serif" font-size="21">• 第一阶段召回追求“别漏掉”，第二阶段重排追求“别把噪声送进模型”。</text>
+  <text x="164" y="578" fill="#D7E3F7" font-family="Inter, Arial, sans-serif" font-size="21">• 真正决定回答质量的，常常是后两步，而不是第一步。</text>
+</svg>

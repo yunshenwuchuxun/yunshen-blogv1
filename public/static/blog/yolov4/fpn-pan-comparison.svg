@@ -1,0 +1,86 @@
+<svg width="1200" height="640" viewBox="0 0 1200 640" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .title { font: 700 26px Arial, sans-serif; fill: #111827; }
+      .label { font: italic 700 30px Georgia, serif; fill: #111827; }
+      .text { font: italic 34px Georgia, serif; fill: #111827; }
+      .arrowBlack { stroke: #111827; stroke-width: 3; fill: none; marker-end: url(#arrowBlackHead); }
+      .arrowRed { stroke: #EF4444; stroke-width: 5; fill: none; stroke-dasharray: 14 10; marker-end: url(#arrowRedHead); }
+      .arrowGreen { stroke: #22C55E; stroke-width: 5; fill: none; stroke-dasharray: 14 10; marker-end: url(#arrowGreenHead); }
+      .panel { fill: #FAFAFA; stroke: #6B7280; stroke-width: 2; stroke-dasharray: 10 8; }
+      .fpn { fill: white; stroke: #0EA5E9; stroke-width: 5; }
+      .pan { fill: white; stroke: #F97316; stroke-width: 5; }
+      .gray { fill: #D1D5DB; }
+    </style>
+    <marker id="arrowBlackHead" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#111827" />
+    </marker>
+    <marker id="arrowRedHead" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0 0L12 6L0 12Z" fill="#EF4444" />
+    </marker>
+    <marker id="arrowGreenHead" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0 0L12 6L0 12Z" fill="#22C55E" />
+    </marker>
+  </defs>
+
+  <rect width="1200" height="640" fill="#FFFFFF" />
+  <rect x="8" y="8" width="780" height="624" class="panel" />
+  <rect x="796" y="8" width="396" height="624" class="panel" />
+
+  <text x="30" y="55" class="label">(a)</text>
+  <text x="820" y="55" class="label">(b)</text>
+
+  <image href="" x="0" y="0" width="0" height="0" />
+
+  <polygon points="170,95 350,95 320,145 140,145" class="fpn" />
+  <polygon points="160,185 340,185 310,235 130,235" class="fpn" />
+  <polygon points="150,285 330,285 300,335 120,335" class="fpn" />
+  <polygon points="110,405 310,405 280,465 80,465" class="fpn" />
+  <polygon points="515,145 685,145 655,195 485,195" class="fpn" />
+  <polygon points="505,245 675,245 645,295 475,295" class="fpn" />
+  <polygon points="495,345 665,345 635,395 465,395" class="fpn" />
+  <polygon points="470,455 650,455 620,515 440,515" class="fpn" />
+
+  <text x="650" y="178" class="text">P₅</text>
+  <text x="640" y="278" class="text">P₄</text>
+  <text x="630" y="378" class="text">P₃</text>
+  <text x="595" y="492" class="text">P₂</text>
+
+  <path d="M220 465V345" class="arrowBlack" />
+  <path d="M230 335V235" class="arrowBlack" />
+  <path d="M240 225V145" class="arrowBlack" />
+  <path d="M250 135H560" class="arrowBlack" />
+  <path d="M220 455H560" class="arrowBlack" />
+  <path d="M220 345H540" class="arrowBlack" />
+  <path d="M230 245H550" class="arrowBlack" />
+  <path d="M595 145V245" class="arrowBlack" />
+  <path d="M585 245V345" class="arrowBlack" />
+  <path d="M575 345V455" class="arrowBlack" />
+  <path d="M295 190C360 210 430 180 555 170" class="arrowRed" />
+  <path d="M300 420C520 420 760 420 900 160" class="arrowGreen" />
+
+  <rect x="825" y="85" width="250" height="50" rx="2" class="pan" />
+  <rect x="845" y="175" width="250" height="50" rx="2" class="pan" />
+  <rect x="865" y="275" width="250" height="50" rx="2" class="pan" />
+  <rect x="885" y="390" width="250" height="55" rx="2" class="pan" />
+  <rect x="1040" y="105" width="70" height="22" class="gray" />
+  <rect x="1030" y="195" width="70" height="22" class="gray" />
+  <rect x="1020" y="295" width="70" height="22" class="gray" />
+  <rect x="1010" y="410" width="70" height="22" class="gray" />
+
+  <text x="905" y="120" class="text">N₅</text>
+  <text x="935" y="210" class="text">N₄</text>
+  <text x="965" y="310" class="text">N₃</text>
+  <text x="995" y="425" class="text">N₂</text>
+
+  <path d="M650 170H840" class="arrowBlack" />
+  <path d="M640 270H860" class="arrowBlack" />
+  <path d="M630 370H880" class="arrowBlack" />
+  <path d="M615 485H900" class="arrowBlack" />
+  <path d="M960 390V325" class="arrowBlack" />
+  <path d="M930 285V225" class="arrowBlack" />
+  <path d="M900 175V135" class="arrowBlack" />
+
+  <polygon points="70,445 170,445 250,520 150,520" fill="#E5E7EB" stroke="#9CA3AF" stroke-width="2" />
+  <polygon points="85,448 165,448 225,505 145,505" fill="#C7D2FE" opacity="0.4" />
+</svg>

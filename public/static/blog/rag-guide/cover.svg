@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="80" y1="40" x2="1120" y2="590" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B1020"/>
+      <stop offset="0.55" stop-color="#111A33"/>
+      <stop offset="1" stop-color="#1A1035"/>
+    </linearGradient>
+    <linearGradient id="accentA" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#60A5FA"/>
+      <stop offset="1" stop-color="#A78BFA"/>
+    </linearGradient>
+    <linearGradient id="accentB" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#34D399"/>
+      <stop offset="1" stop-color="#22D3EE"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="20" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="1200" height="630" rx="36" fill="url(#bg)"/>
+  <circle cx="1048" cy="112" r="140" fill="#5B7CFA" fill-opacity="0.20" filter="url(#glow)"/>
+  <circle cx="170" cy="548" r="130" fill="#22D3EE" fill-opacity="0.12" filter="url(#glow)"/>
+
+  <rect x="54" y="48" width="1092" height="534" rx="30" fill="#0B1226" fill-opacity="0.55" stroke="#2A3658"/>
+
+  <text x="82" y="110" fill="#D8E4FF" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700">TECH BLOG · RAG SYSTEM DESIGN</text>
+  <text x="82" y="176" fill="#F8FAFC" font-family="Inter, Arial, sans-serif" font-size="56" font-weight="800">RAG 原理、流程与关键设计</text>
+  <text x="82" y="224" fill="#9FB0D4" font-family="Inter, Arial, sans-serif" font-size="24">从检索、分块、向量化到混合检索、重排、评估与 GraphRAG</text>
+
+  <rect x="82" y="278" width="168" height="40" rx="20" fill="#16223F" stroke="#36518B"/>
+  <text x="123" y="304" fill="#CFE0FF" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700">Evidence First</text>
+  <rect x="264" y="278" width="146" height="40" rx="20" fill="#16223F" stroke="#36518B"/>
+  <text x="307" y="304" fill="#CFE0FF" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700">Chunking</text>
+  <rect x="424" y="278" width="132" height="40" rx="20" fill="#16223F" stroke="#36518B"/>
+  <text x="458" y="304" fill="#CFE0FF" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700">Hybrid</text>
+  <rect x="570" y="278" width="154" height="40" rx="20" fill="#16223F" stroke="#36518B"/>
+  <text x="612" y="304" fill="#CFE0FF" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700">Re-ranking</text>
+  <rect x="738" y="278" width="136" height="40" rx="20" fill="#16223F" stroke="#36518B"/>
+  <text x="772" y="304" fill="#CFE0FF" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700">Metrics</text>
+
+  <rect x="82" y="372" width="536" height="160" rx="24" fill="#0F172A" stroke="#334155"/>
+  <text x="112" y="414" fill="#FFFFFF" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">一句话抓核心</text>
+  <text x="112" y="456" fill="#D7E3F7" font-family="Inter, Arial, sans-serif" font-size="21">RAG 不是“外挂知识库”，而是把证据获取做成</text>
+  <text x="112" y="488" fill="#D7E3F7" font-family="Inter, Arial, sans-serif" font-size="21">一条可观察、可替换、可评估的工程流水线。</text>
+
+  <g transform="translate(658 350)">
+    <g transform="scale(0.78)">
+    <rect x="0" y="0" width="110" height="64" rx="18" fill="#111C36" stroke="#4E6AA7"/>
+    <text x="30" y="39" fill="#93C5FD" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">Data</text>
+    <rect x="138" y="0" width="130" height="64" rx="18" fill="#111C36" stroke="#55BCA0"/>
+    <text x="160" y="39" fill="#86EFAC" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">Chunks</text>
+    <rect x="296" y="0" width="150" height="64" rx="18" fill="#111C36" stroke="#E4B24E"/>
+    <text x="319" y="39" fill="#FDE68A" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">Retrieval</text>
+    <rect x="474" y="0" width="110" height="64" rx="18" fill="#111C36" stroke="#C36BCB"/>
+    <text x="495" y="39" fill="#F5B3FF" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">LLM</text>
+    <path d="M110 32H138" stroke="url(#accentA)" stroke-width="5" stroke-linecap="round"/>
+    <path d="M268 32H296" stroke="url(#accentB)" stroke-width="5" stroke-linecap="round"/>
+    <path d="M446 32H474" stroke="url(#accentA)" stroke-width="5" stroke-linecap="round"/>
+    <text x="139" y="115" fill="#C9D5EB" font-family="Inter, Arial, sans-serif" font-size="18">Naive RAG → Advanced RAG → GraphRAG</text>
+    </g>
+  </g>
+</svg>
