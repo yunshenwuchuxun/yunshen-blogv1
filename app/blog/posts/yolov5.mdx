@@ -122,6 +122,29 @@ C3 的关键思想，是把输入特征拆成两路：
 - 一路保留为旁路，走更“轻”的直连路径；
 - 最后把两路结果 `concat` 后再卷积融合。
 
+为了让后面的 `Bottleneck`、`C3` 和 `Focus` 代码更自洽，可以先看 YOLOv5 里最常见的基础卷积模块 `Conv`。它本质上就是 `Conv2d + BatchNorm2d + 激活函数` 的组合封装：
+
+```python
+class Conv(nn.Module):
+    def __init__(self, c1, c2, k=1, s=1, p=None, g=1, act=True):
+        super().__init__()
+        padding = k // 2 if p is None else p
+        self.conv = nn.Conv2d(c1, c2, k, s, padding, groups=g, bias=False)
+        self.bn = nn.BatchNorm2d(c2)
+        self.act = nn.SiLU() if act else nn.Identity()
+
+    def forward(self, x):
+        return self.act(self.bn(self.conv(x)))
+```
+
+这个 `Conv` 虽然看起来简单，但它在 YOLOv5 里几乎无处不在，因为它统一了三个动作：
+
+- 用卷积做通道变换或空间混合；
+- 用 `BatchNorm` 稳定训练；
+- 用 `SiLU` 增强非线性表达。
+
+也正因为这个基础块足够统一，后面的 `Bottleneck`、`C3`、`SPPF` 前后卷积，甚至早期 `Focus` 模块里的卷积部分，都可以复用同一种写法。
+
 先看 C3 里被反复堆叠的 `Bottleneck`。它本质上是一个“`1×1` 调整通道 + `3×3` 做空间混合 + shortcut 残差相加”的小单元：
 
 ```python
