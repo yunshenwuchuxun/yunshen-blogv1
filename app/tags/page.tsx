@@ -1,4 +1,4 @@
-import { getAllTags } from '../blog/utils';
+import { getAllTags, getPosts } from '../blog/utils';
 import Header from '../components/header';
 import PageContainer from '../components/layouts/page-container';
 import { TagCloud } from '../components/tag-cloud';
@@ -27,6 +27,8 @@ const TOPIC_GROUPS = [
 ] as const;
 
 export default function TagsPage() {
+	const posts = getPosts();
+	const postCount = posts.length;
 	const tags = getAllTags();
 	const tagMap = new Map(tags.map((item) => [item.tag, item]));
 
@@ -46,6 +48,9 @@ export default function TagsPage() {
 		<PageContainer>
 			<Header title='Tags' />
 			<div className='space-y-10'>
+				<p className='text-sm text-gray-500 dark:text-gray-400'>
+					{postCount} blog posts
+				</p>
 				{groupedTags.map((group) => (
 					<section key={group.title} className='space-y-3'>
 						<div className='space-y-1'>

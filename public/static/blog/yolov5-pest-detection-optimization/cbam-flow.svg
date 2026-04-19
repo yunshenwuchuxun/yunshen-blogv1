@@ -1,0 +1,68 @@
+<svg width="1200" height="720" viewBox="0 0 1200 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="720">
+      <stop stop-color="#FFF8FC"/>
+      <stop offset="1" stop-color="#F9FAFB"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#111827" flood-opacity="0.12"/>
+    </filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0 0L12 6L0 12V0Z" fill="#9CA3AF"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="720" rx="32" fill="url(#bg)"/>
+  <text x="60" y="76" fill="#111827" font-size="36" font-family="Inter, Arial, sans-serif" font-weight="700">CBAM：先选通道，再选空间</text>
+  <text x="60" y="112" fill="#4B5563" font-size="20" font-family="Inter, Arial, sans-serif">目标：压低背景噪声，放大虫害纹理与病灶区域响应</text>
+
+  <g filter="url(#shadow)">
+    <rect x="70" y="180" width="230" height="320" rx="24" fill="#FFFFFF"/>
+    <rect x="345" y="180" width="230" height="320" rx="24" fill="#FFFFFF"/>
+    <rect x="620" y="180" width="230" height="320" rx="24" fill="#FFFFFF"/>
+    <rect x="895" y="180" width="230" height="320" rx="24" fill="#FFFFFF"/>
+  </g>
+
+  <text x="120" y="228" fill="#111827" font-size="28" font-family="Inter, Arial, sans-serif" font-weight="700">输入特征 F</text>
+  <rect x="122" y="270" width="126" height="126" rx="18" fill="#FCE7F3" stroke="#F472B6" stroke-width="3"/>
+  <circle cx="175" cy="323" r="18" fill="#DE1D8D" fill-opacity="0.18"/>
+  <circle cx="208" cy="349" r="12" fill="#DE1D8D" fill-opacity="0.32"/>
+  <circle cx="158" cy="362" r="10" fill="#0EA5E9" fill-opacity="0.28"/>
+  <rect x="260" y="280" width="18" height="106" rx="9" fill="#F9A8D4"/>
+  <rect x="284" y="252" width="18" height="134" rx="9" fill="#F472B6"/>
+  <text x="118" y="430" fill="#4B5563" font-size="18" font-family="Inter, Arial, sans-serif">空间位置 + 通道响应同时混在一起</text>
+
+  <path d="M302 340H333" stroke="#9CA3AF" stroke-width="5" marker-end="url(#arrow)"/>
+
+  <text x="370" y="228" fill="#111827" font-size="28" font-family="Inter, Arial, sans-serif" font-weight="700">通道注意力</text>
+  <rect x="395" y="265" width="128" height="34" rx="17" fill="#E5E7EB"/>
+  <text x="418" y="288" fill="#374151" font-size="18" font-family="Inter, Arial, sans-serif">AvgPool</text>
+  <rect x="395" y="314" width="128" height="34" rx="17" fill="#E5E7EB"/>
+  <text x="420" y="337" fill="#374151" font-size="18" font-family="Inter, Arial, sans-serif">MaxPool</text>
+  <rect x="405" y="375" width="110" height="44" rx="14" fill="#FCE7F3" stroke="#DE1D8D"/>
+  <text x="441" y="404" fill="#9D174D" font-size="20" font-family="Inter, Arial, sans-serif" font-weight="700">共享 MLP</text>
+  <text x="384" y="452" fill="#4B5563" font-size="18" font-family="Inter, Arial, sans-serif">学习“哪些通道更重要”</text>
+
+  <path d="M577 340H608" stroke="#9CA3AF" stroke-width="5" marker-end="url(#arrow)"/>
+
+  <text x="650" y="228" fill="#111827" font-size="28" font-family="Inter, Arial, sans-serif" font-weight="700">空间注意力</text>
+  <rect x="673" y="265" width="126" height="34" rx="17" fill="#DBEAFE"/>
+  <text x="693" y="288" fill="#1D4ED8" font-size="18" font-family="Inter, Arial, sans-serif">Channel Avg</text>
+  <rect x="673" y="314" width="126" height="34" rx="17" fill="#DBEAFE"/>
+  <text x="693" y="337" fill="#1D4ED8" font-size="18" font-family="Inter, Arial, sans-serif">Channel Max</text>
+  <rect x="666" y="374" width="140" height="44" rx="14" fill="#EFF6FF" stroke="#3B82F6"/>
+  <text x="696" y="403" fill="#1D4ED8" font-size="20" font-family="Inter, Arial, sans-serif" font-weight="700">7×7 Conv</text>
+  <text x="655" y="452" fill="#4B5563" font-size="18" font-family="Inter, Arial, sans-serif">学习“哪些位置更重要”</text>
+
+  <path d="M852 340H883" stroke="#9CA3AF" stroke-width="5" marker-end="url(#arrow)"/>
+
+  <text x="930" y="228" fill="#111827" font-size="28" font-family="Inter, Arial, sans-serif" font-weight="700">输出特征 F'</text>
+  <rect x="945" y="270" width="126" height="126" rx="18" fill="#FDF2F8" stroke="#DE1D8D" stroke-width="3"/>
+  <circle cx="998" cy="323" r="24" fill="#DE1D8D" fill-opacity="0.32"/>
+  <circle cx="1028" cy="349" r="14" fill="#DE1D8D" fill-opacity="0.5"/>
+  <circle cx="978" cy="362" r="7" fill="#93C5FD" fill-opacity="0.2"/>
+  <text x="926" y="430" fill="#4B5563" font-size="18" font-family="Inter, Arial, sans-serif">病灶相关区域更亮，背景响应被压低</text>
+
+  <rect x="70" y="560" width="1060" height="94" rx="22" fill="#111827"/>
+  <text x="100" y="605" fill="#FFFFFF" font-size="24" font-family="Inter, Arial, sans-serif" font-weight="700">直观理解</text>
+  <text x="100" y="635" fill="#D1D5DB" font-size="20" font-family="Inter, Arial, sans-serif">CBAM 不改变检测任务本身，而是在特征进入后续 neck / head 之前先做一次显著性筛选。</text>
+</svg>

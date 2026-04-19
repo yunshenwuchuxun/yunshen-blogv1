@@ -4,7 +4,7 @@ publishedAt: '2026-04-17'
 summary: '从 YOLOv3 之后的检测演化出发，系统梳理 YOLOv4 在 CSPDarknet53、SPP + PAN、多重训练技巧与工程取舍上的关键设计，以及它为何成为经典实时检测器。'
 draft: false
 image: '/static/blog/yolov4/overview.svg'
-tags: [Paper, DL, CV, Tech Blog]
+tags: [Paper, DL, CV]
 ---
 
 YOLOv4 由 Alexey Bochkovskiy、Chien-Yao Wang 与 Hong-Yuan Mark Liao 于 2020 年提出。和 YOLOv1 重新定义检测任务、YOLOv3 把多尺度检测做成熟不同，YOLOv4 更像一次非常明确的系统整合：它并没有试图推翻既有的 one-stage detector 主线，而是把当时已经被证明有效的 backbone、neck、训练技巧、损失函数和后处理经验重新组织到了一起，目标只有一个——<strong>在普通 GPU 上把速度与精度一起推到更高的位置</strong>。

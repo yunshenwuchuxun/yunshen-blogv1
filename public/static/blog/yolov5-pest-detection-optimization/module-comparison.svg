@@ -1,0 +1,59 @@
+<svg width="1200" height="680" viewBox="0 0 1200 680" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="680">
+      <stop stop-color="#FCFAFF"/>
+      <stop offset="1" stop-color="#F9FAFB"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#111827" flood-opacity="0.12"/>
+    </filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0 0L12 6L0 12V0Z" fill="#9CA3AF"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="680" rx="32" fill="url(#bg)"/>
+  <text x="60" y="76" fill="#111827" font-size="36" font-family="Inter, Arial, sans-serif" font-weight="700">三种优化如何互补</text>
+  <text x="60" y="112" fill="#4B5563" font-size="20" font-family="Inter, Arial, sans-serif">它们分别作用在 YOLOv5 的不同环节，而不是重复解决同一个问题</text>
+
+  <g filter="url(#shadow)">
+    <rect x="75" y="170" width="1050" height="390" rx="28" fill="#FFFFFF"/>
+  </g>
+
+  <text x="135" y="230" fill="#6B7280" font-size="22" font-family="Inter, Arial, sans-serif" font-weight="700">优化模块</text>
+  <text x="350" y="230" fill="#6B7280" font-size="22" font-family="Inter, Arial, sans-serif" font-weight="700">主要作用位置</text>
+  <text x="575" y="230" fill="#6B7280" font-size="22" font-family="Inter, Arial, sans-serif" font-weight="700">解决的问题</text>
+  <text x="920" y="230" fill="#6B7280" font-size="22" font-family="Inter, Arial, sans-serif" font-weight="700">直接收益</text>
+
+  <line x1="115" y1="250" x2="1080" y2="250" stroke="#E5E7EB" stroke-width="2"/>
+  <line x1="300" y1="200" x2="300" y2="530" stroke="#F3F4F6" stroke-width="2"/>
+  <line x1="535" y1="200" x2="535" y2="530" stroke="#F3F4F6" stroke-width="2"/>
+  <line x1="875" y1="200" x2="875" y2="530" stroke="#F3F4F6" stroke-width="2"/>
+
+  <rect x="115" y="285" width="118" height="34" rx="17" fill="#FCE7F3"/>
+  <text x="149" y="308" fill="#9D174D" font-size="20" font-family="Inter, Arial, sans-serif" font-weight="700">CBAM</text>
+  <text x="350" y="308" fill="#111827" font-size="22" font-family="Inter, Arial, sans-serif">特征提取前后</text>
+  <text x="575" y="295" fill="#111827" font-size="22" font-family="Inter, Arial, sans-serif">背景复杂、病灶细微</text>
+  <text x="575" y="325" fill="#4B5563" font-size="18" font-family="Inter, Arial, sans-serif">普通卷积容易把杂草、泥土、反光一并编码</text>
+  <text x="920" y="308" fill="#111827" font-size="22" font-family="Inter, Arial, sans-serif">特征更聚焦</text>
+
+  <line x1="115" y1="360" x2="1080" y2="360" stroke="#F3F4F6" stroke-width="2"/>
+
+  <rect x="115" y="395" width="118" height="34" rx="17" fill="#DBEAFE"/>
+  <text x="151" y="418" fill="#1D4ED8" font-size="20" font-family="Inter, Arial, sans-serif" font-weight="700">ASPP</text>
+  <text x="350" y="418" fill="#111827" font-size="22" font-family="Inter, Arial, sans-serif">高层特征融合</text>
+  <text x="575" y="405" fill="#111827" font-size="22" font-family="Inter, Arial, sans-serif">局部纹理与整体叶片结构都重要</text>
+  <text x="575" y="435" fill="#4B5563" font-size="18" font-family="Inter, Arial, sans-serif">单一卷积视野难兼顾多尺度上下文</text>
+  <text x="920" y="418" fill="#111827" font-size="22" font-family="Inter, Arial, sans-serif">感受野更大</text>
+
+  <line x1="115" y1="470" x2="1080" y2="470" stroke="#F3F4F6" stroke-width="2"/>
+
+  <rect x="115" y="505" width="150" height="34" rx="17" fill="#EDE9FE"/>
+  <text x="138" y="528" fill="#6D28D9" font-size="20" font-family="Inter, Arial, sans-serif" font-weight="700">Alpha-IoU</text>
+  <text x="350" y="528" fill="#111827" font-size="22" font-family="Inter, Arial, sans-serif">边界框回归</text>
+  <text x="575" y="515" fill="#111827" font-size="22" font-family="Inter, Arial, sans-serif">小目标框敏感、尺度变化大</text>
+  <text x="575" y="545" fill="#4B5563" font-size="18" font-family="Inter, Arial, sans-serif">高 IoU 区间仍需要持续修边</text>
+  <text x="920" y="528" fill="#111827" font-size="22" font-family="Inter, Arial, sans-serif">定位更精细</text>
+
+  <path d="M250 600H950" stroke="#9CA3AF" stroke-width="4" marker-end="url(#arrow)"/>
+  <text x="295" y="640" fill="#4B5563" font-size="20" font-family="Inter, Arial, sans-serif">前端看得更准 → 中层理解更全 → 后端框得更稳</text>
+</svg>
