@@ -1,0 +1,481 @@
+---
+title: 'pokemon agent 系列（四）：一次提问的完整调用链'
+publishedAt: '2026-04-20T10:05:00'
+summary: '从前端组装 meta/history，到 FastAPI 分流、本地直答、RAG 检索增强、LangGraph Agent 调度，再到 NDJSON 流式回前端，系统拆解一次用户提问的完整生命周期。'
+image: '/static/blog/pokemon-chat-series/call-chain-cover.svg'
+draft: false
+tags: [AI, Agent, RAG, CallChain]
+---
+
+<PaperCard
+	title="pokemon agent · Blog 4"
+	description="一篇面向工程实现的调用链路拆解：前端如何发问、后端如何分流、普通模式与 Agent 模式如何走不同执行路径，以及为什么“知识库关闭但还能回答”。"
+	links={[
+		{ label: 'Blog 5：本地直答、缓存与 RAG 主链', url: '/blog/pokemon-chat-rag-mainline' },
+	]}
+/>
+
+> 系列导航：下一篇见 **[Blog 5：本地直答、缓存与 RAG 主链](/blog/pokemon-chat-rag-mainline)**。本文负责回答：**用户问一句之后，系统到底经历了什么。**
+
+很多聊天系统文章都会停留在一句抽象描述：<strong>前端发请求，后端调模型，再把结果流式返回</strong>。这句话没有错，但它不足以解释真实系统里最关键的工程问题：请求到底在哪一层分流？为什么有的问题不会进入知识库？为什么同样是一个输入，在普通模式和 Agent 模式下会走完全不同的路径？为什么页面上关掉知识库之后，有些问题仍然能答对？
+
+`pokemon agent` 很适合用来回答这些问题。这个项目不是一个“单次 LLM 调用”的 Demo，而是一个把<strong>本地直答、缓存、RAG、知识图谱、Web Search、MCP 工具和 LangGraph Agent 调度</strong>混在同一条产品链路里的工程系统。也因此，理解它的最佳方式不是从某个单独模块开始，而是沿着一次真实提问，把整条调用链路走完。
+
+## TL;DR
+
+| 问题 | 简短结论 |
+| --- | --- |
+| 一次提问的前端入口在哪里？ | `ChatView.vue -> ChatComponent.vue -> useChat.ts`。 |
+| 普通模式和 Agent 模式在哪分叉？ | 前端发请求时就已经分叉：`/chat/` vs `/chat/agent/supervisor_agent`。 |
+| 普通模式会直接调 LLM 吗？ | 不会，通常先经过<strong>本地直答 → 缓存 → 检索增强 → 模型生成</strong>。 |
+| “知识库关闭但还能回答”说明什么？ | 往往不是 KB 还在工作，而是命中了<strong>本地宝可梦事实直答</strong>。 |
+| 多种检索能力如何一起工作？ | `Retriever` 统一编排 KB / Graph / Web / MCP，并在需要时并行执行。 |
+| Agent 模式的核心价值是什么？ | 把“下一步调用哪个能力”从后端固定逻辑，升级成 `supervisor + workers` 的图式调度。 |
+| 前端的逐字输出是怎么实现的？ | 后端返回 `application/x-ndjson`，前端按行读取并增量更新 UI。 |
+
+## 先建立全局视角：这条链不是一条直线，而是一个分流系统
+
+如果只看产品界面，用户动作很简单：输入一句话，点发送，然后等待回答。但从系统角度看，这个动作并不是“发出一个 query”而已，而是会同时携带一组运行时约束：
+
+- 是否开启知识库
+- 是否开启知识图谱
+- 是否允许联网搜索
+- 是否启用 MCP
+- 是否进入 Agent 模式
+- 当前会话历史有哪些消息
+- 当前选择了哪个知识库数据库
+
+也就是说，用户真正发出的不是一个字符串，而是一个<strong>带状态的执行请求</strong>。
+
+<svg viewBox="0 0 1200 360" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="pokemon agent 请求调用链总览图">
+  <defs>
+    <linearGradient id="pc-overview-a" x1="0" x2="1">
+      <stop offset="0%" stopColor="#f97316" />
+      <stop offset="100%" stopColor="#fb7185" />
+    </linearGradient>
+    <linearGradient id="pc-overview-b" x1="0" x2="1">
+      <stop offset="0%" stopColor="#3b82f6" />
+      <stop offset="100%" stopColor="#22c55e" />
+    </linearGradient>
+  </defs>
+  <rect x="30" y="90" width="170" height="90" rx="16" fill="#fff7ed" stroke="#fdba74" />
+  <text x="115" y="125" textAnchor="middle" fontSize="24" fontWeight="700" fill="#9a3412">Frontend</text>
+  <text x="115" y="154" textAnchor="middle" fontSize="16" fill="#7c2d12">ChatView / ChatComponent / useChat</text>
+
+  <rect x="260" y="90" width="190" height="90" rx="16" fill="#eff6ff" stroke="#93c5fd" />
+  <text x="355" y="125" textAnchor="middle" fontSize="24" fontWeight="700" fill="#1d4ed8">Router</text>
+  <text x="355" y="154" textAnchor="middle" fontSize="16" fill="#1e40af">FastAPI chat_router / agent router</text>
+
+  <rect x="520" y="40" width="230" height="70" rx="16" fill="#fefce8" stroke="#fde047" />
+  <text x="635" y="72" textAnchor="middle" fontSize="22" fontWeight="700" fill="#854d0e">普通模式</text>
+  <text x="635" y="95" textAnchor="middle" fontSize="15" fill="#713f12">本地直答 → 缓存 → 检索 → LLM</text>
+
+  <rect x="520" y="150" width="230" height="90" rx="16" fill="#ecfeff" stroke="#67e8f9" />
+  <text x="635" y="184" textAnchor="middle" fontSize="22" fontWeight="700" fill="#155e75">Agent 模式</text>
+  <text x="635" y="208" textAnchor="middle" fontSize="15" fill="#164e63">supervisor → workers → finalizer</text>
+  <text x="635" y="228" textAnchor="middle" fontSize="15" fill="#164e63">LangGraph orchestration</text>
+
+  <rect x="820" y="30" width="320" height="230" rx="16" fill="#faf5ff" stroke="#c084fc" />
+  <text x="980" y="62" textAnchor="middle" fontSize="22" fontWeight="700" fill="#7e22ce">能力层 / 基础设施</text>
+  <text x="980" y="95" textAnchor="middle" fontSize="16" fill="#6b21a8">KB(Milvus) · Graph(Neo4j) · Web Search</text>
+  <text x="980" y="120" textAnchor="middle" fontSize="16" fill="#6b21a8">MCP · ASR · Runtime Config · Feature Flags</text>
+  <text x="980" y="165" textAnchor="middle" fontSize="16" fill="#581c87">最终统一返回 NDJSON 流</text>
+  <text x="980" y="190" textAnchor="middle" fontSize="16" fill="#581c87">前端逐块消费并更新消息</text>
+
+  <path d="M200 135 L260 135" stroke="url(#pc-overview-a)" strokeWidth="6" markerEnd="url(#pc-arrow)" />
+  <path d="M450 135 L520 75" stroke="url(#pc-overview-a)" strokeWidth="6" fill="none" markerEnd="url(#pc-arrow)" />
+  <path d="M450 145 L520 195" stroke="url(#pc-overview-b)" strokeWidth="6" fill="none" markerEnd="url(#pc-arrow)" />
+  <path d="M750 75 L820 90" stroke="#f59e0b" strokeWidth="6" fill="none" markerEnd="url(#pc-arrow)" />
+  <path d="M750 195 L820 185" stroke="#06b6d4" strokeWidth="6" fill="none" markerEnd="url(#pc-arrow)" />
+
+  <defs>
+    <marker id="pc-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#64748b" />
+    </marker>
+  </defs>
+</svg>
+
+从这个角度看，整条链路更像一个<strong>请求执行器</strong>，而不是一个简单的聊天接口。前端负责声明上下文与约束，后端负责根据这些约束选择不同执行路径，再把结果组织成统一流式协议回给 UI。
+
+## 前端阶段：用户输入是怎样变成结构化请求的
+
+一次请求的前端入口主要在三处：
+
+- `web/src/views/ChatView.vue`
+- `web/src/components/ChatComponent.vue`
+- `web/src/composables/useChat.ts`
+
+其中真正把输入变成请求体的是 `sendChatRequest(...)`。它在发送前做了三件很关键的事：
+
+1. 读取当前对话历史
+2. 从 `meta` 中抽取本次执行约束
+3. 根据 `use_agent` 选择普通模式还是 Agent 模式 endpoint
+
+下面这段代码基本就是整个前端执行入口的缩影：
+
+```ts
+const history = messageUtils.getHistory(meta.history_round).slice(0, -1)
+const requestMeta = {
+  ...meta,
+  db_id: dbId,
+  mcp_id: meta.use_mcp ? 'default' : null
+}
+
+if (isAgentMode) {
+  const allowedWorkers = ['rag_worker', 'stats_worker']
+  if (meta.agent_allow_web !== false) allowedWorkers.push('web_worker')
+  if (meta.agent_allow_graph !== false) allowedWorkers.push('graph_worker')
+  if (meta.agent_allow_mcp !== false) allowedWorkers.push('mcp_worker')
+  requestMeta.agent_constraints = { allowed_workers: allowedWorkers }
+}
+
+const endpoint = isAgentMode ? '/chat/agent/supervisor_agent' : '/chat/'
+```
+
+这段逻辑里有两个很重要的工程点。
+
+### 第一，`meta` 不是 UI 状态，而是执行参数
+
+很多系统会把“是否开启知识库”停留在前端状态层，但这个项目里，`meta` 会真正进入后端执行流程。它不是装饰性字段，而是驱动后端路径选择的输入。
+
+### 第二，普通模式与 Agent 模式在前端就已经分叉
+
+这点很关键。很多人会以为 Agent 是后端内部再做一层判断，但这里不是。前端发请求时就已经决定：
+
+- 走 `/chat/`：普通聊天链路
+- 走 `/chat/agent/supervisor_agent`：Agent 编排链路
+
+也就是说，系统不是在“一个统一入口里晚分流”，而是在客户端就已经做了第一轮架构级别的路径选择。
+
+## 一张图看懂前端到后端的第一次分叉
+
+<svg viewBox="0 0 1200 430" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="前端请求组装和普通模式、Agent 模式分叉图">
+  <rect x="40" y="145" width="210" height="110" rx="18" fill="#fff7ed" stroke="#fdba74" />
+  <text x="145" y="185" textAnchor="middle" fontSize="26" fontWeight="700" fill="#9a3412">用户输入</text>
+  <text x="145" y="215" textAnchor="middle" fontSize="16" fill="#7c2d12">query + 当前会话上下文</text>
+
+  <rect x="310" y="95" width="240" height="210" rx="18" fill="#eff6ff" stroke="#93c5fd" />
+  <text x="430" y="130" textAnchor="middle" fontSize="24" fontWeight="700" fill="#1d4ed8">useChat.ts</text>
+  <text x="430" y="165" textAnchor="middle" fontSize="16" fill="#1e40af">组装 history</text>
+  <text x="430" y="190" textAnchor="middle" fontSize="16" fill="#1e40af">注入 meta / db_id / mcp_id</text>
+  <text x="430" y="215" textAnchor="middle" fontSize="16" fill="#1e40af">必要时注入 agent_constraints</text>
+  <text x="430" y="240" textAnchor="middle" fontSize="16" fill="#1e40af">选择 endpoint</text>
+
+  <rect x="640" y="70" width="220" height="90" rx="18" fill="#fefce8" stroke="#fde047" />
+  <text x="750" y="105" textAnchor="middle" fontSize="22" fontWeight="700" fill="#854d0e">普通模式</text>
+  <text x="750" y="130" textAnchor="middle" fontSize="16" fill="#713f12">POST /chat/</text>
+
+  <rect x="640" y="230" width="220" height="90" rx="18" fill="#ecfeff" stroke="#67e8f9" />
+  <text x="750" y="265" textAnchor="middle" fontSize="22" fontWeight="700" fill="#155e75">Agent 模式</text>
+  <text x="750" y="290" textAnchor="middle" fontSize="16" fill="#164e63">POST /chat/agent/supervisor_agent</text>
+
+  <rect x="930" y="60" width="220" height="110" rx="18" fill="#faf5ff" stroke="#c084fc" />
+  <text x="1040" y="98" textAnchor="middle" fontSize="22" fontWeight="700" fill="#7e22ce">chat_router.py</text>
+  <text x="1040" y="125" textAnchor="middle" fontSize="15" fill="#6b21a8">普通聊天执行器</text>
+
+  <rect x="930" y="220" width="220" height="110" rx="18" fill="#f5f3ff" stroke="#a78bfa" />
+  <text x="1040" y="258" textAnchor="middle" fontSize="22" fontWeight="700" fill="#6d28d9">supervisor_agent</text>
+  <text x="1040" y="285" textAnchor="middle" fontSize="15" fill="#5b21b6">LangGraph graph entry</text>
+
+  <path d="M250 200 L310 200" stroke="#fb923c" strokeWidth="6" markerEnd="url(#pc2-arrow)" />
+  <path d="M550 180 L640 115" stroke="#eab308" strokeWidth="6" fill="none" markerEnd="url(#pc2-arrow)" />
+  <path d="M550 220 L640 275" stroke="#06b6d4" strokeWidth="6" fill="none" markerEnd="url(#pc2-arrow)" />
+  <path d="M860 115 L930 115" stroke="#a855f7" strokeWidth="6" markerEnd="url(#pc2-arrow)" />
+  <path d="M860 275 L930 275" stroke="#8b5cf6" strokeWidth="6" markerEnd="url(#pc2-arrow)" />
+
+  <defs>
+    <marker id="pc2-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#64748b" />
+    </marker>
+  </defs>
+</svg>
+
+## 普通模式主链：不是直接调模型，而是先做三层拦截
+
+普通模式的后端入口在 `server/routers/chat_router.py`。这里最值得强调的一点是：<strong>它并不会在收到请求后立刻调模型</strong>。相反，它会先经历三层拦截：
+
+1. 本地事实直答
+2. 语义缓存
+3. 检索增强
+
+只有这三层都没有直接结束请求，才会进入模型生成。
+
+### 第一层：本地事实直答
+
+这一层非常像一个 domain-specific fast path。对于明显的宝可梦事实问题，系统会优先尝试走本地数据，而不是启动更昂贵的检索和模型调用流程。
+
+```python
+def need_retrieve(meta: dict[str, Any]) -> bool:
+    return meta.get("use_web") or meta.get("use_graph") or meta.get("db_id") or meta.get("mcp_id")
+
+# 0. Local deterministic Pokédex shortcut
+if decision.intent == Intent.POKEDEX_FACTS and (decision.confidence >= 0.8 or decision.needs_clarification):
+    content = format_basic_facts(rec) + "\n\n" + format_evolution(rec, data=data)
+    refs = {
+        "model_name": "local_dataset",
+        "knowledge_base": {
+            "results": [],
+            "message": "Answer来自本地数据集（无 LLM 调用）",
+        },
+    }
+    yield make_chunk(meta, content=content, status="loading")
+    yield make_chunk(meta, status="finished", refs=refs)
+    return
+```
+
+这也是为什么在这个项目里，`知识库关闭但还能回答` 往往并不说明 KB 失效了，而只是说明：<strong>这个问题根本没有走到 KB 那一层</strong>。
+
+### 第二层：语义缓存
+
+如果当前请求没有历史消息，并且也不需要检索，系统会尝试命中缓存：
+
+```python
+safe_cache = (not history) and (not need_retrieve(meta))
+if safe_cache:
+    cached_response = cache.get(query, meta=cache_meta)
+    if cached_response:
+        yield make_chunk(meta, content=cached_response, status="finished")
+        return
+```
+
+这里的关键不是“有缓存”本身，而是<strong>缓存使用条件被故意限制得很保守</strong>。它只在单轮、非检索场景启用，避免跨轮上下文污染，也避免把一个本应依赖外部状态的回答缓存成“静态答案”。
+
+### 第三层：检索增强
+
+只有在 `need_retrieve(meta)` 为真时，普通模式才会进入检索阶段。换句话说，检索不是默认行为，而是<strong>显式由请求参数触发</strong>。
+
+```python
+if meta and need_retrieve(meta):
+    yield make_chunk(meta, status="searching")
+    retriever = get_retriever()
+    modified_query, refs = await to_thread(
+        retriever,
+        modified_query,
+        history,
+        meta,
+    )
+    yield make_chunk(meta, status="generating")
+```
+
+从执行顺序看，这一层的作用不是直接回答，而是先把问题改造成一个更适合后续生成的增强 query。这意味着普通模式下的 RAG 更像一个<strong>prompt augmentation pipeline</strong>，而不是独立的回答器。
+
+## Retriever：多源检索不是并排堆功能，而是统一编排
+
+多源检索的核心在 `src/knowledge/core/retriever.py`。这个模块最值得注意的不是“它能查什么”，而是“它如何决定怎么查”。
+
+下面这段代码很能说明它的定位：
+
+```python
+def retrieval(self, query: str, history: list[dict[str, Any]], meta: dict[str, Any]) -> dict[str, Any]:
+    refs = {"query": query, "history": history, "meta": meta}
+
+    requested = sum(
+        1
+        for v in (
+            bool(meta.get("db_id")),
+            bool(meta.get("use_graph")),
+            bool(meta.get("use_web")),
+            bool(meta.get("mcp_id")),
+        )
+        if v
+    )
+
+    if requested >= 2:
+        with ThreadPoolExecutor(max_workers=4) as ex:
+            fut_kb = ex.submit(self.query_knowledgebase, query, history, refs)
+            fut_graph = ex.submit(self.query_graph, query, history, refs)
+            fut_web = ex.submit(self.query_web, query, history, refs)
+            fut_mcp = ex.submit(self.query_mysql_mcp, query, history, refs)
+```
+
+这里至少有三层值得关注的设计。
+
+### 第一，它统一管理多种证据源
+
+在很多原型系统里，知识库、图谱、Web Search 往往是散落在不同接口里的。但这里不同，它们都收敛到同一个 `Retriever` 里。这样做的好处是：
+
+- 更容易统一管理 `meta`
+- 更容易统一聚合引用结果 `refs`
+- 更容易控制并发与延迟
+
+### 第二，它会在必要时并行执行
+
+当一个请求同时打开多个能力源时，系统不会串行一个个查，而是并行发起多个检索分支，把总延迟压到更接近 `max(step_latency)` 而不是 `sum(step_latency)`。
+
+### 第三，它最终服务的是生成阶段，而不是直接替代生成阶段
+
+检索结束后，`Retriever.construct_query(...)` 会把图谱回答、知识库片段、Web 搜索结果、MCP 结果拼成增强上下文，再交给模型生成。这意味着它在架构中的位置是<strong>证据聚合器</strong>，而不是最终回答器。
+
+## 用一张表看懂普通模式的分流条件
+
+| 阶段 | 触发条件 | 主要文件 | 典型结果 |
+| --- | --- | --- | --- |
+| 本地直答 | 命中明确宝可梦事实意图 | `server/routers/chat_router.py` | 直接从本地数据返回，`model_name = local_dataset` |
+| 语义缓存 | 单轮 + 非检索请求 | `server/routers/chat_router.py` | 直接返回缓存内容 |
+| 检索增强 | `use_web / use_graph / db_id / mcp_id` 任一为真 | `src/knowledge/core/retriever.py` | 聚合外部证据并改写 query |
+| 模型生成 | 前三层未直接结束请求 | `server/routers/chat_router.py` | 进入 LLM 流式生成 |
+
+这张表能解释一件很常见、但也最容易误判的事情：在这个系统里，“回答来源”不是一个二元判断，不是只有“模型”或“知识库”两种，而是至少有四种可能的路径。
+
+## Agent 模式：从固定分流升级成图式调度
+
+如果用户打开 `Agent mode`，系统就不再走 `chat_router.py` 的普通模式主链，而是进入 `supervisor_agent` 和 `src/graph/workflow.py` 所定义的 LangGraph 工作流。
+
+这里的核心变化不是“模型更聪明了”，而是<strong>流程控制权发生了变化</strong>。
+
+在普通模式下，后端代码明确写死了执行顺序：本地直答、缓存、检索、生成。模型只在最后一段出现。
+
+在 Agent 模式下，系统进入的是一种 `supervisor + workers` 的调度结构：
+
+- `supervisor` 决定下一步去哪个 worker
+- `rag_worker` 负责 RAG / KB 路径
+- `graph_worker` 负责图谱路径
+- `web_worker` 负责联网搜索
+- `mcp_worker` 负责 MCP 工具能力
+- `stats_worker` 负责统计或结构化辅助能力
+- `finalizer` 负责最终收束输出
+
+`workflow.py` 里最关键的部分是下面这段：
+
+```python
+def _supervisor_route(state: AgentState) -> list[Send] | str:
+    next_target = state.get("next", "FINISH")
+
+    if next_target == "__PARALLEL__":
+        parallel_workers = state.get("parallel_workers", [])
+        if parallel_workers:
+            return [Send(worker, state) for worker in parallel_workers]
+        return END
+
+    if next_target == "FINISH":
+        return "finalizer"
+
+    return next_target
+```
+
+这段代码直接揭示了 Agent 模式最重要的能力：<strong>同一个问题可以被拆给多个 worker 并行执行</strong>。这也是普通模式和 Agent 模式最大的结构差异。
+
+### 普通模式与 Agent 模式，到底差在哪？
+
+| 维度 | 普通模式 | Agent 模式 |
+| --- | --- | --- |
+| 入口 | `/chat/` | `/chat/agent/supervisor_agent` |
+| 流程控制权 | 主要在后端代码 | supervisor 根据状态动态调度 |
+| 检索方式 | 通过 `Retriever` 聚合证据 | 通过多个 worker 调度能力 |
+| 典型结构 | 串行决策链 | 图式编排 / 支持并行 |
+| 优势 | 稳定、清晰、低成本 | 灵活、可扩展、可做多能力组合 |
+| 风险 | 对复杂多步问题不够灵活 | 更难约束，更依赖调度策略 |
+
+从工程角度看，这不是“哪个更高级”的问题，而是“哪个更适合当前问题复杂度”的问题。
+
+## 最后一段链：为什么前端能逐字显示答案
+
+无论普通模式还是 Agent 模式，最终都会回到同一个输出协议：NDJSON 流。
+
+前端侧的读取逻辑非常直接：
+
+```js
+export async function readNdjsonStream(response, onJson, { onParseError } = {}) {
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder('utf-8')
+  let buffer = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() || ''
+
+    for (const rawLine of lines) {
+      const line = rawLine.trim()
+      if (!line) continue
+      await onJson(JSON.parse(line))
+    }
+  }
+}
+```
+
+后端返回的是 `application/x-ndjson`，也就是“每一行一个 JSON 对象”。前端并不等整个响应完成，而是边读边切分、边解析边更新消息。
+
+这背后的好处很明显：
+
+- 不需要引入 WebSocket
+- 与现有 HTTP 请求链兼容
+- 支持统一的 `status / refs / meta / response` 协议
+
+也就是说，用户看到的“逐字输出”，本质上不是某种神秘的流式魔法，而是一个很朴素、但很有效的 NDJSON 增量消费模式。
+
+## 一张时序图：从用户输入到流式渲染结束
+
+<svg viewBox="0 0 1200 520" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="一次聊天请求的端到端时序图">
+  <line x1="120" y1="90" x2="120" y2="470" stroke="#cbd5e1" strokeWidth="3" />
+  <line x1="360" y1="90" x2="360" y2="470" stroke="#cbd5e1" strokeWidth="3" />
+  <line x1="620" y1="90" x2="620" y2="470" stroke="#cbd5e1" strokeWidth="3" />
+  <line x1="900" y1="90" x2="900" y2="470" stroke="#cbd5e1" strokeWidth="3" />
+
+  <text x="120" y="60" textAnchor="middle" fontSize="22" fontWeight="700" fill="#0f172a">User / UI</text>
+  <text x="360" y="60" textAnchor="middle" fontSize="22" fontWeight="700" fill="#0f172a">useChat.ts</text>
+  <text x="620" y="60" textAnchor="middle" fontSize="22" fontWeight="700" fill="#0f172a">Backend</text>
+  <text x="900" y="60" textAnchor="middle" fontSize="22" fontWeight="700" fill="#0f172a">Capability Layer</text>
+
+  <rect x="45" y="100" width="150" height="40" rx="12" fill="#fff7ed" stroke="#fdba74" />
+  <text x="120" y="126" textAnchor="middle" fontSize="16" fill="#9a3412">输入问题并发送</text>
+
+  <rect x="275" y="155" width="170" height="46" rx="12" fill="#eff6ff" stroke="#93c5fd" />
+  <text x="360" y="183" textAnchor="middle" fontSize="16" fill="#1d4ed8">组装 history + meta</text>
+
+  <rect x="540" y="220" width="160" height="46" rx="12" fill="#fefce8" stroke="#fde047" />
+  <text x="620" y="248" textAnchor="middle" fontSize="16" fill="#854d0e">路由与分流</text>
+
+  <rect x="810" y="285" width="180" height="54" rx="12" fill="#faf5ff" stroke="#c084fc" />
+  <text x="900" y="312" textAnchor="middle" fontSize="16" fill="#7e22ce">本地直答 / RAG / Graph /</text>
+  <text x="900" y="332" textAnchor="middle" fontSize="16" fill="#7e22ce">Web / MCP / Agent Workers</text>
+
+  <rect x="540" y="380" width="160" height="46" rx="12" fill="#ecfeff" stroke="#67e8f9" />
+  <text x="620" y="408" textAnchor="middle" fontSize="16" fill="#155e75">输出 NDJSON</text>
+
+  <rect x="275" y="430" width="170" height="46" rx="12" fill="#e0f2fe" stroke="#7dd3fc" />
+  <text x="360" y="458" textAnchor="middle" fontSize="16" fill="#0c4a6e">逐块解析并更新消息</text>
+
+  <path d="M120 140 L360 155" stroke="#fb923c" strokeWidth="4" fill="none" markerEnd="url(#pc3-arrow)" />
+  <path d="M360 201 L620 220" stroke="#3b82f6" strokeWidth="4" fill="none" markerEnd="url(#pc3-arrow)" />
+  <path d="M620 266 L900 285" stroke="#eab308" strokeWidth="4" fill="none" markerEnd="url(#pc3-arrow)" />
+  <path d="M900 339 L620 380" stroke="#a855f7" strokeWidth="4" fill="none" markerEnd="url(#pc3-arrow)" />
+  <path d="M620 426 L360 430" stroke="#06b6d4" strokeWidth="4" fill="none" markerEnd="url(#pc3-arrow)" />
+  <path d="M360 476 L120 476" stroke="#0ea5e9" strokeWidth="4" fill="none" markerEnd="url(#pc3-arrow)" />
+
+  <defs>
+    <marker id="pc3-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#64748b" />
+    </marker>
+  </defs>
+</svg>
+
+## 为什么这条调用链值得单独写一篇
+
+因为它回答了很多 AI 工程系统中最常被问到、但又最容易被讲得模糊的问题：
+
+- 一个聊天系统如何把 UI 状态转成后端执行约束？
+- 普通模式和 Agent 模式该如何共存？
+- 本地知识、检索增强、工具调用和模型生成之间，应该如何分层？
+- 前端“看起来只是一次发送”，背后到底触发了多少层执行逻辑？
+
+`pokemon agent` 的价值不只在于它做了一个宝可梦问答系统，而在于它把很多现代 AI 应用会遇到的工程问题，真实地压缩进了一条用户可感知的产品链里：<strong>同一套 UI，背后既能走简单本地直答，也能走多源检索增强，还能切到 supervisor + workers 的 Agent 编排</strong>。
+
+从系统设计角度看，这种“单产品，多执行路径”的结构，比单独看某个组件更有学习价值。
+
+## 推荐阅读顺序
+
+如果你想继续沿着这个系列往下读，最自然的顺序是：
+
+1. **[Blog 1：项目总览](/blog/pokemon-chat-overview)**：先看系统全景图
+2. **[Blog 2：调用链路](/blog/pokemon-chat-request-lifecycle)**：看一次请求到底怎么走
+3. **[Blog 3：RAG 主链](/blog/pokemon-chat-rag-mainline)**：看普通模式下的检索增强
+4. **[Blog 4：Agent 编排](/blog/pokemon-chat-agent-orchestration)**：看动态调度是如何实现的
+5. **[Blog 5：配置热切换](/blog/pokemon-chat-config-hot-reload)**：看前端开关如何真正变成后端行为
+6. **[Blog 6：Docker 架构](/blog/pokemon-chat-docker-architecture)**：看多依赖 AI 系统如何组织部署边界
+7. **[Blog 7：LangGraph 工程化实战](/blog/pokemon-chat-langgraph-engineering)**：看 tools/runtime/JSON/memory/context 如何协同
+
+如果你已经读完本文，那么下一篇最适合接着看的是 **[Blog 3：RAG 主链](/blog/pokemon-chat-rag-mainline)**，因为调用链路之后，最自然的问题就是：普通模式下的本地直答、缓存和 Retriever 到底是怎么串起来的。

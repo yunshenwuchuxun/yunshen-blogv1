@@ -1,0 +1,18 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#111827"/>
+      <stop offset="1" stop-color="#1E3A8A"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" rx="32" fill="url(#bg)"/>
+  <text x="90" y="130" fill="#BFDBFE" font-size="28" font-family="Arial, sans-serif">pokemon-chat-esc 系列（六）</text>
+  <text x="90" y="220" fill="white" font-size="54" font-weight="700" font-family="Arial, sans-serif">Docker Compose 架构与服务分层</text>
+  <text x="90" y="278" fill="#DBEAFE" font-size="28" font-family="Arial, sans-serif">web + api · infra · mcp · asr</text>
+  <rect x="100" y="350" width="250" height="110" rx="22" fill="#0B1220" stroke="#60A5FA"/>
+  <rect x="475" y="350" width="250" height="110" rx="22" fill="#0B1220" stroke="#60A5FA"/>
+  <rect x="850" y="350" width="250" height="110" rx="22" fill="#0B1220" stroke="#60A5FA"/>
+  <text x="170" y="416" fill="#F8FAFC" font-size="30" font-weight="700" font-family="Arial, sans-serif">Backbone</text>
+  <text x="540" y="416" fill="#F8FAFC" font-size="30" font-weight="700" font-family="Arial, sans-serif">Profiles</text>
+  <text x="920" y="416" fill="#F8FAFC" font-size="30" font-weight="700" font-family="Arial, sans-serif">Healthchecks</text>
+</svg>

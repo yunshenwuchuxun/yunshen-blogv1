@@ -1,0 +1,18 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F172A"/>
+      <stop offset="1" stop-color="#14532D"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" rx="32" fill="url(#bg)"/>
+  <text x="90" y="130" fill="#BBF7D0" font-size="28" font-family="Arial, sans-serif">pokemon-chat-esc 系列（五）</text>
+  <text x="90" y="220" fill="white" font-size="56" font-weight="700" font-family="Arial, sans-serif">配置热切换与运行时覆盖</text>
+  <text x="90" y="278" fill="#DCFCE7" font-size="28" font-family="Arial, sans-serif">.env → ui_config.json → feature_enabled() → runtime reset</text>
+  <rect x="120" y="360" width="960" height="110" rx="24" fill="#0B1220" stroke="#86EFAC"/>
+  <text x="150" y="425" fill="#F8FAFC" font-size="28" font-weight="700" font-family="Arial, sans-serif">Default Config</text>
+  <text x="430" y="425" fill="#F8FAFC" font-size="28" font-weight="700" font-family="Arial, sans-serif">Runtime Override</text>
+  <text x="760" y="425" fill="#F8FAFC" font-size="28" font-weight="700" font-family="Arial, sans-serif">Health / Ready</text>
+  <path d="M330 412H390" stroke="#86EFAC" stroke-width="6"/>
+  <path d="M690 412H750" stroke="#86EFAC" stroke-width="6"/>
+</svg>

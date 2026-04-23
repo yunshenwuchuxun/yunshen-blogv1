@@ -1,0 +1,371 @@
+---
+title: 'pokemon agent 系列（七）：配置热切换与运行时覆盖'
+publishedAt: '2026-04-20T10:02:00'
+summary: '从 .env、ui_config.json、feature flag、/config PATCH、runtime reset 到 health/ready 探针，系统拆解 pokemon agent 的运行时配置热切换机制。'
+image: '/static/blog/pokemon-chat-series/config-runtime-cover.svg'
+draft: false
+tags: [AI, Config, DevOps, Runtime]
+---
+
+<PaperCard
+	title="pokemon agent · Blog 7"
+	description="这篇文章聚焦配置与运行时行为，不讲模型能力本身，而是讲清楚：为什么前端设置页点一下开关，后端行为就会变；以及这种热切换设计到底靠哪些机制支撑。"
+	links={[
+		{ label: 'Blog 8：Docker Compose 架构与服务分层', url: '/blog/pokemon-chat-docker-architecture' },
+	]}
+/>
+
+> 系列导航：下一篇见 **[Blog 8：Docker Compose 架构与服务分层](/blog/pokemon-chat-docker-architecture)**。本文负责回答：**为什么页面上的开关，能直接改变后端运行时行为。**
+
+很多 AI 应用在配置设计上都有一个很常见的问题：配置虽然很多，但真正生效的只有启动时读取的那一份。你改了 `.env`，要重启；你想切换一个 feature flag，也要重启；你在前端设置页点了一个按钮，最多只是把 UI 颜色变一下，根本不会影响后端实际执行逻辑。
+
+`pokemon agent` 在这件事上的设计很值得单独拿出来讲。因为它做的不是“一个设置页”，而是一套相对完整的**运行时配置覆盖机制**：
+
+- `.env` 提供默认值
+- 前端通过 `/config` PATCH 提交变更
+- 变更会被持久化到 `ui_config.json`
+- `feature_enabled()` 统一判定最终生效值
+- 后端会清理 feature cache、reset 运行时单例
+- `/healthz` 和 `/readyz` 用于观察系统是否真的进入了预期状态
+
+也就是说，这个项目真正解决的问题不是“怎么改配置”，而是：
+
+> **怎么让配置从“静态文本文件”变成“真正驱动运行时行为的控制面”。**
+
+## TL;DR
+
+| 问题 | 简短结论 |
+| --- | --- |
+| 这个项目的配置来源只有 `.env` 吗？ | 不是，至少有 `.env` 和 `ui_config.json` 两层。 |
+| 哪一层优先级更高？ | `ui_config.json` 高于 `.env`。 |
+| 前端设置页改的值会写到哪里？ | 后端通过 `/config` PATCH 持久化到 `resources/save/config/ui_config.json`。 |
+| 为什么改完开关后往往能马上生效？ | 因为后端会清 feature cache，并 reset 运行时单例。 |
+| 所有配置都能被前端改吗？ | 不能，只允许在白名单里的 UI-safe key 被 PATCH。 |
+| 怎么判断某个 feature 现在到底是不是开着？ | 看 `feature_enabled()` 的结果，或直接看 `/readyz` / `/health` 返回。 |
+| 配置热切换的核心设计原则是什么？ | <strong>默认值来自 env，运行态覆盖来自持久化 JSON，最终行为由统一判定函数控制</strong>。 |
+
+## 先回答一个最常见的问题：为什么页面开关和 `.env` 看起来会“打架”
+
+很多人第一次看到这个项目时，最容易困惑的一点是：
+
+- `.env` 里明明写着 `enable_knowledge_base=false`
+- 但页面里又能打开知识库
+- 或者页面关掉了知识库，但系统行为和 `.env` 看起来不一致
+
+这不是 bug，而是这个项目配置设计的一个核心特性：**运行时覆盖优先于启动默认值**。
+
+简单说：
+
+- `.env` 是默认配置
+- 页面设置页通过 `/config` 写入 `ui_config.json`
+- 真正判断功能是否开启时，先读 `ui_config.json`，再回退到 `.env`
+
+所以如果你只看 `.env`，很多时候你看到的并不是“当前系统真实状态”，而只是“默认状态”。
+
+## 配置不是一层，而是三层：默认值、运行态覆盖、最终判定
+
+理解这个项目的配置系统，最适合从“三层结构”入手。
+
+### 第一层：默认值
+
+默认值主要来自 `src/core/settings.py`，它会把 `.env` 里的配置读成类型化 settings。对于大多数项目，这一层就已经是全部了。
+
+### 第二层：运行态覆盖
+
+这个项目额外引入了 `ui_config.json` 作为持久化覆盖层。前端设置页的行为不会直接改 `.env`，而是写到：
+
+- `resources/save/config/ui_config.json`
+
+### 第三层：最终判定
+
+业务代码不会自己东读一点 `.env`、西读一点 JSON，而是统一通过：
+
+- `feature_enabled(key)`
+
+来判断某个功能到底开没开。
+
+## 一张图看懂配置流转
+
+<svg viewBox="0 0 1200 460" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="配置热切换流转图">
+  <defs>
+    <marker id="cfg-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#64748b" />
+    </marker>
+  </defs>
+
+  <rect x="60" y="170" width="180" height="100" rx="18" fill="#fff7ed" stroke="#fdba74" />
+  <text x="150" y="206" textAnchor="middle" fontSize="26" fontWeight="700" fill="#9a3412">.env</text>
+  <text x="150" y="234" textAnchor="middle" fontSize="16" fill="#7c2d12">启动默认配置</text>
+
+  <rect x="330" y="70" width="220" height="100" rx="18" fill="#eff6ff" stroke="#93c5fd" />
+  <text x="440" y="106" textAnchor="middle" fontSize="24" fontWeight="700" fill="#1d4ed8">前端设置页</text>
+  <text x="440" y="134" textAnchor="middle" fontSize="16" fill="#1e40af">PATCH /config</text>
+
+  <rect x="330" y="250" width="220" height="100" rx="18" fill="#fef2f2" stroke="#fca5a5" />
+  <text x="440" y="286" textAnchor="middle" fontSize="24" fontWeight="700" fill="#b91c1c">ui_config.json</text>
+  <text x="440" y="314" textAnchor="middle" fontSize="16" fill="#991b1b">运行时持久化覆盖</text>
+
+  <rect x="650" y="170" width="220" height="100" rx="18" fill="#ecfeff" stroke="#67e8f9" />
+  <text x="760" y="206" textAnchor="middle" fontSize="24" fontWeight="700" fill="#155e75">feature_enabled()</text>
+  <text x="760" y="234" textAnchor="middle" fontSize="16" fill="#164e63">统一判定最终值</text>
+
+  <rect x="960" y="170" width="180" height="100" rx="18" fill="#f0fdf4" stroke="#86efac" />
+  <text x="1050" y="206" textAnchor="middle" fontSize="26" fontWeight="700" fill="#166534">业务逻辑</text>
+  <text x="1050" y="234" textAnchor="middle" fontSize="16" fill="#166534">KB / Graph / MCP ...</text>
+
+  <path d="M240 220 L650 220" stroke="#f59e0b" strokeWidth="6" markerEnd="url(#cfg-arrow)" />
+  <path d="M440 170 L440 250" stroke="#ef4444" strokeWidth="6" markerEnd="url(#cfg-arrow)" />
+  <path d="M550 300 L650 240" stroke="#3b82f6" strokeWidth="6" fill="none" markerEnd="url(#cfg-arrow)" />
+  <path d="M870 220 L960 220" stroke="#22c55e" strokeWidth="6" markerEnd="url(#cfg-arrow)" />
+</svg>
+
+这张图对应的核心思路非常清晰：`.env` 提供起点，`ui_config.json` 负责运行时覆盖，而 `feature_enabled()` 负责把两者合并成业务代码真正使用的最终值。
+
+## `feature_enabled()`：配置系统里最关键的一行代码
+
+整个热切换机制最值得看的文件，是 `src/core/feature_flags.py`。其中最关键的不是某个复杂类，而是这个简单函数：
+
+```python
+def feature_enabled(key: str) -> bool:
+    """
+    Precedence:
+      1) persisted UI override (resources/save/config/ui_config.json)
+      2) env/.env default via `settings.features.*`
+    """
+    key = (key or "").strip()
+    if not key.startswith("enable_"):
+        raise ValueError("feature key must start with 'enable_'")
+
+    overrides = load_overrides()
+    if key in overrides:
+        return _as_bool(overrides.get(key), default=False)
+
+    default = bool(getattr(settings.features, key, False))
+    return default
+```
+
+### 这段代码为什么重要
+
+因为它把“配置到底以谁为准”这个问题，变成了一个明确且统一的规则：
+
+1. 先看 `ui_config.json`
+2. 如果没有覆盖，再看 `.env`
+
+这看起来很朴素，但对系统一致性非常关键。因为如果没有这类统一入口，系统里很容易出现：
+
+- 某个模块直接读 `.env`
+- 某个模块直接读 JSON
+- 某个模块自己缓存一份值
+- 最后大家都以为自己看到的是“当前状态”
+
+而 `feature_enabled()` 的价值就在于：**大家都只认这一处真相来源。**
+
+## 为什么前端点一下开关，后端往往能马上生效
+
+这件事的核心不在前端，而在后端 `server/runtime_config.py`。
+
+前端通过 `/config` PATCH 提交变更之后，后端不会只是“把 JSON 写一下就完了”，而是会继续做几件很关键的事：
+
+```python
+def patch_ui_overrides(patch: dict[str, Any]) -> dict[str, Any]:
+    safe_patch = {k: v for k, v in patch.items() if k in _ALLOWED_PATCH_KEYS}
+
+    with _lock:
+        cur = _read_json_file(_config_file())
+        cur.update(safe_patch)
+        _atomic_write_json(_config_file(), cur)
+        clear_feature_cache()
+        clear_ui_overrides_cache()
+        reset_all()
+        reset_graph_workers()
+        return cur
+```
+
+这段代码非常值得细看，因为它说明热切换并不是“写文件”本身，而是一个完整动作：
+
+1. 过滤允许修改的 key
+2. 更新并原子写入 `ui_config.json`
+3. 清掉 feature cache
+4. 清掉 UI override cache
+5. reset 运行时单例
+6. reset graph workers
+
+### 对初学者来说最重要的理解
+
+> 热切换真正难的不是“把新值存下来”，而是“怎么让已经在内存里的旧对象别继续用旧值”。
+
+如果只写文件、不清缓存、不 reset 单例，那么系统下一次请求很可能还是沿用旧对象、旧 client、旧 feature flag。也正因为如此，这里的 `clear_*` 和 `reset_*` 才是“改完配置就能生效”的关键。
+
+## 为什么不是所有配置都允许前端改
+
+`runtime_config.py` 里还有一个特别重要、但很容易被忽视的设计：白名单。
+
+```python
+_ALLOWED_PATCH_KEYS = {
+    "model_provider",
+    "model_name",
+    "enable_knowledge_base",
+    "enable_knowledge_graph",
+    "enable_web_search",
+    "enable_mcp",
+    "enable_reranker",
+    "enable_asr",
+    "enable_ner_bert",
+    "enable_agent_finalizer",
+}
+```
+
+这说明前端不是想改什么就能改什么。只有被明确列进白名单里的、且被认为是 **non-sensitive, UI-driven preferences** 的配置，才允许被 PATCH。
+
+### 这为什么重要
+
+因为一个成熟系统必须区分两类配置：
+
+- **UI-safe 配置**：可以通过页面开关改
+- **敏感或基础配置**：不能让前端直接改
+
+例如：
+- feature flag 适合页面切换
+- API key 明显不应该从这个接口直接改
+- 某些底层连接参数也不应该随便让前端写入
+
+这就是为什么 `base_router.py` 的 `/config` 接口看起来很简单，但真正的安全边界其实在 `patch_ui_overrides()` 的白名单里。
+
+## `/config`：前端设置页与后端运行态之间的桥
+
+前端真正打的接口在 `server/routers/base_router.py`：
+
+```python
+@base.get("/config")
+def get_config():
+    return build_ui_config()
+
+@base.patch("/config")
+async def patch_config(patch: dict = Body(...)):
+    patch_ui_overrides(patch)
+    return build_ui_config()
+```
+
+这意味着 `/config` 在这个项目里承担的是一个非常明确的角色：
+
+- `GET /config`：获取当前前端可见配置
+- `PATCH /config`：更新允许热切换的运行时覆盖值
+
+### 为什么 `build_ui_config()` 也很重要
+
+因为前端并不是直接读原始配置文件，而是读一个经过后端加工过的 UI-safe 配置对象：
+
+```python
+return {
+    "model_provider": model_provider,
+    "model_name": model_name,
+    "enable_knowledge_base": _get_bool(...),
+    "enable_knowledge_graph": _get_bool(...),
+    ...
+}
+```
+
+也就是说，后端不仅负责“存配置”，还负责把配置整理成适合 UI 使用的形式，并且保证不会把敏感信息直接暴露出去。
+
+## `healthz` 和 `readyz`：为什么“配置开着”不等于“能力可用”
+
+这一点是很多系统都会踩的坑：配置值显示功能开启了，但底层依赖根本没起来。用户看到的是“开关是亮的”，实际结果却是请求失败。
+
+`pokemon agent` 用 `/healthz` 和 `/readyz` 区分了这两层问题。
+
+### `/healthz`
+
+```python
+@health.get("/healthz")
+async def healthz():
+    return {"status": "ok"}
+```
+
+这个接口很轻，只表示应用进程本身活着。
+
+### `/readyz`
+
+`/readyz` 更像一个真正的能力探针，它会检查：
+
+- Neo4j 是否可达
+- Milvus 是否可达
+- MySQL 是否可达
+- FunASR 是否可达
+- feature flags 当前值是什么
+- 是否缺少关键 API key
+
+比如：
+
+```python
+kb_enabled = bool(feature_enabled("enable_knowledge_base"))
+milvus_ok, milvus_err = tcp_check(milvus_host, milvus_port) if kb_enabled else (True, "")
+checks["milvus"] = {
+    "enabled": kb_enabled,
+    "target": f"{milvus_host}:{milvus_port}",
+    "ok": milvus_ok,
+    "error": milvus_err,
+}
+```
+
+### 对初学者来说，这里的关键启发是：
+
+> 一个 feature 是否“开着”，至少要拆成两层来看：
+> 1. 配置上是否启用
+> 2. 依赖上是否真的 ready
+
+这也是为什么在这个项目里，单看一个开关值远远不够，你还需要看 `/readyz` 的 `checks`。
+
+## 一张表总结：配置、覆盖、运行态和就绪状态分别在回答什么问题
+
+| 层次 | 它回答的问题 | 典型位置 |
+| --- | --- | --- |
+| `.env` | 默认应该怎么配置？ | `src/core/settings.py` |
+| `ui_config.json` | 用户最近通过 UI 改成了什么？ | `resources/save/config/ui_config.json` |
+| `feature_enabled()` | 现在最终生效值是什么？ | `src/core/feature_flags.py` |
+| `patch_ui_overrides()` | 改完配置后，怎样让运行时真正切换过去？ | `server/runtime_config.py` |
+| `/config` | 前端应该读写什么配置？ | `server/routers/base_router.py` |
+| `/readyz` | 当前服务和依赖是否真的 ready？ | `server/routers/health_router.py` |
+
+这张表非常适合当作这个项目配置系统的总索引。因为它说明：配置不是一个文件，而是一条链。
+
+## 这个设计最值得借鉴的地方是什么
+
+如果把整套机制浓缩成一句工程原则，我会这样总结：
+
+> **默认值来自环境，运行态覆盖来自持久化 JSON，最终行为由统一判定函数控制，而不是让每个模块自己读配置。**
+
+这个原则的好处在于：
+
+- 行为一致
+- 热切换可控
+- 问题更容易排查
+- 前端设置页真正有意义
+- 后端不会因为配置分散而出现“每个模块看到的世界都不同”
+
+## 总结
+
+很多系统的设置页本质上只是“UI 表单”，真正行为仍然由启动配置决定；但 `pokemon agent` 这套设计更进一步，它把设置页变成了真正的运行时控制面。
+
+也正因为如此，这个项目里最值得学习的，不是某一个 feature flag 本身，而是整条配置链：
+
+- 默认值从哪里来
+- 覆盖值写到哪里
+- 最终值怎么统一判定
+- 已经初始化过的对象怎么 reset
+- 功能是否真的 ready 又怎么观测
+
+当这些都理顺后，你才真正拥有了“配置热切换”这件事，而不是只是拥有一个能保存 JSON 的按钮。
+
+## 推荐阅读顺序
+
+如果你想继续沿着这个系列往下读，最自然的顺序是：
+
+1. **[Blog 1：项目总览](/blog/pokemon-chat-overview)**：先看系统地图
+2. **[Blog 2：调用链路](/blog/pokemon-chat-request-lifecycle)**：看一次请求到底怎么走
+3. **[Blog 3：RAG 主链](/blog/pokemon-chat-rag-mainline)**：看普通模式下的检索增强
+4. **[Blog 4：Agent 编排](/blog/pokemon-chat-agent-orchestration)**：看动态调度如何落地
+5. **Blog 5：配置热切换**：看前端开关如何真正变成后端行为
+6. **[Blog 6：Docker 架构](/blog/pokemon-chat-docker-architecture)**：看多依赖系统如何组织服务边界
+7. **[Blog 7：LangGraph 工程化实战](/blog/pokemon-chat-langgraph-engineering)**：看 tools/runtime/JSON/memory/context 工程细节
+
+如果你已经读完本文，那么接下来最适合读 **[Blog 6：Docker 架构](/blog/pokemon-chat-docker-architecture)** 和 **[Blog 7：LangGraph 工程化实战](/blog/pokemon-chat-langgraph-engineering)**，把基础设施分层与运行时工程细节一起补齐。

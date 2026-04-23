@@ -1,0 +1,513 @@
+---
+title: 'pokemon agent 系列（九）：LangGraph 工程化实战'
+publishedAt: '2026-04-23T22:30:00'
+summary: '基于 pokemon agent 真实代码，系统拆解 LangGraph 的 tools 路由、runtime 执行、结构化 JSON 输出、memory 分层与上下文工程方法。'
+image: '/static/blog/pokemon-chat-series/langgraph-engineering-cover.svg'
+draft: false
+tags: [AI, Agent, LangGraph, Engineering]
+---
+
+<PaperCard
+	title="pokemon agent · Blog 9"
+	description="这篇文章是系列进阶篇：不再只讲“有 supervisor + workers”，而是专门讲清楚一个 LangGraph 项目在工程层面最关键的五件事：工具路由、运行时、结构化输出、记忆分层与上下文工程。"
+	links={[]}
+/>
+
+> 系列导航：本文是 `pokemon agent` 系列最后一篇。本文负责回答：**一套 LangGraph 系统如何从“能跑”走到“可解释、可控、可维护”。**
+
+很多人第一次做 LangGraph，会在“跑通流程图”后停下来，觉得任务已经完成。  
+但真正决定系统质量的，往往不是 `StateGraph(...)` 这行代码，而是下面这些工程问题：
+
+- 工具路由到底谁说了算，规则和 LLM 怎么分工？
+- 运行时状态怎么传，怎么持久化，怎么流式输出？
+- 结构化 JSON 输出怎么保证，不会一会儿是文本一会儿是半截 JSON？
+- memory 是单层还是分层，短期/长期/缓存怎么协同？
+- 上下文怎么拼接，既不丢证据，也不把上下文窗口撑爆？
+
+`pokemon agent` 的价值就在于，它把这些问题都做成了可读的工程实现，而不是停留在抽象概念。
+
+## TL;DR
+
+| 问题 | 在项目中的工程答案 |
+| --- | --- |
+| tools 路由怎么做？ | `supervisor` 先走确定性规则（意图分类、rule route、parallel rule），最后才用 `bind_tools(..., tool_choice="required")` 兜底。 |
+| runtime 怎么落地？ | `workflow.compile(checkpointer=..., store=...)` + `thread_id` 配置 + `astream_events` 事件流，前后端通过 NDJSON 协议对接。 |
+| JSON 输出怎么保证？ | 在需要结构化输出的链路上使用 `with_structured_output(PydanticModel)`，并提供异常 fallback，避免 brittle JSON parsing。 |
+| memory 怎么设计？ | AgentState 消息态 + checkpointer 线程态 + semantic cache 结果复用 + 可选长期记忆 middleware，形成分层记忆。 |
+| 上下文工程怎么做？ | Retriever 统一聚合 KB/Graph/Web/MCP 证据，worker 内做 query decomposition/HyDE/并行召回，finalizer 做“只改写不扩写”的强约束收口。 |
+
+## 一张图先看全局
+
+<svg viewBox="0 0 1200 520" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="LangGraph 工程化全局图">
+  <defs>
+    <marker id="lg7-arrow-a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#64748b" />
+    </marker>
+  </defs>
+
+  <rect x="40" y="60" width="170" height="90" rx="14" fill="#eff6ff" stroke="#93c5fd" />
+  <text x="125" y="95" textAnchor="middle" fontSize="22" fontWeight="700" fill="#1d4ed8">Frontend</text>
+  <text x="125" y="122" textAnchor="middle" fontSize="14" fill="#1e40af">useChat.ts</text>
+
+  <rect x="270" y="60" width="200" height="90" rx="14" fill="#f8fafc" stroke="#cbd5e1" />
+  <text x="370" y="95" textAnchor="middle" fontSize="22" fontWeight="700" fill="#334155">/chat/agent</text>
+  <text x="370" y="122" textAnchor="middle" fontSize="14" fill="#475569">chat_router.py</text>
+
+  <rect x="530" y="40" width="260" height="130" rx="14" fill="#ecfeff" stroke="#67e8f9" />
+  <text x="660" y="75" textAnchor="middle" fontSize="22" fontWeight="700" fill="#155e75">Supervisor Runtime</text>
+  <text x="660" y="102" textAnchor="middle" fontSize="14" fill="#0e7490">supervisor_agent.py</text>
+  <text x="660" y="126" textAnchor="middle" fontSize="14" fill="#0e7490">thread_id + astream_events</text>
+  <text x="660" y="150" textAnchor="middle" fontSize="14" fill="#0e7490">checkpointer + store</text>
+
+  <rect x="850" y="30" width="300" height="150" rx="14" fill="#f0fdf4" stroke="#86efac" />
+  <text x="1000" y="65" textAnchor="middle" fontSize="22" fontWeight="700" fill="#166534">Workflow</text>
+  <text x="1000" y="92" textAnchor="middle" fontSize="14" fill="#15803d">workflow.py + state.py</text>
+  <text x="1000" y="116" textAnchor="middle" fontSize="14" fill="#15803d">supervisor / workers / finalizer</text>
+  <text x="1000" y="140" textAnchor="middle" fontSize="14" fill="#15803d">conditional edges + Send()</text>
+
+  <rect x="120" y="240" width="280" height="220" rx="14" fill="#fff7ed" stroke="#fdba74" />
+  <text x="260" y="275" textAnchor="middle" fontSize="22" fontWeight="700" fill="#9a3412">Tools Routing</text>
+  <text x="260" y="302" textAnchor="middle" fontSize="14" fill="#b45309">intent fast-path</text>
+  <text x="260" y="325" textAnchor="middle" fontSize="14" fill="#b45309">rule_route / parallel_rule</text>
+  <text x="260" y="348" textAnchor="middle" fontSize="14" fill="#b45309">bind_tools(tool_choice=required)</text>
+  <text x="260" y="371" textAnchor="middle" fontSize="14" fill="#b45309">allowed_workers constraints</text>
+  <text x="260" y="394" textAnchor="middle" fontSize="14" fill="#b45309">forward_directly guardrail</text>
+
+  <rect x="450" y="240" width="300" height="220" rx="14" fill="#f5f3ff" stroke="#c4b5fd" />
+  <text x="600" y="275" textAnchor="middle" fontSize="22" fontWeight="700" fill="#6d28d9">Structured Output</text>
+  <text x="600" y="302" textAnchor="middle" fontSize="14" fill="#7c3aed">with_structured_output(...)</text>
+  <text x="600" y="325" textAnchor="middle" fontSize="14" fill="#7c3aed">GuardrailDecision / RouteResponse</text>
+  <text x="600" y="348" textAnchor="middle" fontSize="14" fill="#7c3aed">AgentResponse JSON mode</text>
+  <text x="600" y="371" textAnchor="middle" fontSize="14" fill="#7c3aed">fallback to ErrorResponse/text</text>
+  <text x="600" y="394" textAnchor="middle" fontSize="14" fill="#7c3aed">NDJSON != semantic schema</text>
+
+  <rect x="800" y="240" width="330" height="220" rx="14" fill="#fefce8" stroke="#fde047" />
+  <text x="965" y="275" textAnchor="middle" fontSize="22" fontWeight="700" fill="#854d0e">Memory + Context</text>
+  <text x="965" y="302" textAnchor="middle" fontSize="14" fill="#a16207">AgentState / checkpointer</text>
+  <text x="965" y="325" textAnchor="middle" fontSize="14" fill="#a16207">SemanticCache namespace isolation</text>
+  <text x="965" y="348" textAnchor="middle" fontSize="14" fill="#a16207">Retriever multi-source aggregation</text>
+  <text x="965" y="371" textAnchor="middle" fontSize="14" fill="#a16207">RagWorker: decompose + HyDE + parallel</text>
+  <text x="965" y="394" textAnchor="middle" fontSize="14" fill="#a16207">finalizer: constrained rewrite</text>
+
+  <path d="M210 105 L270 105" stroke="#60a5fa" strokeWidth="5" markerEnd="url(#lg7-arrow-a)" />
+  <path d="M470 105 L530 105" stroke="#94a3b8" strokeWidth="5" markerEnd="url(#lg7-arrow-a)" />
+  <path d="M790 105 L850 105" stroke="#22c55e" strokeWidth="5" markerEnd="url(#lg7-arrow-a)" />
+
+  <path d="M660 170 L260 240" stroke="#f59e0b" strokeWidth="4" markerEnd="url(#lg7-arrow-a)" />
+  <path d="M660 170 L600 240" stroke="#8b5cf6" strokeWidth="4" markerEnd="url(#lg7-arrow-a)" />
+  <path d="M660 170 L965 240" stroke="#eab308" strokeWidth="4" markerEnd="url(#lg7-arrow-a)" />
+</svg>
+
+这张图对应到你的项目代码，可以直接对齐到：
+
+- 前端入口：`web/src/composables/useChat.ts`
+- 接口分发：`server/routers/chat_router.py`
+- Agent 运行时：`src/agents/supervisor_agent.py`
+- 图与状态：`src/graph/workflow.py`、`src/graph/state.py`
+- 路由节点：`src/graph/nodes/supervisor.py`
+- 收口节点：`src/graph/nodes/finalizer.py`
+- 检索与缓存：`src/knowledge/core/retriever.py`、`src/knowledge/cache/cache.py`
+
+## 模块一：Tools 路由（Supervisor 决策栈）
+
+很多教程会直接上 ReAct，把工具都丢给模型，然后期待模型自动做最优路由。  
+这在 Demo 阶段可行，但在工程系统里通常会出现两个问题：
+
+1. 成本不稳定（每次都先调 LLM 决定路由）
+2. 路由可控性差（简单问题也被过度 agent 化）
+
+`pokemon agent` 在 `src/graph/nodes/supervisor.py` 里用了一个更工程化的分层决策：
+
+```python
+# 1) 高置信意图：确定性快路由
+decision = classify_intent(last_human or "")
+if decision.intent == Intent.POKEDEX_FACTS and decision.confidence >= 0.8:
+    if "stats_worker" in allowed:
+        return {"next": "stats_worker", "forward_directly": True}
+
+# 2) 规则并行路由
+parallel_workers = rule_route_parallel(last_human or "", allowed)
+if len(parallel_workers) > 1:
+    return {
+        "next": "__PARALLEL__",
+        "parallel_workers": parallel_workers,
+        "parallel_count": len(parallel_workers),
+        "parallel_done": 0,
+        "forward_directly": True,
+    }
+
+# 3) 规则单路由
+route = rule_route(last_human or "", allowed)
+if route:
+    return {"next": route, "forward_directly": True}
+
+# 4) 最后才交给 LLM tool-calling
+handoff_tools = _build_handoff_tools(allowed, support_parallel=True)
+llm_with_tools = self.llm.bind_tools(handoff_tools, tool_choice="required")
+```
+
+### 路由栈图
+
+<svg viewBox="0 0 1200 420" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="Supervisor 路由优先级">
+  <defs>
+    <marker id="lg7-arrow-b" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#64748b" />
+    </marker>
+  </defs>
+
+  <rect x="80" y="40" width="1040" height="70" rx="12" fill="#eff6ff" stroke="#93c5fd" />
+  <text x="600" y="83" textAnchor="middle" fontSize="24" fontWeight="700" fill="#1d4ed8">输入：last_human + allowed_workers + state flags</text>
+
+  <rect x="120" y="150" width="240" height="90" rx="12" fill="#f0fdf4" stroke="#86efac" />
+  <text x="240" y="185" textAnchor="middle" fontSize="20" fontWeight="700" fill="#166534">Layer 1</text>
+  <text x="240" y="212" textAnchor="middle" fontSize="14" fill="#15803d">classify_intent 快路由</text>
+
+  <rect x="400" y="150" width="240" height="90" rx="12" fill="#ecfeff" stroke="#67e8f9" />
+  <text x="520" y="185" textAnchor="middle" fontSize="20" fontWeight="700" fill="#155e75">Layer 2</text>
+  <text x="520" y="212" textAnchor="middle" fontSize="14" fill="#0e7490">rule_route_parallel</text>
+
+  <rect x="680" y="150" width="240" height="90" rx="12" fill="#fff7ed" stroke="#fdba74" />
+  <text x="800" y="185" textAnchor="middle" fontSize="20" fontWeight="700" fill="#9a3412">Layer 3</text>
+  <text x="800" y="212" textAnchor="middle" fontSize="14" fill="#b45309">rule_route 单路由</text>
+
+  <rect x="960" y="150" width="180" height="90" rx="12" fill="#f5f3ff" stroke="#c4b5fd" />
+  <text x="1050" y="185" textAnchor="middle" fontSize="20" fontWeight="700" fill="#6d28d9">Layer 4</text>
+  <text x="1050" y="212" textAnchor="middle" fontSize="14" fill="#7c3aed">LLM bind_tools</text>
+
+  <rect x="220" y="300" width="240" height="80" rx="12" fill="#f8fafc" stroke="#cbd5e1" />
+  <text x="340" y="335" textAnchor="middle" fontSize="18" fontWeight="700" fill="#334155">Single worker</text>
+  <text x="340" y="357" textAnchor="middle" fontSize="13" fill="#475569">next = stats/rag/graph/web/mcp</text>
+
+  <rect x="500" y="300" width="240" height="80" rx="12" fill="#f8fafc" stroke="#cbd5e1" />
+  <text x="620" y="335" textAnchor="middle" fontSize="18" fontWeight="700" fill="#334155">Parallel workers</text>
+  <text x="620" y="357" textAnchor="middle" fontSize="13" fill="#475569">next=__PARALLEL__ + Send()</text>
+
+  <rect x="780" y="300" width="220" height="80" rx="12" fill="#f8fafc" stroke="#cbd5e1" />
+  <text x="890" y="335" textAnchor="middle" fontSize="18" fontWeight="700" fill="#334155">Finish</text>
+  <text x="890" y="357" textAnchor="middle" fontSize="13" fill="#475569">finalizer / END</text>
+
+  <path d="M240 110 L240 150" stroke="#22c55e" strokeWidth="4" markerEnd="url(#lg7-arrow-b)" />
+  <path d="M520 110 L520 150" stroke="#06b6d4" strokeWidth="4" markerEnd="url(#lg7-arrow-b)" />
+  <path d="M800 110 L800 150" stroke="#f59e0b" strokeWidth="4" markerEnd="url(#lg7-arrow-b)" />
+  <path d="M1050 110 L1050 150" stroke="#8b5cf6" strokeWidth="4" markerEnd="url(#lg7-arrow-b)" />
+
+  <path d="M240 240 L340 300" stroke="#64748b" strokeWidth="3" markerEnd="url(#lg7-arrow-b)" />
+  <path d="M520 240 L620 300" stroke="#64748b" strokeWidth="3" markerEnd="url(#lg7-arrow-b)" />
+  <path d="M800 240 L340 300" stroke="#64748b" strokeWidth="3" markerEnd="url(#lg7-arrow-b)" />
+  <path d="M1050 240 L890 300" stroke="#64748b" strokeWidth="3" markerEnd="url(#lg7-arrow-b)" />
+</svg>
+
+这个顺序非常关键：**能规则化的先规则化，把 LLM 路由留给真正不确定的场景**。  
+它不是降低智能，而是把智能放在最该用的地方。
+
+## 模块二：Runtime（图执行 + 事件流 + 线程态）
+
+很多人把 LangGraph 当“流程控制库”，但在工程里它更像一个 runtime：
+
+- 接收输入状态
+- 按图调度节点
+- 保存会话线程状态
+- 产生流式执行事件
+
+`src/agents/supervisor_agent.py` 里入口非常典型：
+
+```python
+input_state: dict[str, Any] = {"messages": [HumanMessage(content=query)]}
+if allowed_workers is not None:
+    input_state["allowed_workers"] = allowed_workers
+if isinstance(db_id, str) and db_id.strip():
+    input_state["db_id"] = db_id.strip()
+
+config = {"configurable": {"thread_id": meta.get("thread_id", "default")}}
+
+async for event in self.graph.astream_events(input_state, config, version="v1"):
+    ...
+```
+
+这里至少说明了三层 runtime 设计：
+
+1. **输入态建模**：不是只传 `query`，而是传 `messages + constraints + db_id` 的执行态。
+2. **线程态隔离**：通过 `thread_id` 把状态绑定到会话线程。
+3. **事件态输出**：通过 `astream_events` 提供 token、tool start/end、节点输出等事件。
+
+在图编译层，`SupervisorAgent._build_graph()` 会注入 checkpointer 与 store：
+
+```python
+return workflow.compile(
+    checkpointer=self._checkpointer,
+    store=_get_memory_store(),
+)
+```
+
+`workflow.py` 里则明确了图结构与路由函数：
+
+```python
+workflow.add_conditional_edges(worker_name, _post_worker_route, _worker_route_map)
+workflow.add_conditional_edges("supervisor", _supervisor_route, {...})
+workflow.add_edge("finalizer", END)
+workflow.set_entry_point("supervisor")
+```
+
+这部分和前端的 `web/src/composables/useChat.ts` 正好闭环：前端把 `thread_id`、`agent_constraints` 发给后端，后端把执行结果按 NDJSON chunk 流回前端。
+
+## 模块三：JSON 输出保证（结构化语义层 vs 传输层）
+
+很多项目会写一句 prompt：`请严格输出 JSON`。  
+这在生产里非常脆，因为任何轻微偏差都会导致解析失败。
+
+在 `pokemon agent` 里，可以看到更可靠的做法：**用 schema 驱动 structured output**。
+
+例如 `src/agents/chat_agent.py`：
+
+```python
+class GuardrailDecision(BaseModel):
+    status: str
+    reason: str | None = None
+
+chain = guardrail_prompt | self.base_llm.with_structured_output(GuardrailDecision)
+```
+
+路由决策也用约束 schema：
+
+```python
+RouteResponse = _route_schema(options)
+chain = prompt | self.base_llm.with_structured_output(RouteResponse)
+```
+
+业务输出模式为 `json` 时：
+
+```python
+structured_base_llm = self.base_llm.with_structured_output(AgentResponse)
+model_response = wrapped_structured_invoke(messages)
+```
+
+异常路径会 fallback（`ErrorResponse` 或 text），避免“全链路因为一次 parse error 崩掉”。
+
+### 关键区分：NDJSON 不是结构化语义输出
+
+`server/routers/chat_router.py` 与前端 `readNdjsonStream(...)` 用 `application/x-ndjson`，它解决的是**传输层流式协议**。  
+而 `with_structured_output(...)` 解决的是**语义层 schema 保证**。
+
+两层都做，系统才稳：
+
+- NDJSON：每一行是可增量消费 chunk
+- structured output：字段满足 schema，减少后处理脆弱性
+
+## 模块四：Memory 分层（状态记忆、线程记忆、缓存记忆、长期记忆）
+
+在这个项目里，memory 不是单点功能，而是分层设计：
+
+1. **图内短期状态（AgentState）**  
+`src/graph/state.py` 的 `messages / next / allowed_workers / parallel_*`，负责一次图执行内共享状态。
+
+2. **会话线程状态（checkpointer + thread_id）**  
+`SupervisorAgent` 支持 `MemorySaver` 或 `SqliteSaver`，配合 `configurable.thread_id` 维护会话连续性。
+
+3. **语义缓存（Semantic Cache）**  
+`src/knowledge/cache/cache.py` 用 embedding 相似度复用回答，并通过 `model_provider/model_name/system_prompt_sha` 做命名空间隔离，防止错配复用。
+
+4. **长期记忆（可选 middleware）**  
+`src/agents/chat_agent.py` 中 `LongTermMemoryMiddleware` 可按 feature flag 注入，在模型前检索历史偏好，在模型后异步回写。
+
+### Memory 分层图
+
+<svg viewBox="0 0 1200 430" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="Memory 分层架构">
+  <defs>
+    <marker id="lg7-arrow-c" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#64748b" />
+    </marker>
+  </defs>
+
+  <rect x="60" y="40" width="1080" height="70" rx="12" fill="#f8fafc" stroke="#cbd5e1" />
+  <text x="600" y="83" textAnchor="middle" fontSize="24" fontWeight="700" fill="#334155">同一会话中的“记住”不是一层能力，而是多层协同</text>
+
+  <rect x="80" y="150" width="250" height="220" rx="12" fill="#eff6ff" stroke="#93c5fd" />
+  <text x="205" y="185" textAnchor="middle" fontSize="20" fontWeight="700" fill="#1d4ed8">Layer 1</text>
+  <text x="205" y="210" textAnchor="middle" fontSize="16" fill="#1e40af">AgentState</text>
+  <text x="205" y="236" textAnchor="middle" fontSize="13" fill="#1e40af">messages / next</text>
+  <text x="205" y="258" textAnchor="middle" fontSize="13" fill="#1e40af">allowed_workers</text>
+  <text x="205" y="280" textAnchor="middle" fontSize="13" fill="#1e40af">parallel_count/done</text>
+  <text x="205" y="312" textAnchor="middle" fontSize="13" fill="#1e40af">scope: 单次图执行</text>
+
+  <rect x="355" y="150" width="250" height="220" rx="12" fill="#ecfeff" stroke="#67e8f9" />
+  <text x="480" y="185" textAnchor="middle" fontSize="20" fontWeight="700" fill="#155e75">Layer 2</text>
+  <text x="480" y="210" textAnchor="middle" fontSize="16" fill="#0e7490">Checkpointer</text>
+  <text x="480" y="236" textAnchor="middle" fontSize="13" fill="#0e7490">MemorySaver / SqliteSaver</text>
+  <text x="480" y="258" textAnchor="middle" fontSize="13" fill="#0e7490">key: thread_id</text>
+  <text x="480" y="280" textAnchor="middle" fontSize="13" fill="#0e7490">scope: 会话线程</text>
+  <text x="480" y="312" textAnchor="middle" fontSize="13" fill="#0e7490">跨请求连续性</text>
+
+  <rect x="630" y="150" width="250" height="220" rx="12" fill="#f0fdf4" stroke="#86efac" />
+  <text x="755" y="185" textAnchor="middle" fontSize="20" fontWeight="700" fill="#166534">Layer 3</text>
+  <text x="755" y="210" textAnchor="middle" fontSize="16" fill="#15803d">Semantic Cache</text>
+  <text x="755" y="236" textAnchor="middle" fontSize="13" fill="#15803d">embedding similarity</text>
+  <text x="755" y="258" textAnchor="middle" fontSize="13" fill="#15803d">model/provider/prompt_sha</text>
+  <text x="755" y="280" textAnchor="middle" fontSize="13" fill="#15803d">namespace isolation</text>
+  <text x="755" y="312" textAnchor="middle" fontSize="13" fill="#15803d">scope: 跨会话复用</text>
+
+  <rect x="905" y="150" width="250" height="220" rx="12" fill="#fff7ed" stroke="#fdba74" />
+  <text x="1030" y="185" textAnchor="middle" fontSize="20" fontWeight="700" fill="#9a3412">Layer 4</text>
+  <text x="1030" y="210" textAnchor="middle" fontSize="16" fill="#b45309">Long-term Memory</text>
+  <text x="1030" y="236" textAnchor="middle" fontSize="13" fill="#b45309">LongTermMemoryMiddleware</text>
+  <text x="1030" y="258" textAnchor="middle" fontSize="13" fill="#b45309">before_model inject</text>
+  <text x="1030" y="280" textAnchor="middle" fontSize="13" fill="#b45309">after_agent async save</text>
+  <text x="1030" y="312" textAnchor="middle" fontSize="13" fill="#b45309">scope: 用户长期偏好</text>
+
+  <path d="M330 260 L355 260" stroke="#60a5fa" strokeWidth="4" markerEnd="url(#lg7-arrow-c)" />
+  <path d="M605 260 L630 260" stroke="#22c55e" strokeWidth="4" markerEnd="url(#lg7-arrow-c)" />
+  <path d="M880 260 L905 260" stroke="#f59e0b" strokeWidth="4" markerEnd="url(#lg7-arrow-c)" />
+</svg>
+
+这四层的价值在于：  
+**不同类型的信息放在不同生命周期里，不让“上下文历史”承担所有记忆职责。**
+
+## 模块五：上下文工程（Retriever + Worker + Finalizer）
+
+一个常见误区是：检索做完就把结果拼到 prompt 尾部。  
+`pokemon agent` 的实现更接近可维护工程链：
+
+### 1) 多源检索聚合器（Retriever）
+
+`src/knowledge/core/retriever.py` 的 `retrieval(...)` 会并行聚合：
+
+- Knowledge Base
+- Graph
+- Web
+- MCP
+
+当同时启用多个能力时用 `ThreadPoolExecutor` 并发，降低尾延迟。
+
+### 2) context 构造器（construct_query）
+
+`construct_query(...)` 不是盲拼，而是分区块组织：
+
+- 图谱回答块
+- 知识库证据块
+- Web 结果块
+- MCP 结果块
+
+再套入 `knowbase_qa_template`，形成可消费增强输入。
+
+### 3) worker 内上下文优化（RagWorker）
+
+`src/graph/nodes/rag_worker.py` 里有几层实用策略：
+
+- 复杂问题先 `query decomposition`
+- 按复杂度自适应 `top_k`
+- 条件启用 HyDE（不是默认全开）
+- 多子问题并行召回
+- CRAG 评估检索质量后修正路径
+
+### 4) finalizer 强约束收口
+
+`src/graph/nodes/finalizer.py` 的系统提示词明确要求：
+
+- 只能基于草稿改写，不新增事实
+- 不泄露工具/数据库/图谱/链路等内部细节
+- 信息不足时友好说明并给一个澄清问题
+
+### 上下文流转图
+
+<svg viewBox="0 0 1200 500" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="Context Engineering 流程图">
+  <defs>
+    <marker id="lg7-arrow-d" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#64748b" />
+    </marker>
+  </defs>
+
+  <rect x="60" y="40" width="230" height="80" rx="12" fill="#eff6ff" stroke="#93c5fd" />
+  <text x="175" y="73" textAnchor="middle" fontSize="20" fontWeight="700" fill="#1d4ed8">User Query</text>
+  <text x="175" y="97" textAnchor="middle" fontSize="13" fill="#1e40af">+ history + meta</text>
+
+  <rect x="340" y="40" width="260" height="80" rx="12" fill="#ecfeff" stroke="#67e8f9" />
+  <text x="470" y="73" textAnchor="middle" fontSize="20" fontWeight="700" fill="#155e75">Retriever.retrieval</text>
+  <text x="470" y="97" textAnchor="middle" fontSize="13" fill="#0e7490">KB/Graph/Web/MCP 并行</text>
+
+  <rect x="650" y="40" width="250" height="80" rx="12" fill="#f0fdf4" stroke="#86efac" />
+  <text x="775" y="73" textAnchor="middle" fontSize="20" fontWeight="700" fill="#166534">construct_query</text>
+  <text x="775" y="97" textAnchor="middle" fontSize="13" fill="#15803d">证据分块 + 模板组装</text>
+
+  <rect x="950" y="40" width="200" height="80" rx="12" fill="#fff7ed" stroke="#fdba74" />
+  <text x="1050" y="73" textAnchor="middle" fontSize="20" fontWeight="700" fill="#9a3412">RagWorker</text>
+  <text x="1050" y="97" textAnchor="middle" fontSize="13" fill="#b45309">decompose/hyde/crag</text>
+
+  <rect x="100" y="190" width="280" height="250" rx="12" fill="#f8fafc" stroke="#cbd5e1" />
+  <text x="240" y="225" textAnchor="middle" fontSize="20" fontWeight="700" fill="#334155">Evidence Sources</text>
+  <text x="240" y="252" textAnchor="middle" fontSize="14" fill="#475569">knowledge_base.results</text>
+  <text x="240" y="276" textAnchor="middle" fontSize="14" fill="#475569">graph_base.answer/results</text>
+  <text x="240" y="300" textAnchor="middle" fontSize="14" fill="#475569">web_search.results</text>
+  <text x="240" y="324" textAnchor="middle" fontSize="14" fill="#475569">mysql_mcp.answer</text>
+  <text x="240" y="356" textAnchor="middle" fontSize="14" fill="#475569">clean_kb_text / _web_item_to_text</text>
+  <text x="240" y="380" textAnchor="middle" fontSize="14" fill="#475569">knowbase_qa_template</text>
+
+  <rect x="430" y="220" width="280" height="180" rx="12" fill="#f5f3ff" stroke="#c4b5fd" />
+  <text x="570" y="255" textAnchor="middle" fontSize="20" fontWeight="700" fill="#6d28d9">Worker Draft</text>
+  <text x="570" y="282" textAnchor="middle" fontSize="14" fill="#7c3aed">AIMessage(content=draft)</text>
+  <text x="570" y="306" textAnchor="middle" fontSize="14" fill="#7c3aed">可能来自并行 workers</text>
+  <text x="570" y="330" textAnchor="middle" fontSize="14" fill="#7c3aed">messages reducer 合并</text>
+  <text x="570" y="354" textAnchor="middle" fontSize="14" fill="#7c3aed">进入 finalizer_node</text>
+
+  <rect x="760" y="220" width="340" height="180" rx="12" fill="#fefce8" stroke="#fde047" />
+  <text x="930" y="255" textAnchor="middle" fontSize="20" fontWeight="700" fill="#854d0e">Finalizer Output</text>
+  <text x="930" y="282" textAnchor="middle" fontSize="14" fill="#a16207">只改写不扩写</text>
+  <text x="930" y="306" textAnchor="middle" fontSize="14" fill="#a16207">不泄露内部链路与工具细节</text>
+  <text x="930" y="330" textAnchor="middle" fontSize="14" fill="#a16207">失败回退到 draft</text>
+  <text x="930" y="354" textAnchor="middle" fontSize="14" fill="#a16207">最终 NDJSON 流返回前端</text>
+
+  <path d="M290 80 L340 80" stroke="#60a5fa" strokeWidth="4" markerEnd="url(#lg7-arrow-d)" />
+  <path d="M600 80 L650 80" stroke="#06b6d4" strokeWidth="4" markerEnd="url(#lg7-arrow-d)" />
+  <path d="M900 80 L950 80" stroke="#22c55e" strokeWidth="4" markerEnd="url(#lg7-arrow-d)" />
+
+  <path d="M470 120 L240 190" stroke="#94a3b8" strokeWidth="3" markerEnd="url(#lg7-arrow-d)" />
+  <path d="M1050 120 L570 220" stroke="#8b5cf6" strokeWidth="3" markerEnd="url(#lg7-arrow-d)" />
+  <path d="M380 315 L430 315" stroke="#64748b" strokeWidth="3" markerEnd="url(#lg7-arrow-d)" />
+  <path d="M710 315 L760 315" stroke="#f59e0b" strokeWidth="3" markerEnd="url(#lg7-arrow-d)" />
+</svg>
+
+## 安全与可控：几条可直接复用的 guardrails
+
+从代码里能提炼出一组很实用的控制策略：
+
+1. **deterministic fast path**：高置信简单问题直接走确定性路径（减少无谓 LLM 调度）。
+2. **forward_directly**：worker 结果可直接收口，避免回 supervisor 二次改写。
+3. **allowed_workers**：前端通过 `agent_constraints` 显式约束可用能力边界。
+4. **parallel_count/parallel_done**：并行任务有显式完成条件，不靠隐式猜测。
+5. **safe cache 条件**：缓存只在单轮且非检索场景生效，避免上下文污染。
+
+如果把这些策略抽象成一句话，就是：  
+**先做“可控与确定”的部分，再把不确定性交给模型。**
+
+## 给自己的实践清单：如何判断你真的学会了 LangGraph 工程化
+
+你可以用下面这张表自测：
+
+| 检查项 | 达标标准 |
+| --- | --- |
+| 图结构 | 能清楚说出入口节点、条件边、终止条件、并行分发点。 |
+| 路由策略 | 能解释规则路由与 LLM 路由的优先级，以及为什么这么排。 |
+| 运行时 | 能解释 `thread_id`、checkpointer、`astream_events` 各自解决什么问题。 |
+| 结构化输出 | 能区分“prompt 要 JSON”和“schema 强制输出”的可靠性差异。 |
+| memory 分层 | 能区分状态记忆、线程记忆、缓存记忆、长期记忆的职责边界。 |
+| 上下文工程 | 能解释检索证据是如何组织、压缩、拼接并最终进入生成的。 |
+| 失败回退 | 能指出至少 3 个 fallback 路径（例如 finalizer fallback、cache miss、vector store 不可用时的本地兜底）。 |
+
+如果这些点你都能从代码里讲清楚，并且能自己改一条路由、加一个 worker、扩一个 schema，你对 LangGraph 的理解就已经进入工程层了。
+
+## 推荐阅读顺序
+
+如果你想继续沿着这个系列往下读，最自然的顺序是：
+
+1. **[Blog 1：项目总览](/blog/pokemon-chat-overview)**：先建立系统地图
+2. **[Blog 2：调用链路](/blog/pokemon-chat-request-lifecycle)**：看一次请求到底怎么走
+3. **[Blog 3：RAG 主链](/blog/pokemon-chat-rag-mainline)**：看普通模式下的检索增强
+4. **[Blog 4：Agent 编排](/blog/pokemon-chat-agent-orchestration)**：看动态调度如何落地
+5. **[Blog 5：配置热切换](/blog/pokemon-chat-config-hot-reload)**：看前端开关如何真正变成后端行为
+6. **[Blog 6：Docker 架构](/blog/pokemon-chat-docker-architecture)**：看多服务 AI 系统如何组织部署边界
+7. **Blog 7：LangGraph 工程化实战**：把 tools/runtime/JSON/memory/context 串成一套工程方法
+
+如果你已经读到这里，下一步最值得做的不是继续加术语，而是亲手做三件小改动：
+
+- 给 `supervisor` 新增一个可控 worker，并补 `allowed_workers` 约束
+- 给一个节点增加 `with_structured_output(...)`，把脆弱解析改成 schema 约束
+- 给一次检索链加观测点（路由决策、召回条数、最终上下文长度），把“感觉变好”改成“可测量变好”
+

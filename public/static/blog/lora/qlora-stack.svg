@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="860" viewBox="0 0 1200 860" fill="none">
+  <rect width="1200" height="860" fill="#111827"/>
+  <text x="60" y="92" fill="#F8FAFC" font-size="38" font-family="Arial, sans-serif" font-weight="700">QLoRA：量化底座 + LoRA 增量</text>
+  <text x="60" y="128" fill="#94A3B8" font-size="21" font-family="Arial, sans-serif">QLoRA 不是替代 LoRA，而是在更轻的底座模型上继续使用 LoRA。</text>
+
+  <rect x="120" y="210" width="300" height="400" rx="28" fill="#1F2937" stroke="#475569" stroke-width="2"/>
+  <text x="160" y="275" fill="#F8FAFC" font-size="30" font-family="Arial, sans-serif" font-weight="700">普通 LoRA</text>
+  <rect x="175" y="340" width="190" height="150" rx="20" fill="#334155"/>
+  <text x="270" y="408" text-anchor="middle" fill="#F8FAFC" font-size="28" font-family="Arial, sans-serif" font-weight="700">底座权重</text>
+  <text x="270" y="445" text-anchor="middle" fill="#CBD5E1" font-size="22" font-family="Arial, sans-serif">FP16 / BF16</text>
+  <rect x="215" y="525" width="110" height="38" rx="12" fill="#F97316"/>
+  <text x="270" y="550" text-anchor="middle" fill="white" font-size="20" font-family="Arial, sans-serif">LoRA</text>
+
+  <rect x="470" y="210" width="610" height="400" rx="28" fill="#052E2B" stroke="#10B981" stroke-width="2"/>
+  <text x="510" y="275" fill="#D1FAE5" font-size="30" font-family="Arial, sans-serif" font-weight="700">QLoRA</text>
+  <rect x="530" y="340" width="220" height="150" rx="20" fill="#065F46"/>
+  <text x="640" y="408" text-anchor="middle" fill="#ECFDF5" font-size="28" font-family="Arial, sans-serif" font-weight="700">量化底座</text>
+  <text x="640" y="445" text-anchor="middle" fill="#A7F3D0" font-size="22" font-family="Arial, sans-serif">4-bit / 8-bit</text>
+  <rect x="830" y="360" width="92" height="118" rx="16" fill="#F97316"/>
+  <text x="876" y="429" text-anchor="middle" fill="white" font-size="28" font-family="Arial, sans-serif" font-weight="700">B</text>
+  <rect x="965" y="390" width="104" height="64" rx="14" fill="#14B8A6"/>
+  <text x="1017" y="430" text-anchor="middle" fill="white" font-size="28" font-family="Arial, sans-serif" font-weight="700">A</text>
+  <text x="940" y="427" fill="#D1FAE5" font-size="28" font-family="Arial, sans-serif">×</text>
+
+  <rect x="120" y="722" width="960" height="92" rx="16" fill="#1F2937" stroke="#334155"/>
+  <text x="150" y="758" fill="#E2E8F0" font-size="20" font-family="Arial, sans-serif">
+    <tspan x="150" dy="0">LoRA 解决“更新太贵”，QLoRA 进一步解决“底座太重”。</tspan>
+    <tspan x="150" dy="28">因此 QLoRA 特别适合单卡或有限显存下的大模型 SFT。</tspan>
+  </text>
+</svg>

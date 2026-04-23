@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="920" viewBox="0 0 1200 920" fill="none">
+  <defs>
+    <marker id="arrow-target" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10Z" fill="#CBD5E1"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="920" fill="#0F172A"/>
+  <text x="60" y="92" fill="#F8FAFC" font-size="38" font-family="Arial, sans-serif" font-weight="700">LoRA 常见挂载位置</text>
+  <text x="60" y="128" fill="#94A3B8" font-size="21" font-family="Arial, sans-serif">阅读顺序应是：Attention 首选，FFN 按需扩展，lm_head 通常仅在特殊任务中考虑。</text>
+
+  <rect x="90" y="165" width="1020" height="700" rx="28" fill="#111827" stroke="#334155" stroke-width="2"/>
+
+  <rect x="125" y="395" width="125" height="150" rx="18" fill="#334155"/>
+  <text x="187.5" y="478" text-anchor="middle" fill="#F8FAFC" font-size="28" font-family="Arial, sans-serif" font-weight="700">输入</text>
+
+  <rect x="310" y="260" width="140" height="92" rx="16" fill="#7C3AED"/>
+  <text x="380" y="317" text-anchor="middle" fill="white" font-size="28" font-family="Arial, sans-serif" font-weight="700">Q</text>
+  <rect x="310" y="390" width="140" height="92" rx="16" fill="#7C3AED"/>
+  <text x="380" y="447" text-anchor="middle" fill="white" font-size="28" font-family="Arial, sans-serif" font-weight="700">K</text>
+  <rect x="310" y="520" width="140" height="92" rx="16" fill="#7C3AED"/>
+  <text x="380" y="577" text-anchor="middle" fill="white" font-size="28" font-family="Arial, sans-serif" font-weight="700">V</text>
+
+  <path d="M250 470H295" stroke="#CBD5E1" stroke-width="5" marker-end="url(#arrow-target)"/>
+  <path d="M450 306H520" stroke="#CBD5E1" stroke-width="5" marker-end="url(#arrow-target)"/>
+  <path d="M450 436H520" stroke="#CBD5E1" stroke-width="5" marker-end="url(#arrow-target)"/>
+  <path d="M450 566H520" stroke="#CBD5E1" stroke-width="5" marker-end="url(#arrow-target)"/>
+
+  <rect x="525" y="245" width="220" height="380" rx="24" fill="#1D4ED8"/>
+  <text x="635" y="418" text-anchor="middle" fill="white" font-size="32" font-family="Arial, sans-serif" font-weight="700">Attention</text>
+  <text x="635" y="456" text-anchor="middle" fill="#DBEAFE" font-size="22" font-family="Arial, sans-serif">默认起点</text>
+  <text x="635" y="490" text-anchor="middle" fill="#BFDBFE" font-size="18" font-family="Arial, sans-serif">Q / K / V / O 等投影层</text>
+
+  <path d="M745 340H805" stroke="#CBD5E1" stroke-width="5" marker-end="url(#arrow-target)"/>
+  <rect x="805" y="286" width="150" height="108" rx="18" fill="#F97316"/>
+  <text x="880" y="346" text-anchor="middle" fill="white" font-size="28" font-family="Arial, sans-serif" font-weight="700">LoRA</text>
+  <text x="880" y="378" text-anchor="middle" fill="#FFF7ED" font-size="18" font-family="Arial, sans-serif">首选挂载</text>
+
+  <rect x="770" y="468" width="175" height="120" rx="18" fill="#10B981"/>
+  <text x="857.5" y="535" text-anchor="middle" fill="white" font-size="28" font-family="Arial, sans-serif" font-weight="700">FFN</text>
+  <text x="857.5" y="566" text-anchor="middle" fill="#D1FAE5" font-size="18" font-family="Arial, sans-serif">容量不够时再扩展</text>
+  <path d="M745 528H755" stroke="#CBD5E1" stroke-width="5" marker-end="url(#arrow-target)"/>
+  <path d="M945 528H1005" stroke="#CBD5E1" stroke-width="5" marker-end="url(#arrow-target)"/>
+  <rect x="1005" y="474" width="110" height="108" rx="16" fill="#FB923C"/>
+  <text x="1060" y="534" text-anchor="middle" fill="white" font-size="24" font-family="Arial, sans-serif" font-weight="700">LoRA</text>
+  <text x="1060" y="566" text-anchor="middle" fill="#FFF7ED" font-size="17" font-family="Arial, sans-serif">按需扩展</text>
+
+  <rect x="770" y="660" width="175" height="120" rx="18" fill="#1E293B" stroke="#475569"/>
+  <text x="857.5" y="727" text-anchor="middle" fill="#CBD5E1" font-size="24" font-family="Arial, sans-serif" font-weight="700">lm_head</text>
+  <text x="857.5" y="758" text-anchor="middle" fill="#94A3B8" font-size="18" font-family="Arial, sans-serif">通常不是默认选项</text>
+  <path d="M945 720H1005" stroke="#94A3B8" stroke-width="4" marker-end="url(#arrow-target)"/>
+  <rect x="1005" y="674" width="110" height="92" rx="16" fill="#334155" stroke="#64748B"/>
+  <text x="1060" y="730" text-anchor="middle" fill="#E2E8F0" font-size="22" font-family="Arial, sans-serif">可选</text>
+
+  <rect x="120" y="805" width="970" height="60" rx="16" fill="#10231D" stroke="#1F4B3B"/>
+  <text x="150" y="843" fill="#86EFAC" font-size="20" font-family="Arial, sans-serif">
+    <tspan x="150" dy="0">先在 Attention 投影层上尝试 LoRA；若容量不够，再扩展到 FFN。lm_head 仅在特殊任务中考虑。</tspan>
+  </text>
+</svg>

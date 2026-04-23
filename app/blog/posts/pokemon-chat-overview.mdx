@@ -1,0 +1,407 @@
+---
+title: 'pokemon agent 系列（三）：系统设计全景图'
+publishedAt: '2026-04-20T10:06:00'
+summary: '系列入口篇：整体拆解 pokemon agent 的前端控制层、后端路由层、RAG 检索层、Agent 编排层、基础设施层与运行时配置层。'
+image: '/static/blog/pokemon-chat-series/overview-cover.svg'
+draft: false
+tags: [AI, Agent, RAG, SystemDesign]
+---
+
+<PaperCard
+	title="pokemon agent · Blog 3"
+	description="这是整个系列的入口文章。它不会一开始钻进某一个模块的实现细节，而是先回答：这个项目整体长什么样、分成哪些层、支持哪些能力、为什么它值得拆成一个系列来写。"
+	links={[
+		{ label: 'Blog 4：一次提问的完整调用链', url: '/blog/pokemon-chat-request-lifecycle' },
+	]}
+/>
+
+> 系列导航：下一篇见 **[Blog 4：一次提问的完整调用链](/blog/pokemon-chat-request-lifecycle)**。本文负责回答：**这个项目整体长什么样，为什么它不是一个普通聊天机器人。**
+
+很多项目在对外介绍时，都会用一句非常顺口的话概括自己：<strong>“这是一个 AI 聊天机器人项目。”</strong> 这句话通常没有错，但它也通常没有什么解释力。因为“聊天机器人”只能描述表层交互，却无法说明系统的真正复杂度：用户发出的一次问题，到底会经历哪些分流？系统是如何把本地知识、向量检索、图谱查询、联网搜索、工具调用与模型生成拼在一起的？为什么一个 UI 上的开关，能在几乎不重启服务的情况下直接影响后端行为？为什么同一个产品界面，背后同时可以跑普通模式和 Agent 模式？
+
+`pokemon agent` 就是这样一个很典型、也很适合拆解的项目。从用户视角看，它是一个面向宝可梦领域的问答界面；但从工程视角看，它已经具备一个现代 AI 应用的多个核心特征：
+
+- 有前端控制面
+- 有后端统一路由层
+- 有本地事实直答
+- 有多源检索增强（KB / Graph / Web / MCP）
+- 有 LangGraph Agent 编排
+- 有独立基础设施依赖
+- 有运行时配置覆盖与 feature flag
+
+也正因为如此，这个项目最值得写的，不是“我做了一个宝可梦聊天机器人”，而是：
+
+> **我做了一个把本地知识、向量检索、图谱查询、Web Search、MCP 工具和 LangGraph Agent 编排融合在一起的垂直领域问答系统。**
+
+这篇文章作为整个系列的入口，目标不是把每个模块讲透，而是先建立一张完整的心智地图：
+
+- 这个项目整体长什么样
+- 各层分别承担什么职责
+- 用户提问后，系统大概会经过哪些阶段
+- 为什么这些内容值得拆成一个系列，而不是挤在一篇文章里
+
+## TL;DR
+
+| 问题 | 简短结论 |
+| --- | --- |
+| 这个项目最准确的定位是什么？ | 一个面向宝可梦领域的多能力问答系统，而不是单纯的聊天机器人。 |
+| 它的核心结构是什么？ | <strong>前端控制层 + 后端路由层 + 检索增强层 + Agent 编排层 + 基础设施层 + 配置覆盖层</strong>。 |
+| 它支持哪些能力？ | 本地事实直答、知识库、知识图谱、Web Search、MCP、Agent 模式、ASR。 |
+| 为什么适合写成系列？ | 因为它同时覆盖了调用链、RAG 主链、Agent 编排、配置热切换和多服务依赖组织。 |
+| 系列里最值得先看的三篇是什么？ | 调用链路、RAG 主链、Agent 编排。 |
+| 这个项目最有工程价值的地方是什么？ | 它把“同一个产品界面，背后多条执行路径并存”做成了可读、可调试、可解释的系统。 |
+
+## 先用一句话重新定义这个项目
+
+如果非要用一句话概括 `pokemon agent`，我会这样说：
+
+> 这是一个围绕宝可梦领域构建的垂直问答系统，用户通过同一个聊天入口发问，但系统会根据问题内容、当前开关状态和可用基础设施，动态选择本地直答、RAG 检索增强、图谱问答、联网搜索、MCP 工具调用，或者进入 LangGraph Agent 编排流程，最后再统一以流式响应返回前端。
+
+这句话看起来比“聊天机器人”长很多，但它更接近系统真实形态。
+
+### 为什么这个定义更准确
+
+因为这个项目里，真正关键的不是“有一个聊天 UI”，而是：
+
+- 问题不是都走同一条路径
+- 模型不是所有情况下都必须调用
+- 检索也不是只有向量检索这一种形式
+- Agent 模式并不是默认入口，而是某些问题的动态调度层
+- 配置与能力可以在运行时切换，而不是全部写死在启动配置里
+
+也就是说，这个系统的本质不是一个“前端接大模型”的应用，而是一套<strong>执行路径会动态变化的问答系统</strong>。
+
+## 项目整体结构：6 个层次看懂它
+
+最适合理解这个项目的方法，不是从某一个文件开始，而是先按系统层次看它。
+
+### 1. 前端控制层
+
+前端位于 `web/`，它的职责不仅仅是显示聊天窗口，更重要的是：
+
+- 管理会话状态
+- 管理本次请求的 `meta`
+- 决定是否进入 Agent 模式
+- 控制知识库、图谱、Web Search、MCP 的开关
+- 通过 `/config` 与后端同步运行时配置
+
+关键文件：
+- `web/src/views/ChatView.vue`
+- `web/src/components/ChatComponent.vue`
+- `web/src/composables/useChat.ts`
+- `web/src/composables/useChatMeta.ts`
+- `web/src/stores/config.ts`
+
+### 2. 后端路由层
+
+后端入口位于 `server/`。它负责：
+
+- 接收前端请求
+- 判断当前请求应该走普通模式还是 Agent 模式
+- 提供配置、健康检查、Provider 管理、数据管理等接口
+
+关键文件：
+- `server/main.py`
+- `server/routers/__init__.py`
+- `server/routers/chat_router.py`
+
+### 3. 检索增强层
+
+这一层主要位于 `src/knowledge/`，负责：
+
+- 知识库检索
+- 图谱查询
+- Web Search
+- MCP 查询
+- 查询改写、HyDE、多源结果聚合
+
+关键文件：
+- `src/knowledge/core/retriever.py`
+- `src/knowledge/store/knowledgebase.py`
+- `src/knowledge/cache/cache.py`
+
+### 4. Agent 编排层
+
+这一层是 Agent 模式的核心，主要位于 `src/graph/` 和 `src/agents/`。它负责：
+
+- 定义图状态
+- 定义 supervisor 与 workers
+- 控制路由与并行派发
+- 最终输出结果整理
+
+关键文件：
+- `src/agents/supervisor_agent.py`
+- `src/graph/workflow.py`
+- `src/graph/state.py`
+- `src/graph/nodes/supervisor.py`
+- `src/graph/nodes/finalizer.py`
+
+### 5. 基础设施层
+
+这个项目不是纯代码就能完整跑起来的，它还依赖多种基础设施：
+
+- Milvus：知识库向量检索
+- Neo4j：知识图谱
+- MySQL：结构化数据依赖
+- MCP Server：外接工具能力
+- FunASR：语音识别
+- etcd / minio：Milvus 依赖
+
+这些都在 `docker/docker-compose.yml` 里组织。
+
+### 6. 配置与运行时覆盖层
+
+这个层次非常有意思，也非常值得工程化地讲清楚。它负责：
+
+- 读取 `.env` 默认配置
+- 接收前端设置页的配置变更
+- 将配置持久化到 `ui_config.json`
+- 在运行时清理缓存、reset 单例，让开关尽量热生效
+
+关键文件：
+- `src/core/settings.py`
+- `src/core/feature_flags.py`
+- `server/runtime_config.py`
+- `server/routers/base_router.py`
+
+## 一张图看懂整个系统
+
+<svg viewBox="0 0 1200 700" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="pokemon agent 系统全景图">
+  <defs>
+    <marker id="overview-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#64748b" />
+    </marker>
+  </defs>
+
+  <rect x="420" y="40" width="360" height="90" rx="18" fill="#fff7ed" stroke="#fdba74" />
+  <text x="600" y="78" textAnchor="middle" fontSize="28" fontWeight="700" fill="#9a3412">Frontend Control Layer</text>
+  <text x="600" y="106" textAnchor="middle" fontSize="16" fill="#7c2d12">ChatView / ChatComponent / useChat / config store</text>
+
+  <rect x="420" y="180" width="360" height="90" rx="18" fill="#eff6ff" stroke="#93c5fd" />
+  <text x="600" y="218" textAnchor="middle" fontSize="28" fontWeight="700" fill="#1d4ed8">Backend Router Layer</text>
+  <text x="600" y="246" textAnchor="middle" fontSize="16" fill="#1e40af">FastAPI main / routers / chat_router</text>
+
+  <rect x="80" y="340" width="300" height="160" rx="18" fill="#fef2f2" stroke="#fca5a5" />
+  <text x="230" y="378" textAnchor="middle" fontSize="28" fontWeight="700" fill="#b91c1c">Retrieval Layer</text>
+  <text x="230" y="408" textAnchor="middle" fontSize="16" fill="#991b1b">local facts / semantic cache / KB / Graph</text>
+  <text x="230" y="432" textAnchor="middle" fontSize="16" fill="#991b1b">Web Search / MCP / rewrite / HyDE</text>
+
+  <rect x="450" y="340" width="300" height="160" rx="18" fill="#ecfeff" stroke="#67e8f9" />
+  <text x="600" y="378" textAnchor="middle" fontSize="28" fontWeight="700" fill="#155e75">Agent Orchestration</text>
+  <text x="600" y="408" textAnchor="middle" fontSize="16" fill="#164e63">Supervisor / Workflow / Workers / Finalizer</text>
+  <text x="600" y="432" textAnchor="middle" fontSize="16" fill="#164e63">LangGraph runtime</text>
+
+  <rect x="820" y="340" width="300" height="160" rx="18" fill="#f5f3ff" stroke="#c4b5fd" />
+  <text x="970" y="378" textAnchor="middle" fontSize="28" fontWeight="700" fill="#6d28d9">Infra Services</text>
+  <text x="970" y="408" textAnchor="middle" fontSize="16" fill="#5b21b6">Milvus / Neo4j / MySQL / MCP / FunASR</text>
+  <text x="970" y="432" textAnchor="middle" fontSize="16" fill="#5b21b6">etcd / minio / docker profiles</text>
+
+  <rect x="300" y="560" width="600" height="90" rx="18" fill="#f0fdf4" stroke="#86efac" />
+  <text x="600" y="598" textAnchor="middle" fontSize="28" fontWeight="700" fill="#166534">Runtime Config & Feature Flags</text>
+  <text x="600" y="626" textAnchor="middle" fontSize="16" fill="#166534">.env + ui_config.json + runtime reset + health checks</text>
+
+  <path d="M600 130 L600 180" stroke="#fb923c" strokeWidth="6" markerEnd="url(#overview-arrow)" />
+  <path d="M520 270 L300 340" stroke="#ef4444" strokeWidth="5" fill="none" markerEnd="url(#overview-arrow)" />
+  <path d="M600 270 L600 340" stroke="#06b6d4" strokeWidth="5" markerEnd="url(#overview-arrow)" />
+  <path d="M680 270 L900 340" stroke="#8b5cf6" strokeWidth="5" fill="none" markerEnd="url(#overview-arrow)" />
+  <path d="M300 500 L420 560" stroke="#16a34a" strokeWidth="5" fill="none" markerEnd="url(#overview-arrow)" />
+  <path d="M600 500 L600 560" stroke="#16a34a" strokeWidth="5" markerEnd="url(#overview-arrow)" />
+  <path d="M900 500 L780 560" stroke="#16a34a" strokeWidth="5" fill="none" markerEnd="url(#overview-arrow)" />
+</svg>
+
+这张图不是精确的数据流图，而是一张“系统分层地图”。对阅读这个项目来说，它的意义是：你不用一开始就钻进某个函数细节，而是先知道每一层在大系统里扮演什么角色。
+
+## 这个项目支持哪些能力
+
+如果只从产品菜单去看，这个项目像是“聊天 + 一些按钮”。但从系统能力图来看，它其实已经把多种问答增强路径集成在一起了。
+
+### 1. 本地事实直答
+
+对于一些非常明确的宝可梦事实问题，系统根本不需要进入知识库或模型，而是直接从本地数据中回答。
+
+这条路径的价值是：
+- 低延迟
+- 低成本
+- 低幻觉风险
+
+### 2. 知识库（Knowledge Base）
+
+知识库对应向量检索能力，底层依赖 Milvus。适合处理文档型语义检索问题。
+
+### 3. 知识图谱（Knowledge Graph）
+
+知识图谱对应结构化关系查询，底层依赖 Neo4j。适合处理进化关系、地区归属、实体关系等问题。
+
+### 4. Web Search
+
+用于补充在线或时效性信息，适合“最新、最近、版本、活动、公告”类问题。
+
+### 5. MCP
+
+在这个项目里，MCP 更像一个外接工具能力层，常用于地点、坐标、数据库式查询。
+
+### 6. Agent 模式
+
+Agent 模式不是单独一个功能点，而是把整个执行方式切换成 `supervisor + workers` 的 LangGraph 编排体系。
+
+### 7. ASR
+
+系统支持语音识别能力，对应 FunASR 服务。
+
+## 用表格看懂“能力”和“执行层”不是一回事
+
+| 名称 | 它是什么 | 更接近“能力”还是“执行方式” |
+| --- | --- | --- |
+| 本地直答 | 本地数据快速回答 | 能力路径 |
+| Knowledge Base | 向量检索 | 能力路径 |
+| Knowledge Graph | 图谱关系查询 | 能力路径 |
+| Web Search | 联网搜索 | 能力路径 |
+| MCP | 外部工具 / 数据库能力 | 能力路径 |
+| Agent 模式 | 多 worker 调度框架 | 执行方式 |
+| 普通模式 | 串行分流链 | 执行方式 |
+
+这个区分很重要。因为初学者最容易把“知识库”和“Agent”放在同一层理解，但其实它们不在一个抽象层级上：
+
+- 知识库、图谱、Web、MCP 是“系统能用哪些能力”
+- 普通模式、Agent 模式是“系统怎么组织这些能力”
+
+## 用户提问后，系统大概会经历什么
+
+这一部分是整个系列里最值得展开的内容，但在总览里只需要先建立一个简化心智图。
+
+### 普通模式下
+
+用户提问后，大体顺序是：
+
+1. 前端组装 `query + history + meta`
+2. 后端进入 `chat_router.py`
+3. 尝试本地事实直答
+4. 尝试语义缓存
+5. 如果需要检索，则进入 `Retriever`
+6. 将检索结果构造成增强 query
+7. 最后才交给模型生成
+8. 结果以 NDJSON 流式返回前端
+
+### Agent 模式下
+
+用户提问后，大体顺序是：
+
+1. 前端切换到 `/chat/agent/supervisor_agent`
+2. `SupervisorAgent` 把问题放进 LangGraph 执行图
+3. `supervisor` 决定下一步去哪个 worker
+4. 一个或多个 worker 执行能力
+5. `finalizer` 把中间结果整理成最终回答
+6. 结果同样流式返回前端
+
+## 用一张图看懂普通模式与 Agent 模式
+
+<svg viewBox="0 0 1200 420" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="普通模式与 Agent 模式对比图">
+  <defs>
+    <marker id="mode-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#64748b" />
+    </marker>
+  </defs>
+
+  <rect x="70" y="150" width="180" height="100" rx="18" fill="#fff7ed" stroke="#fdba74" />
+  <text x="160" y="188" textAnchor="middle" fontSize="26" fontWeight="700" fill="#9a3412">用户提问</text>
+  <text x="160" y="215" textAnchor="middle" fontSize="16" fill="#7c2d12">同一个聊天入口</text>
+
+  <rect x="360" y="80" width="300" height="120" rx="18" fill="#fef2f2" stroke="#fca5a5" />
+  <text x="510" y="118" textAnchor="middle" fontSize="28" fontWeight="700" fill="#b91c1c">普通模式</text>
+  <text x="510" y="148" textAnchor="middle" fontSize="16" fill="#991b1b">本地直答 → 缓存 → Retriever → LLM</text>
+  <text x="510" y="172" textAnchor="middle" fontSize="16" fill="#991b1b">串行、稳定、成本更低</text>
+
+  <rect x="360" y="230" width="300" height="120" rx="18" fill="#ecfeff" stroke="#67e8f9" />
+  <text x="510" y="268" textAnchor="middle" fontSize="28" fontWeight="700" fill="#155e75">Agent 模式</text>
+  <text x="510" y="298" textAnchor="middle" fontSize="16" fill="#164e63">supervisor → workers → finalizer</text>
+  <text x="510" y="322" textAnchor="middle" fontSize="16" fill="#164e63">动态调度、可并行、扩展性更强</text>
+
+  <rect x="780" y="150" width="300" height="100" rx="18" fill="#f5f3ff" stroke="#c4b5fd" />
+  <text x="930" y="188" textAnchor="middle" fontSize="28" fontWeight="700" fill="#6d28d9">流式返回前端</text>
+  <text x="930" y="215" textAnchor="middle" fontSize="16" fill="#5b21b6">统一 NDJSON 协议</text>
+
+  <path d="M250 185 L360 140" stroke="#ef4444" strokeWidth="6" fill="none" markerEnd="url(#mode-arrow)" />
+  <path d="M250 215 L360 290" stroke="#06b6d4" strokeWidth="6" fill="none" markerEnd="url(#mode-arrow)" />
+  <path d="M660 140 L780 185" stroke="#8b5cf6" strokeWidth="6" fill="none" markerEnd="url(#mode-arrow)" />
+  <path d="M660 290 L780 215" stroke="#8b5cf6" strokeWidth="6" fill="none" markerEnd="url(#mode-arrow)" />
+</svg>
+
+这个对比图想表达的重点很简单：
+
+- **用户看到的入口是同一个**
+- **系统内部的执行方式可以完全不同**
+
+这也是这个项目最有工程味的一点：不是做了两个产品，而是在一个产品界面下面维护了多条执行路径。
+
+## 为什么这个项目特别适合写成一个系列
+
+如果你把这整个系统强行压成一篇文章，结果大概率会是：
+
+- 前端说不清
+- 后端说不清
+- RAG 说不清
+- Agent 说不清
+- 配置与基础设施更说不清
+
+因为这里至少存在 4 个本来就值得独立展开的主题。
+
+### 1. 调用链路
+从用户输入到前端请求，再到后端分流、流式返回，这本身就是一篇完整文章。
+
+### 2. RAG 主链
+普通模式下的本地直答、缓存、Retriever、多源证据聚合，本身就足够写一篇工程文章。
+
+### 3. Agent 编排
+`supervisor + workflow + workers + finalizer` 这套结构，也完全值得独立写一篇。
+
+### 4. 配置热切换与基础设施组织
+`.env`、`ui_config.json`、feature flag、runtime reset、Docker profiles，这又是另一种工程主题。
+
+## 系列阅读顺序建议
+
+如果你是第一次读这个系列，推荐直接按下面顺序阅读：
+
+1. **[Blog 1：项目总览](/blog/pokemon-chat-overview)**：先建立系统地图
+2. **[Blog 2：调用链路](/blog/pokemon-chat-request-lifecycle)**：看一次请求到底怎么走
+3. **[Blog 3：RAG 主链](/blog/pokemon-chat-rag-mainline)**：看普通模式下的本地直答、缓存和 Retriever
+4. **[Blog 4：Agent 编排](/blog/pokemon-chat-agent-orchestration)**：看 LangGraph 动态调度如何落地
+5. **[Blog 5：配置热切换](/blog/pokemon-chat-config-hot-reload)**：看前端开关如何真正变成后端行为
+6. **[Blog 6：Docker 架构](/blog/pokemon-chat-docker-architecture)**：看多服务 AI 系统如何组织部署边界
+7. **[Blog 7：LangGraph 工程化实战](/blog/pokemon-chat-langgraph-engineering)**：看 tools/runtime/JSON/memory/context 如何组成可维护系统
+
+如果你已经对整体结构有概念，也可以直接从 **[Blog 2：调用链路](/blog/pokemon-chat-request-lifecycle)** 开始，它最适合作为整个系列的第一个技术抓手。
+
+## 用表格总结：这个项目最值得学的是什么
+
+| 维度 | 最值得学习的点 |
+| --- | --- |
+| 产品形态 | 同一个聊天界面下，支持多条执行路径 |
+| 普通模式 | 用本地直答、缓存和 Retriever 把生成成本往后压 |
+| Agent 模式 | 用 supervisor + workers 把动态决策写成显式执行图 |
+| 工程边界 | 各 worker 职责清晰，路由层和执行层分开 |
+| 配置管理 | 前端设置可以通过运行时覆盖配置直接影响后端行为 |
+| 部署方式 | 用 Docker Compose 组织多依赖 AI 系统 |
+
+## 总结
+
+如果只把 `pokemon agent` 看成一个宝可梦聊天网页，那你只能看到它最表面的那一层；但如果把它当成一个系统来读，你会发现它其实已经浓缩了很多现代 AI 应用的关键工程问题：
+
+- 如何把用户输入变成带约束的执行请求
+- 如何在普通模式下把确定性路径前置
+- 如何把检索和生成拼成可控主链
+- 如何在需要时切到 Agent 编排
+- 如何把多个能力统一收口成同一个产品体验
+- 如何让配置变更在运行时真正影响行为
+
+也正因为如此，这个系列真正要讲的，不是“一个聊天机器人怎么做”，而是：
+
+> **一个现代 AI 问答系统，如何把多种能力、多种执行方式和多种基础设施组织成一个可运行、可解释、可扩展的整体。**
+
+接下来如果你准备继续往下读，最自然的顺序就是：
+
+1. [Blog 2：调用链路](/blog/pokemon-chat-request-lifecycle)
+2. [Blog 3：RAG 主链](/blog/pokemon-chat-rag-mainline)
+3. [Blog 4：Agent 编排](/blog/pokemon-chat-agent-orchestration)
+4. [Blog 7：LangGraph 工程化实战](/blog/pokemon-chat-langgraph-engineering)
+
+到这里，这个系列的主干就完整了。

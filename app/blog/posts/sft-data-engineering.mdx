@@ -1,0 +1,432 @@
+---
+title: 'pokemon agent 系列（一）：SFT 数据工程实战：从爬取到可训练 JSONL'
+publishedAt: '2026-04-23'
+summary: '基于 Pokemon-data 项目，完整拆解 SFT 数据链路：数据爬取、文本清洗、模板化转换、去重质检、确定性切分与数据卡产出。'
+draft: false
+image: '/static/blog/pokemon-chat-series/sft-data-engineering-cover.svg'
+tags: [LLM, SFT]
+---
+
+这篇只讲数据，不讲训练参数。核心问题是：<strong>怎么把公开网页/API 数据，稳定地变成可用于 SFT 的高质量样本</strong>。
+
+> 系列导航：下一篇见 **[Blog 2：SFT 训练实战](/blog/sft-training-qlora-modal)**。
+
+## TL;DR
+
+| 阶段 | 输入 | 输出 | 关键实现 |
+|---|---|---|---|
+| 抓取 | `configs/sources.yaml` | `data/raw/<source>/*.{json,html}` | `crawl` + `BaseCrawler.run()` |
+| 解析 | 原始 HTML/JSON | `data/processed/articles/<source>/*.json` | `parse_*` -> `Article` |
+| 清洗 | 原始文本字段 | 干净的 `summary/main_content` | `clean_paragraph/clean_flavor` |
+| SFT 转换 | `Article` | Alpaca/Chat JSONL | `datasets/sft.py` |
+| 质检去重 | 原始样本集 | 过滤后样本集 | `passes_quality` + `exact_dedup` + `near_dedup` |
+| 切分与统计 | 最终样本集 | train/val/test + `DATASET_CARD.md` | `split.py` |
+
+<svg viewBox="0 0 1200 300" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="SFT 数据流水线总览">
+  <defs>
+    <marker id="arr1" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#1f2937" />
+    </marker>
+  </defs>
+  <rect x="30" y="95" width="170" height="90" rx="12" fill="#dbeafe" stroke="#2563eb" />
+  <text x="115" y="125" textAnchor="middle" fontSize="22" fill="#1e3a8a">抓取</text>
+  <text x="115" y="153" textAnchor="middle" fontSize="16" fill="#1e3a8a">crawl</text>
+
+  <rect x="240" y="95" width="170" height="90" rx="12" fill="#dcfce7" stroke="#16a34a" />
+  <text x="325" y="125" textAnchor="middle" fontSize="22" fill="#14532d">解析</text>
+  <text x="325" y="153" textAnchor="middle" fontSize="16" fill="#14532d">parse</text>
+
+  <rect x="450" y="95" width="170" height="90" rx="12" fill="#fef3c7" stroke="#d97706" />
+  <text x="535" y="125" textAnchor="middle" fontSize="22" fill="#78350f">清洗</text>
+  <text x="535" y="153" textAnchor="middle" fontSize="16" fill="#78350f">cleaning/text.py</text>
+
+  <rect x="660" y="95" width="170" height="90" rx="12" fill="#fae8ff" stroke="#a21caf" />
+  <text x="745" y="125" textAnchor="middle" fontSize="22" fill="#701a75">转换</text>
+  <text x="745" y="153" textAnchor="middle" fontSize="16" fill="#701a75">build-sft</text>
+
+  <rect x="870" y="95" width="170" height="90" rx="12" fill="#fee2e2" stroke="#dc2626" />
+  <text x="955" y="125" textAnchor="middle" fontSize="22" fill="#7f1d1d">质检去重</text>
+  <text x="955" y="153" textAnchor="middle" fontSize="16" fill="#7f1d1d">quality.py</text>
+
+  <rect x="1060" y="95" width="120" height="90" rx="12" fill="#e0f2fe" stroke="#0284c7" />
+  <text x="1120" y="125" textAnchor="middle" fontSize="22" fill="#0c4a6e">切分</text>
+  <text x="1120" y="153" textAnchor="middle" fontSize="16" fill="#0c4a6e">split.py</text>
+
+  <line x1="200" y1="140" x2="236" y2="140" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr1)" />
+  <line x1="410" y1="140" x2="446" y2="140" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr1)" />
+  <line x1="620" y1="140" x2="656" y2="140" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr1)" />
+  <line x1="830" y1="140" x2="866" y2="140" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr1)" />
+  <line x1="1040" y1="140" x2="1056" y2="140" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr1)" />
+</svg>
+
+## 1) 数据爬取：来源配置与合规抓取
+
+抓取入口非常直接：
+
+```bash
+pokemon-data crawl -c configs/sources.yaml
+```
+
+`configs/sources.yaml` 里定义了三类来源：
+
+| source | 类型 | 当前用途 | 备注 |
+|---|---|---|---|
+| `pokeapi` | 结构化 JSON API | 主数据源 | 覆盖 pokemon/species/type/ability/move |
+| `wikipedia` | HTML 页面 | 补充自然语言描述 | 规模小但文本更自然 |
+| `fandom` | HTML 页面 | 当前不产出 | 被 `robots.txt` 禁止，按策略跳过 |
+
+关键不是“能抓多少”，而是“抓取是否可重跑、可追溯、合规”。
+
+### 1.1 抓取层怎么保证可重跑
+
+`BaseCrawler.run(resume=True)` 会先查缓存文件是否存在（`_cached_path`），存在则跳过网络请求。  
+因此你扩 ID 范围重跑时，不会重复轰炸上游站点。
+
+### 1.2 抓取层怎么保证合规
+
+`utils/http.py` + `utils/robots.py` 做了三层约束：
+
+1. 抓取前先查 `robots.txt`，不允许就抛 `RobotsDisallowed`。
+2. 按 host 做最小请求间隔（`MIN_REQUEST_INTERVAL`，默认 1 秒）。
+3. 请求失败只对网络抖动和 5xx 做重试，不盲目重放 4xx。
+
+<svg viewBox="0 0 1200 280" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="抓取合规链路">
+  <defs>
+    <marker id="arr2" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#111827" />
+    </marker>
+  </defs>
+  <rect x="40" y="95" width="200" height="90" rx="10" fill="#eef2ff" stroke="#4f46e5"/>
+  <text x="140" y="126" textAnchor="middle" fontSize="20" fill="#312e81">读取目标</text>
+  <text x="140" y="154" textAnchor="middle" fontSize="15" fill="#312e81">iter_targets()</text>
+
+  <rect x="280" y="95" width="200" height="90" rx="10" fill="#fef2f2" stroke="#dc2626"/>
+  <text x="380" y="126" textAnchor="middle" fontSize="20" fill="#7f1d1d">robots 检查</text>
+  <text x="380" y="154" textAnchor="middle" fontSize="15" fill="#7f1d1d">can_fetch()</text>
+
+  <rect x="520" y="95" width="200" height="90" rx="10" fill="#f0fdf4" stroke="#16a34a"/>
+  <text x="620" y="126" textAnchor="middle" fontSize="20" fill="#14532d">限速 + 重试</text>
+  <text x="620" y="154" textAnchor="middle" fontSize="15" fill="#14532d">RateLimiter / tenacity</text>
+
+  <rect x="760" y="95" width="200" height="90" rx="10" fill="#fff7ed" stroke="#ea580c"/>
+  <text x="860" y="126" textAnchor="middle" fontSize="20" fill="#7c2d12">落盘 raw</text>
+  <text x="860" y="154" textAnchor="middle" fontSize="15" fill="#7c2d12">data/raw/&lt;source&gt;</text>
+
+  <rect x="1000" y="95" width="160" height="90" rx="10" fill="#ecfeff" stroke="#0891b2"/>
+  <text x="1080" y="126" textAnchor="middle" fontSize="20" fill="#164e63">可重跑</text>
+  <text x="1080" y="154" textAnchor="middle" fontSize="15" fill="#164e63">resume skip</text>
+
+  <line x1="240" y1="140" x2="276" y2="140" stroke="#111827" strokeWidth="3" markerEnd="url(#arr2)" />
+  <line x1="480" y1="140" x2="516" y2="140" stroke="#111827" strokeWidth="3" markerEnd="url(#arr2)" />
+  <line x1="720" y1="140" x2="756" y2="140" stroke="#111827" strokeWidth="3" markerEnd="url(#arr2)" />
+  <line x1="960" y1="140" x2="996" y2="140" stroke="#111827" strokeWidth="3" markerEnd="url(#arr2)" />
+</svg>
+
+## 2) 解析与清洗：把 raw 变成 `Article`
+
+解析入口：
+
+```bash
+pokemon-data parse
+```
+
+这个阶段会把 `data/raw/<source>/` 的原始文件，统一成 `Article`：
+
+```python
+class Article(BaseModel):
+    source: str
+    identifier: str
+    url: str
+    title: str
+    summary: str
+    main_content: str
+    infobox: Infobox | None = None
+    categories: list[str]
+    extras: dict[str, Any]
+```
+
+### 2.1 为什么 `Article` 是关键中间层
+
+`Article` 把来源差异（JSON API vs HTML 页面）统一成一个稳定接口。  
+后面的 SFT 模板只面向 `Article`，不用关心数据最初是从哪里来的。
+
+### 2.2 清洗做了什么
+
+`cleaning/text.py` 的核心链路：
+
+| 函数 | 作用 |
+|---|---|
+| `clean_paragraph` | NFKC 归一化、去引用标记、去 `[edit]`、压空白 |
+| `strip_control` | 移除控制字符 |
+| `dehyphenate` | 修复断词（`inter-\nnational -> international`） |
+| `reflow_flavor_text` | 修复 flavor text 里的软换行 |
+| `clean_flavor` | `reflow_flavor_text` + `clean_paragraph` |
+
+<svg viewBox="0 0 1200 300" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="文本清洗流程图">
+  <defs>
+    <marker id="arr3" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#0f172a" />
+    </marker>
+  </defs>
+  <rect x="40" y="95" width="210" height="90" rx="10" fill="#fef2f2" stroke="#b91c1c"/>
+  <text x="145" y="126" textAnchor="middle" fontSize="19" fill="#7f1d1d">原始文本</text>
+  <text x="145" y="154" textAnchor="middle" fontSize="14" fill="#7f1d1d">含换行/引用/控制符</text>
+
+  <rect x="290" y="95" width="210" height="90" rx="10" fill="#fff7ed" stroke="#c2410c"/>
+  <text x="395" y="126" textAnchor="middle" fontSize="19" fill="#7c2d12">reflow + dehyphenate</text>
+  <text x="395" y="154" textAnchor="middle" fontSize="14" fill="#7c2d12">修断词与软换行</text>
+
+  <rect x="540" y="95" width="210" height="90" rx="10" fill="#ecfccb" stroke="#65a30d"/>
+  <text x="645" y="126" textAnchor="middle" fontSize="19" fill="#3f6212">clean_paragraph</text>
+  <text x="645" y="154" textAnchor="middle" fontSize="14" fill="#3f6212">NFKC + 去噪声标记</text>
+
+  <rect x="790" y="95" width="180" height="90" rx="10" fill="#e0f2fe" stroke="#0284c7"/>
+  <text x="880" y="126" textAnchor="middle" fontSize="19" fill="#0c4a6e">summary</text>
+  <text x="880" y="154" textAnchor="middle" fontSize="14" fill="#0c4a6e">main_content</text>
+
+  <rect x="1000" y="95" width="160" height="90" rx="10" fill="#ede9fe" stroke="#7c3aed"/>
+  <text x="1080" y="126" textAnchor="middle" fontSize="19" fill="#4c1d95">Article</text>
+  <text x="1080" y="154" textAnchor="middle" fontSize="14" fill="#4c1d95">标准记录</text>
+
+  <line x1="250" y1="140" x2="286" y2="140" stroke="#0f172a" strokeWidth="3" markerEnd="url(#arr3)" />
+  <line x1="500" y1="140" x2="536" y2="140" stroke="#0f172a" strokeWidth="3" markerEnd="url(#arr3)" />
+  <line x1="750" y1="140" x2="786" y2="140" stroke="#0f172a" strokeWidth="3" markerEnd="url(#arr3)" />
+  <line x1="970" y1="140" x2="996" y2="140" stroke="#0f172a" strokeWidth="3" markerEnd="url(#arr3)" />
+</svg>
+
+## 3) SFT 转换：`Article` 到 Alpaca / Chat
+
+转换入口：
+
+```bash
+pokemon-data build-sft \
+  --out data/datasets/sft/pokemon_sft.jsonl \
+  --format both \
+  --split --dedup
+```
+
+`datasets/sft.py` 会把每篇 `Article` 展开成多种训练样本：
+
+| kind | 目标 |
+|---|---|
+| `factoid` | 单字段问答，强化精确召回 |
+| `summary` | 概括能力 |
+| `long_form` | 长回答组织能力 |
+| `list` | 列表式输出 |
+| `structured` | 结构化（JSON 风格）输出 |
+| `reasoning` | 轻量推导（如属性克制） |
+| `multi_turn` | 多轮会话风格 |
+
+### 3.1 两种输出格式
+
+| 格式 | 结构 | 典型用途 |
+|---|---|---|
+| Alpaca | `{instruction, input, output, source, identifier, kind}` | 通用 SFT trainer |
+| Chat | `{messages:[{role,content}...], source, identifier, kind}` | ChatML/ShareGPT 流水线 |
+
+### 3.1.1 字段释义表
+
+#### Alpaca 字段
+
+| 字段 | 含义 | 示例 |
+|---|---|---|
+| `instruction` | 用户任务指令，定义模型“要做什么” | `Give a brief Pokedex-style description of Flare-Boost.` |
+| `input` | 可选补充上下文；没有就留空字符串 | `""` |
+| `output` | 期望答案（监督信号） | `Increases Special Attack to 1.5× when burned.` |
+| `source` | 样本来源标记，便于按来源统计/过滤 | `pokeapi` |
+| `identifier` | 源数据唯一标识，便于追溯与去重 | `ability_138` |
+| `kind` | 样本类型标签，便于配比与切片训练 | `summary` |
+
+#### Chat 字段
+
+| 字段 | 含义 | 示例 |
+|---|---|---|
+| `messages` | 多轮消息数组，按顺序组成上下文 | `[{"role":"user","content":"Tell me about Bulbasaur."}, ...]` |
+| `role` | 消息角色（通常为 `system/user/assistant`） | `assistant` |
+| `content` | 当前消息文本内容 | `grass/poison` |
+| `source` | 样本来源标记 | `pokeapi` |
+| `identifier` | 源数据唯一标识 | `pokemon_1` |
+| `kind` | 样本类型标签 | `multi_turn` |
+
+### 3.2 为什么模板是“确定性改写”
+
+模板不是随机采样，而是 `_pick(options, identifier, intent)` 做确定性选择。  
+同一个 `identifier` 在重跑时保持稳定，既保留表达多样性，又保证复现性。
+
+<svg viewBox="0 0 1200 340" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="Article 到 SFT 的转换图">
+  <defs>
+    <marker id="arr4" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#111827" />
+    </marker>
+  </defs>
+  <rect x="60" y="120" width="200" height="100" rx="12" fill="#e0f2fe" stroke="#0369a1"/>
+  <text x="160" y="155" textAnchor="middle" fontSize="22" fill="#0c4a6e">Article</text>
+  <text x="160" y="183" textAnchor="middle" fontSize="15" fill="#0c4a6e">summary/main/extras</text>
+
+  <rect x="320" y="120" width="240" height="100" rx="12" fill="#ecfccb" stroke="#65a30d"/>
+  <text x="440" y="155" textAnchor="middle" fontSize="22" fill="#3f6212">模板展开</text>
+  <text x="440" y="183" textAnchor="middle" fontSize="15" fill="#3f6212">7 kinds + deterministic paraphrase</text>
+
+  <rect x="620" y="55" width="240" height="100" rx="12" fill="#fef3c7" stroke="#d97706"/>
+  <text x="740" y="90" textAnchor="middle" fontSize="22" fill="#78350f">Alpaca</text>
+  <text x="740" y="118" textAnchor="middle" fontSize="15" fill="#78350f">instruction/output</text>
+
+  <rect x="620" y="185" width="240" height="100" rx="12" fill="#f3e8ff" stroke="#a21caf"/>
+  <text x="740" y="220" textAnchor="middle" fontSize="22" fill="#701a75">Chat</text>
+  <text x="740" y="248" textAnchor="middle" fontSize="15" fill="#701a75">messages[system,user,assistant]</text>
+
+  <rect x="920" y="120" width="220" height="100" rx="12" fill="#fee2e2" stroke="#dc2626"/>
+  <text x="1030" y="155" textAnchor="middle" fontSize="22" fill="#7f1d1d">待质检样本集</text>
+  <text x="1030" y="183" textAnchor="middle" fontSize="15" fill="#7f1d1d">pre-quality pool</text>
+
+  <line x1="260" y1="170" x2="316" y2="170" stroke="#111827" strokeWidth="3" markerEnd="url(#arr4)" />
+  <line x1="560" y1="140" x2="616" y2="105" stroke="#111827" strokeWidth="3" markerEnd="url(#arr4)" />
+  <line x1="560" y1="200" x2="616" y2="235" stroke="#111827" strokeWidth="3" markerEnd="url(#arr4)" />
+  <line x1="860" y1="105" x2="916" y2="150" stroke="#111827" strokeWidth="3" markerEnd="url(#arr4)" />
+  <line x1="860" y1="235" x2="916" y2="190" stroke="#111827" strokeWidth="3" markerEnd="url(#arr4)" />
+</svg>
+
+## 4) 质量过滤与去重：避免“脏监督”
+
+`datasets/quality.py` 里有三道闸门。
+
+### 4.1 质量过滤（`passes_quality`）
+
+| 规则 | 默认阈值 |
+|---|---|
+| 指令长度 | `10 <= len(instruction) <= 500` |
+| 输出长度 | 短答案类最小 2，其它最小 20；最大 4000 |
+| 重复率 | `max_ngram_repeat_ratio <= 0.25` |
+| 空值检查 | instruction/output 不能为空 |
+
+### 4.2 精确去重（`exact_dedup`）
+
+对 `instruction + input + output` 做标准化后拼接，取 `sha256` 作为唯一键。  
+完全相同样本只保留一条。
+
+### 4.3 近重复去重（`near_dedup`）
+
+| 项目 | 参数 |
+|---|---|
+| shingles | 字符 5-gram |
+| MinHash 数 | 64 |
+| LSH band 大小 | 8 |
+| 近重复阈值 | Jaccard `>= 0.85` |
+| 生效下限 | 输出长度 `>= 40` |
+
+<svg viewBox="0 0 1200 290" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="质量过滤与去重漏斗">
+  <polygon points="120,40 1080,40 960,95 240,95" fill="#fee2e2" stroke="#b91c1c" strokeWidth="2"/>
+  <text x="600" y="74" textAnchor="middle" fontSize="20" fill="#7f1d1d">模板展开后的原始样本池</text>
+
+  <polygon points="240,115 960,115 860,170 340,170" fill="#fef3c7" stroke="#d97706" strokeWidth="2"/>
+  <text x="600" y="149" textAnchor="middle" fontSize="20" fill="#78350f">passes_quality（长度/重复率/空值）</text>
+
+  <polygon points="340,190 860,190 780,245 420,245" fill="#dcfce7" stroke="#16a34a" strokeWidth="2"/>
+  <text x="600" y="224" textAnchor="middle" fontSize="20" fill="#14532d">exact_dedup + near_dedup（MinHash）</text>
+</svg>
+
+## 5) 确定性切分与数据卡
+
+`datasets/split.py` 的切分不是随机 `shuffle`，而是 hash 路由。  
+同一条样本跨多次构建会落在同一 split，利于复现对比。
+
+$$
+r = \frac{\left(\text{sha256(key)}[:8] \bmod 10{,}000{,}000\right)}{10{,}000{,}000}
+$$
+
+路由规则：
+
+| 条件 | split |
+|---|---|
+| `r < 0.95` | train |
+| `0.95 <= r < 0.975` | val |
+| `r >= 0.975` | test |
+
+构建结束会输出：
+
+| 文件 | 作用 |
+|---|---|
+| `pokemon_sft.train/val/test.jsonl` | Alpaca 格式 |
+| `pokemon_sft.chat.train/val/test.jsonl` | Chat 格式 |
+| `DATASET_CARD.md` | 来源分布、kind 分布、token 估算统计 |
+
+## 6) 一条完整可复现命令链
+
+```bash
+# 1) 抓取
+pokemon-data crawl -c configs/sources.yaml
+
+# 2) 解析
+pokemon-data parse
+
+# 3) 构建 SFT（Alpaca + Chat，含去重和切分）
+pokemon-data build-sft \
+  --out data/datasets/sft/pokemon_sft.jsonl \
+  --format both \
+  --split \
+  --dedup
+
+# 4) 构建高质量 chat 子集（可选）
+pokemon-data build-hq-chat \
+  --out data/datasets/sft/pokemon_sft_hq.chat.jsonl \
+  --target-size 10000 \
+  --split
+```
+
+## 7) 数据侧常见坑
+
+| 症状 | 根因 | 修复 |
+|---|---|---|
+| 样本量很大但回答质量一般 | `factoid` 占比过高，表达单一 | 增加 `long_form/summary/multi_turn` 配比 |
+| 重跑后评测波动大 | 切分不稳定或数据被覆盖 | 用 hash 切分 + 固定输入目录 |
+| 模型输出模板味过重 | 同类模板近重复过多 | 放宽模板池 + 强化 near-dedup |
+| 文本中出现断词/奇怪换行 | flavor text 软换行未修复 | 保证 `clean_flavor` 链路生效 |
+
+## 8) 数据集里的典型样本展示
+
+下面摘几条真实样本（已与项目中的 JSONL 对齐），覆盖不同 `kind` 和格式。
+
+### 8.1 Alpaca：`factoid`
+
+这类样本训练“精确召回”能力：用户问一个很窄的问题，模型要直接给出短而准的答案。
+
+```json
+{"instruction":"Name a Pokemon that can have the ability 'Technician'.","input":"","output":"Meowth","source":"pokeapi","identifier":"ability_101","kind":"factoid"}
+```
+
+### 8.2 Alpaca：`summary`
+
+这类样本训练“压缩表达”能力：把一个概念用一句话讲清楚，减少冗长输出。
+
+```json
+{"instruction":"Give a brief Pokedex-style description of Flare-Boost.","input":"","output":"Increases Special Attack to 1.5× when burned.","source":"pokeapi","identifier":"ability_138","kind":"summary"}
+```
+
+### 8.3 Alpaca：`reasoning`
+
+这类样本训练“规则推导”能力：不是只背答案，而是基于类型克制规则做一步逻辑判断。
+
+```json
+{"instruction":"If I use a Fire-type move against a bug-type Pokemon, is it effective?","input":"","output":"Yes. Fire-type moves are super-effective against bug types, so damage is doubled.","source":"pokeapi","identifier":"type_10","kind":"reasoning"}
+```
+
+### 8.4 Alpaca：`structured`
+
+这类样本训练“结构化输出”能力：让模型按指定字段返回稳定 JSON，方便下游程序消费。
+
+```json
+{"instruction":"Return a JSON object describing the move Scratch with fields: name, type, damage_class, power, accuracy, pp.","input":"","output":"{\"name\": \"Scratch\", \"type\": \"normal\", \"damage_class\": \"physical\", \"power\": 40, \"accuracy\": 100, \"pp\": 35}","source":"pokeapi","identifier":"move_10","kind":"structured"}
+```
+
+### 8.5 Chat：`multi_turn`
+
+这类样本训练“多轮上下文保持”能力：后续追问要继承前文语境，而不是每轮都当作新问题。
+
+```json
+{"messages":[{"role":"system","content":"You are a knowledgeable assistant specialised in the Pokemon franchise. Answer based on canonical Pokedex and game data. Be concise and factual."},{"role":"user","content":"Tell me about Bulbasaur."},{"role":"assistant","content":"Bulbasaur is a grass/poison-type Pokemon."},{"role":"user","content":"What type is it?"},{"role":"assistant","content":"grass/poison"},{"role":"user","content":"What's its strongest base stat?"},{"role":"assistant","content":"Special Attack at 65."}],"source":"pokeapi","identifier":"pokemon_1","kind":"multi_turn"}
+```
+
+## 总结
+
+SFT 数据工程的关键不是“抓更多”，而是把<strong>抓取、清洗、转换、质检、切分</strong>做成可重跑、可解释、可复现的流水线。  
+只要这条链路稳定，后面的模型训练迭代才有可靠地基。

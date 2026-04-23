@@ -1,0 +1,449 @@
+---
+title: 'pokemon agent 系列（二）：SFT 训练实战：基于 QLoRA + Modal 训练 Qwen2.5-7B'
+publishedAt: '2026-04-23'
+summary: '进入 E:/Pokemon-data/SFT，完整拆解从 smoke 校验到正式训练、监控、产物回收与常见坑排查的实战流程。'
+draft: false
+image: '/static/blog/pokemon-chat-series/sft-training-cover.svg'
+tags: [LLM, SFT]
+---
+
+<PaperCard
+	title="Hugging Face 发布（本次训练产物）"
+	description="基于当前 QLoRA + Modal 训练结果的公开链接"
+	links={[
+		{ label: "Adapter（LoRA 权重）", url: "https://huggingface.co/hapda12/pokemon-qwen25-7b-instruct-qlora" },
+		{ label: "演示 Space", url: "https://huggingface.co/spaces/hapda12/pokemon-qwen25-7b-space" },
+	]}
+/>
+
+后续如果更新新一版权重（例如调整 `target_modules` 或训练轮数），建议保持同一仓库名，用新 `revision/tag` 管理版本；博客里只需要更新这一次说明即可。
+
+这篇只讲训练，不讲数据清洗。目标是把已准备好的 chat JSONL，在 A100 上稳定训出可用 LoRA adapter。
+
+> 系列导航：下一篇见 **[Blog 3：系统设计全景图](/blog/pokemon-chat-overview)**。
+
+## TL;DR
+
+| 阶段 | 关键动作 | 对应文件/命令 |
+|---|---|---|
+| 配置确认 | 看模型、数据路径、LoRA/量化参数 | `SFT/configs/*.yaml` |
+| 链路自检 | 先跑 smoke 防止正式训练白烧 GPU | `modal run SFT/src/modal_app.py --smoke` |
+| 正式训练 | 前台或 detach 提交 A100 任务 | `modal run SFT/src/modal_app.py` |
+| 监控 | 看 app 日志、GPU 利用率、中间 checkpoint | Modal Dashboard + `modal app logs` |
+| 产物回收 | 拉回 adapter、metrics、sample outputs | `modal volume get ... ./SFT/outputs` |
+
+<svg viewBox="0 0 1200 280" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="SFT 训练链路总览">
+  <defs>
+    <marker id="arr-t" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#1f2937" />
+    </marker>
+  </defs>
+  <rect x="36" y="92" width="180" height="90" rx="12" fill="#dbeafe" stroke="#2563eb" />
+  <text x="126" y="124" textAnchor="middle" fontSize="21" fill="#1e3a8a">配置</text>
+  <text x="126" y="152" textAnchor="middle" fontSize="15" fill="#1e3a8a">yaml + modal_app</text>
+
+  <rect x="252" y="92" width="180" height="90" rx="12" fill="#dcfce7" stroke="#16a34a" />
+  <text x="342" y="124" textAnchor="middle" fontSize="21" fill="#14532d">smoke</text>
+  <text x="342" y="152" textAnchor="middle" fontSize="15" fill="#14532d">10 steps</text>
+
+  <rect x="468" y="92" width="180" height="90" rx="12" fill="#fef3c7" stroke="#d97706" />
+  <text x="558" y="124" textAnchor="middle" fontSize="21" fill="#78350f">正式训练</text>
+  <text x="558" y="152" textAnchor="middle" fontSize="15" fill="#78350f">A100 + QLoRA</text>
+
+  <rect x="684" y="92" width="180" height="90" rx="12" fill="#fae8ff" stroke="#a21caf" />
+  <text x="774" y="124" textAnchor="middle" fontSize="21" fill="#701a75">监控</text>
+  <text x="774" y="152" textAnchor="middle" fontSize="15" fill="#701a75">app logs / dashboard</text>
+
+  <rect x="900" y="92" width="260" height="90" rx="12" fill="#fee2e2" stroke="#dc2626" />
+  <text x="1030" y="124" textAnchor="middle" fontSize="21" fill="#7f1d1d">产物回收与评估</text>
+  <text x="1030" y="152" textAnchor="middle" fontSize="15" fill="#7f1d1d">adapter + train/eval metrics</text>
+
+  <line x1="216" y1="137" x2="248" y2="137" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr-t)" />
+  <line x1="432" y1="137" x2="464" y2="137" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr-t)" />
+  <line x1="648" y1="137" x2="680" y2="137" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr-t)" />
+  <line x1="864" y1="137" x2="896" y2="137" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr-t)" />
+</svg>
+
+## 1) 训练入口在哪里
+
+训练入口不是 shell 脚本，而是 `SFT/src/modal_app.py` 里这条 local entrypoint：
+
+```python
+@app.local_entrypoint()
+def main(config_path: str = REMOTE_CONFIG_PATH, smoke: bool = False):
+    resolved = REMOTE_SMOKE_CONFIG_PATH if smoke else config_path
+    train_remote.spawn(resolved).get()
+```
+
+也就是说：
+
+- `modal run SFT/src/modal_app.py --smoke` -> 走 smoke 配置  
+- `modal run SFT/src/modal_app.py` -> 走正式配置
+
+`SFT/scripts/run_modal_train.sh` 只是一个薄包装，内部就是 `modal run SFT/src/modal_app.py`。
+
+## 2) 配置怎么读
+
+核心配置在两个 YAML：
+
+- 正式：`SFT/configs/qwen25_7b_instruct_qlora_modal.yaml`
+- 冒烟：`SFT/configs/qwen25_7b_instruct_qlora_modal_smoke.yaml`
+
+### 2.1 正式训练关键参数（实配）
+
+| 项 | 值 |
+|---|---|
+| Base model | `Qwen/Qwen2.5-7B-Instruct` |
+| 数据 | `data/datasets/sft/pokemon_sft_hq.chat.{train,val,test}.jsonl` |
+| seq len | `1024` |
+| epoch | `2` |
+| batch | `per_device_train_batch_size=1` |
+| grad acc | `16`（effective batch=16） |
+| LoRA | `r=16, alpha=32, dropout=0.05` |
+| 量化 | `4bit NF4 + double quant + bf16 compute` |
+| GPU | `A100` |
+
+### 2.1.1 配置项的工程含义（重点）
+
+| 字段 | 当前值 | 工程含义 | 主要影响 |
+|---|---|---|---|
+| `max_seq_length` | `1024` | 单条样本最大上下文长度 | 越大越吃显存；太小会截断长对话 |
+| `packing` | `false` | 不做样本拼接，保持样本边界 | 训练更直观稳定，但吞吐通常低于 `packing=true` |
+| `assistant_only_loss` | `true` | 只对 assistant token 计算 loss | 降低“复读 user/system”风险，提升对答质量 |
+| `per_device_train_batch_size` | `1` | 单卡微批大小 | 与显存强相关，7B + 4bit 常用 1 起步 |
+| `gradient_accumulation_steps` | `16` | 梯度累积步数 | 在小微批下放大有效 batch，平衡稳定性与速度 |
+| `learning_rate` | `2e-4` | LoRA 层学习率 | 过大易震荡，过小收敛慢 |
+| `num_train_epochs` | `2` | 全量训练轮数 | 轮数过高易过拟合小领域数据 |
+| `eval_steps/save_steps` | `100/100` | 验证与保存频率 | 越频繁越稳健，但 I/O 与耗时更高 |
+| `save_total_limit` | `2` | 最多保留 checkpoint 数 | 控制磁盘/Volume 成本 |
+| `optim` | `paged_adamw_8bit` | 8bit optimizer | 降低优化器状态显存占用 |
+| `torch_dtype` | `bfloat16` | 前向/反向主要计算精度 | A100 上通常比 fp16 更稳 |
+| `load_in_4bit` | `true` | 基座权重 4bit 加载 | 大幅降显存，允许 7B 在单卡高效微调 |
+
+### 2.1.2 这次训练为什么是 1190 step
+
+你当前数据切分是：
+
+- train = `9508`
+- val = `249`
+- test = `243`
+
+正式配置下：
+
+- `per_device_train_batch_size=1`
+- `gradient_accumulation_steps=16`
+- 单卡（world size = 1）
+
+因此有效 batch：
+
+$$
+\text{effective\_batch} = 1 \times 16 \times 1 = 16
+$$
+
+每 epoch 的优化步数近似：
+
+$$
+\text{steps\_per\_epoch}=\lceil 9508 / 16 \rceil = 595
+$$
+
+2 个 epoch 总步数：
+
+$$
+\text{total\_steps}=595 \times 2 = 1190
+$$
+
+这和产物目录里的 `checkpoint-1190` 完全对齐，说明训练步数与配置是闭环的。
+
+### 2.2 smoke 为什么必须先跑
+
+smoke 配置只跑 `max_steps=10`，用 `SFT/smoke_*.jsonl` 小数据。
+
+它的作用不是“看效果”，而是确认以下链路都通：
+
+1. Modal 镜像构建与依赖安装  
+2. GPU 任务拉起  
+3. 数据读取与格式化  
+4. 训练 + eval + 保存产物
+
+在 `modal_app.py` 里，正式 HQ 数据是通过 `.add_local_file(...)` 挂进去的；这一步如果路径不对，正式训练会直接失败。先 smoke 能把这类问题提前暴露。
+
+## 3) 从 0 到 1 的可复现命令链
+
+### 3.1 前置
+
+```bash
+# 1) 生成 HQ chat 数据（如果还没生成）
+conda run -n py3_11 env PYTHONPATH=src python -m pokemon_data.cli build-hq-chat --out data/datasets/sft/pokemon_sft_hq.chat.jsonl --target-size 10000 --split
+
+# 2) Modal 登录（本机一次性）
+modal setup
+```
+
+### 3.2 先跑 smoke
+
+```bash
+conda activate py3_11
+PYTHONIOENCODING=utf-8 modal run SFT/src/modal_app.py --smoke
+```
+
+Windows 侧注意：尽量用 `conda activate` 再执行 `modal run`，不要用 `conda run -n ... modal ...`，避免编码链路导致 CLI 输出异常。
+
+### 3.3 正式训练
+
+```bash
+conda activate py3_11
+
+# 前台看日志
+PYTHONIOENCODING=utf-8 modal run SFT/src/modal_app.py
+
+# 或后台执行
+PYTHONIOENCODING=utf-8 modal run --detach SFT/src/modal_app.py
+```
+
+## 4) 训练代码做了什么
+
+### 4.1 `train.py` 执行链
+
+训练主逻辑在 `SFT/src/train.py`，关键调用路径如下：
+
+1. `load_config()`：把 YAML 转成 `TrainingConfig`，并解析成绝对路径  
+2. `create_tokenizer()`：补齐 `pad_token`，设置 `padding_side=right`  
+3. `load_model()`：按 `BitsAndBytesConfig` 以 4bit NF4 加载基座  
+4. `prepare_model_for_kbit_training()`：让量化模型可训练 LoRA 分支  
+5. `create_peft_config()`：构建 `LoraConfig(r/alpha/dropout/target_modules)`  
+6. `create_training_args()`：构建 `SFTConfig`（含 `assistant_only_loss`、`optim`、`gradient_checkpointing`）  
+7. `SFTTrainer(...).train()` + `evaluate()`  
+8. 导出 `adapter/`、`train_metrics.json`、`eval_metrics.json`、`resolved_config.json`、`sample_outputs.json`
+
+`SFT/src/data.py` 还做了消息清洗：会剔除空 `content`，确保每条 `messages` 都可用于监督训练。
+
+### 4.2 QLoRA 具体挂载了哪些层
+
+当前 `target_modules`（来自正式 YAML 与 `adapter_config.json`）：
+
+```yaml
+q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj
+```
+
+对应到 Transformer block 的含义：
+
+| 层名 | 所在子模块 | 作用 | 为什么要挂 LoRA |
+|---|---|---|---|
+| `q_proj` | Self-Attention | 生成 Query | 调整注意力“问什么” |
+| `k_proj` | Self-Attention | 生成 Key | 调整注意力“对齐什么” |
+| `v_proj` | Self-Attention | 生成 Value | 调整注意力“取什么信息” |
+| `o_proj` | Self-Attention | 注意力输出映射 | 统一 attention 子层输出分布 |
+| `gate_proj` | MLP/SwiGLU | 门控分支 | 决定激活通道开闭 |
+| `up_proj` | MLP/SwiGLU | 扩维分支 | 扩展中间表示容量 |
+| `down_proj` | MLP/SwiGLU | 回投影分支 | 将中间表示压回隐藏维 |
+
+这 7 个层覆盖了两大核心子系统（Attention + MLP），在参数效率和可学习能力之间是一个很常见的工程折中。
+
+### 4.3 这次没挂哪些层，为什么
+
+当前方案没有把 LoRA 挂到 embedding / lm_head。  
+这样做通常有两个现实收益：
+
+1. 减少可训练参数规模和显存占用，稳定首版训练链路  
+2. 降低对词表层的过拟合风险，先优先学习“回答行为”而不是“改词表映射”
+
+## 5) 监控与产物
+
+### 5.1 监控
+
+- Dashboard：`https://modal.com/apps/<workspace>/main`
+- CLI：`modal app list`
+- 日志：`modal app logs <app-id>`
+
+### 5.2 产物目录
+
+训练结束后，产物在 Volume `pokemon-qlora-outputs`，路径：
+
+`/outputs/pokemon-qwen25-7b-instruct-qlora/`
+
+包括：
+
+- `adapter/`（LoRA 权重与 tokenizer）
+- `train_metrics.json`
+- `eval_metrics.json`
+- `resolved_config.json`
+- `sample_outputs.json`
+
+拉回本地：
+
+```bash
+modal volume get pokemon-qlora-outputs /pokemon-qwen25-7b-instruct-qlora ./SFT/outputs
+```
+
+## 6) 这次实跑指标（来自当前仓库产物）
+
+下面是 `SFT/outputs/pokemon-qwen25-7b-instruct-qlora/` 中的真实结果：
+
+| 指标 | 数值 |
+|---|---|
+| train_runtime | `11586.0931 s`（约 3.22 小时） |
+| optimizer steps | `1190`（由配置与 `checkpoint-1190` 对齐） |
+| train_loss | `0.9131` |
+| train_steps_per_second | `0.103` |
+| eval_loss | `0.8178` |
+| eval_runtime | `6.50 s` |
+
+这说明从提交到产物落盘，流程是可跑通的；后续调参重点通常是数据配比和 prompts，而不是先急着换更复杂训练技巧。
+
+## 7) 常见坑与修复
+
+| 症状 | 根因 | 修复 |
+|---|---|---|
+| 一启动就找不到训练数据 | `add_local_file` 路径或本地文件缺失 | 先跑 smoke，核对 `data/datasets/sft/*.jsonl` 是否存在 |
+| 训练正常但效果怪 | `sample_outputs` 出现模板偏差或知识错配 | 回看数据侧 `kind` 配比与清洗链路，不要只盯学习率 |
+| 本地终端关掉后担心任务丢 | 前台模式绑定终端 | 用 `modal run --detach ...`，再用 `modal app logs` 追进度 |
+| 想省钱但总在重下模型 | 误删 `pokemon-hf-cache` | 保留 cache volume，避免反复下载 7B 基座 |
+
+## 8) 训练配置字段释义表
+
+### 8.1 优化与调度字段
+
+| 字段 | 含义 | 当前值 |
+|---|---|---|
+| `learning_rate` | 初始学习率 | `2e-4` |
+| `num_train_epochs` | 全量训练轮数 | `2` |
+| `gradient_accumulation_steps` | 梯度累积步数 | `16` |
+| `warmup_ratio` | 预热比例 | `0.03` |
+| `max_grad_norm` | 梯度裁剪阈值 | `0.3` |
+
+### 8.2 QLoRA 字段
+
+| 字段 | 含义 | 当前值 |
+|---|---|---|
+| `load_in_4bit` | 是否 4bit 加载基座 | `true` |
+| `bnb_4bit_quant_type` | 量化类型 | `nf4` |
+| `bnb_4bit_use_double_quant` | 是否二次量化 | `true` |
+| `bnb_4bit_compute_dtype` | 4bit 计算时累积精度 | `bfloat16` |
+| `lora_r` | LoRA rank | `16` |
+| `lora_alpha` | LoRA 缩放系数 | `32` |
+| `lora_dropout` | LoRA 分支 dropout | `0.05` |
+| `target_modules` | 注入 LoRA 的线性层 | `q/k/v/o/gate/up/down_proj` |
+
+## 9) 如何用已训练模型做推理
+
+可以，核心就是：`base model + adapter` 叠加推理。  
+下面给一个可直接跑的最小脚本（本地 Python / Colab 都可）：
+
+```python
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from peft import PeftModel
+
+base_model = "Qwen/Qwen2.5-7B-Instruct"
+adapter_model = "hapda12/pokemon-qwen25-7b-instruct-qlora"
+
+tokenizer = AutoTokenizer.from_pretrained(base_model)
+if tokenizer.pad_token is None:
+    tokenizer.pad_token = tokenizer.eos_token
+
+base = AutoModelForCausalLM.from_pretrained(
+    base_model,
+    torch_dtype=torch.bfloat16,
+    device_map="auto",
+)
+model = PeftModel.from_pretrained(base, adapter_model)
+model.eval()
+
+messages = [
+    {"role": "system", "content": "You are a knowledgeable assistant specialised in the Pokemon franchise. Answer based on canonical Pokedex and game data. Be concise and factual."},
+    {"role": "user", "content": "What is the Electric type weak to?"}
+]
+
+inputs = tokenizer.apply_chat_template(
+    messages,
+    tokenize=True,
+    add_generation_prompt=True,
+    return_tensors="pt",
+    return_dict=True,
+).to(model.device)
+
+with torch.no_grad():
+    outputs = model.generate(
+        **inputs,
+        max_new_tokens=128,
+        do_sample=False,
+        temperature=1.0,
+        top_p=1.0,
+    )
+
+print(tokenizer.decode(outputs[0], skip_special_tokens=True))
+```
+
+> 说明：为了复现实验日志，示例使用 `do_sample=False` 的贪心解码；如果你在博客里想展示更自然的长回答，可以改成 `do_sample=True`、`temperature=0.7`、`top_p=0.9`。
+
+## 10）推理案例（真实实测）
+
+下面三条不是离线缓存样例，而是我在 `2026-04-23` 用真实模型在线跑出来的结果。
+
+实测命令：
+
+```bash
+$env:PYTHONIOENCODING='utf-8'; D:/Anaconda/envs/py3_11/Scripts/modal.exe run SFT/src/modal_infer.py
+```
+
+### 10.1 案例 A：能力解释
+
+**Prompt**
+
+```text
+Explain what Levitate does in Pokemon battles.
+```
+
+**Model output（原始）**
+
+```text
+Nullifies effects of being grounded.
+```
+
+**点评**
+
+- 输出简短且方向基本正确。  
+- 但解释粒度偏粗，后续可增加“机制细节型”训练样本提升完整性。
+
+### 10.2 案例 B：实体对比
+
+**Prompt**
+
+```text
+Compare Pikachu and Raichu in one short paragraph.
+```
+
+**Model output（原始）**
+
+```text
+Pikachu is smaller and has less power than Raichu.
+```
+
+**点评**
+
+- 输出简短、方向正确，符合 `summary/short-form` 训练目标。  
+- 细节覆盖还偏少，后续可增加“同题多角度对比”样本提升信息密度。
+
+### 10.3 案例 C：属性克制
+
+**Prompt**
+
+```text
+What type is Pikachu and what is it weak to?
+```
+
+**Model output（原始）**
+
+```text
+electric, fairy
+```
+
+**点评**
+
+- 该条存在明显知识偏差（Pikachu 的弱点未答对）。  
+- 这说明当前模型在“属性克制”这类规则型知识上仍需强化，适合在下一轮数据中加大 `reasoning + factoid` 的针对性覆盖。
+
+## 总结
+
+这套 `E:/Pokemon-data/SFT` 训练链路的关键不在于“参数多先进”，而在于<strong>先 smoke 保链路，再正式跑，最后把产物和指标回收到本地形成闭环</strong>。  
+训练这件事做到可复现，后续调参和横向对比才有意义。

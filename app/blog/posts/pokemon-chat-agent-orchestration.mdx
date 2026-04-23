@@ -1,0 +1,671 @@
+---
+title: 'pokemon agent 系列（六）：LangGraph Agent 编排'
+publishedAt: '2026-04-20T10:03:00'
+summary: '面向初学者，详细拆解 pokemon agent 的 Agent 模式：前端如何切到 supervisor_agent，LangGraph 的 state 和 workflow 如何运作，supervisor、workers 和 finalizer 如何协作。'
+image: '/static/blog/pokemon-chat-series/agent-orchestration-cover.svg'
+draft: false
+tags: [AI, Agent, LangGraph, Orchestration]
+---
+
+<PaperCard
+	title="pokemon agent · Blog 6"
+	description="这篇文章专门面向初学者，讲清楚 Agent 模式不是一个抽象概念，而是一套可读、可调试、可约束的执行图：入口、状态、路由、worker、finalizer 缺一不可。"
+	links={[
+		{ label: 'Blog 7：配置热切换与运行时覆盖', url: '/blog/pokemon-chat-config-hot-reload' },
+	]}
+/>
+
+> 系列导航：下一篇见 **[Blog 7：配置热切换与运行时覆盖](/blog/pokemon-chat-config-hot-reload)**。本文负责回答：**当普通模式不够时，系统是如何把执行控制权交给 supervisor、workers 和 finalizer 的。**
+
+很多人第一次接触 Agent 系统时，最容易产生两种误解。
+
+第一种误解是：<strong>Agent 就是“让模型自己决定一切”</strong>。这听起来很酷，但在工程上往往意味着不可控、难调试、难复现。第二种误解是：<strong>Agent 模式和普通聊天模式只是“多调了几个工具”</strong>。这也不完全对，因为真正的差异并不只在工具数量，而在于<strong>流程控制权</strong>到底掌握在谁手里。
+
+`pokemon agent` 的 Agent 模式很适合拿来给初学者解释这个问题。因为它没有把 Agent 写成一团抽象的“智能行为”，而是非常明确地拆成了几个可理解的部件：
+
+- 前端切换 Agent 模式
+- 后端进入 `supervisor_agent`
+- LangGraph 用 `AgentState` 维护状态
+- `workflow.py` 负责搭图
+- `supervisor` 决定下一步去哪个 worker
+- `worker` 真正执行能力
+- `finalizer` 把结果整理成用户看到的最终回答
+
+这样一来，Agent 模式就不再是一个玄学名词，而是一张可以逐节点理解的执行图。
+
+这篇文章会尽量用**面向小白**的方式，把这套编排讲清楚：你不需要先懂 LangGraph，也不需要先懂 ReAct，只要你能理解“一个请求在系统里如何被拆成多个步骤”，就能读懂这篇文章。
+
+## TL;DR
+
+| 问题 | 简短结论 |
+| --- | --- |
+| Agent 模式和普通模式最大的区别是什么？ | 普通模式主要由后端代码控制流程，Agent 模式把“下一步做什么”的控制权交给了 `supervisor + workflow`。 |
+| Agent 模式的入口在哪里？ | 前端发到 `/chat/agent/supervisor_agent`，后端交给 `SupervisorAgent.query(...)`。 |
+| LangGraph 在这个项目里做什么？ | 它负责把整个执行流程写成一张图：节点、边、状态和结束条件都明确可见。 |
+| `AgentState` 是什么？ | 它是节点之间共享的上下文容器，保存消息、下一步路由、允许的 worker、并行状态等。 |
+| `supervisor` 做什么？ | 读取当前问题与状态，决定下一步去哪个 worker，或是否并行派发多个 worker。 |
+| `worker` 做什么？ | 每个 worker 只负责一类能力：RAG、图谱、Web、统计、MCP。 |
+| `finalizer` 为什么需要存在？ | 因为 worker 的输出更像“草稿答案”或“能力结果”，而用户需要的是自然、统一、可直接阅读的最终回答。 |
+| 这套结构为什么适合初学者理解？ | 因为它把“Agent 会自己思考”这种模糊说法，变成了可读、可观察、可解释的工程结构。 |
+
+## 先回答一个最核心的问题：Agent 模式到底比普通模式多了什么
+
+如果你已经看过前两篇文章，那么你知道 `pokemon agent` 的普通模式已经不简单了。它并不是“前端发一句话、后端直接调模型”，而是已经有：
+
+- 本地直答
+- 语义缓存
+- Retriever 多源检索增强
+- 最终模型生成
+
+那为什么还需要 Agent 模式？
+
+因为普通模式本质上仍然是一条<strong>后端预先写死顺序</strong>的执行链。虽然它很稳、很实用，但它默认系统已经知道：
+
+1. 该不该检索
+2. 查哪些源
+3. 查完之后怎么统一交给模型
+
+而 Agent 模式要解决的是另一类问题：
+
+> 当一个问题可能同时需要多种能力，而且系统无法在编码阶段完全写死路径时，能不能让系统在运行时动态决定下一步去哪里？
+
+这就是 Agent 模式的出发点。
+
+### 对初学者来说，最简单的理解方式
+
+你可以把普通模式和 Agent 模式想成两种不同的“任务分配方式”：
+
+- **普通模式**：像固定流程的流水线。代码已经安排好了先做什么、后做什么。
+- **Agent 模式**：像一个小组长带几个专员。小组长先判断该派谁干活，需要时还能同时派多人并行工作。
+
+这里的“小组长”就是 `supervisor`，而各类“专员”就是 `worker`。
+
+## Agent 模式的入口：从前端切换，到后端进入 `supervisor_agent`
+
+Agent 模式并不是后端收到请求后再临时判断出来的，而是前端在发送时就已经决定了请求要走哪条路。
+
+在 `useChat.ts` 里，最关键的逻辑是：
+
+```ts
+const isAgentMode = Boolean(meta.use_agent)
+
+if (isAgentMode) {
+  const allowedWorkers = ['rag_worker', 'stats_worker']
+  if (meta.agent_allow_web !== false) allowedWorkers.push('web_worker')
+  if (meta.agent_allow_graph !== false) allowedWorkers.push('graph_worker')
+  if (meta.agent_allow_mcp !== false) allowedWorkers.push('mcp_worker')
+  requestMeta.agent_constraints = { allowed_workers: allowedWorkers }
+}
+
+const endpoint = isAgentMode ? '/chat/agent/supervisor_agent' : '/chat/'
+```
+
+这段代码对于初学者来说特别重要，因为它直接揭示了三件事。
+
+### 第一，Agent 模式不是隐藏行为，而是显式开关
+
+是否进入 Agent，是前端通过 `meta.use_agent` 明确控制的。
+
+### 第二，前端不只是“打开 Agent”，还会一起声明约束
+
+前端并不会简单地说一句“你现在是 Agent 模式了”，而是会把允许使用哪些 worker 一起发给后端。这意味着 Agent 并不是无限自由的，而是处在一个由 UI 限制好的执行边界里。
+
+### 第三，Agent 模式有自己的 endpoint
+
+它不是在普通聊天接口里“顺便多做几步”，而是走完全独立的一条入口：
+
+- 普通模式：`/chat/`
+- Agent 模式：`/chat/agent/supervisor_agent`
+
+这说明从架构上看，Agent 模式在这个项目里已经被视为一条独立执行通道。
+
+## 一张图看懂 Agent 模式入口
+
+<svg viewBox="0 0 1200 420" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="Agent 模式入口图">
+  <defs>
+    <marker id="agent-entry-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#64748b" />
+    </marker>
+  </defs>
+
+  <rect x="50" y="145" width="180" height="100" rx="18" fill="#fff7ed" stroke="#fdba74" />
+  <text x="140" y="182" textAnchor="middle" fontSize="26" fontWeight="700" fill="#9a3412">用户开关</text>
+  <text x="140" y="212" textAnchor="middle" fontSize="16" fill="#7c2d12">use_agent = true</text>
+
+  <rect x="300" y="95" width="250" height="200" rx="18" fill="#eff6ff" stroke="#93c5fd" />
+  <text x="425" y="130" textAnchor="middle" fontSize="24" fontWeight="700" fill="#1d4ed8">useChat.ts</text>
+  <text x="425" y="165" textAnchor="middle" fontSize="16" fill="#1e40af">组装 history / meta</text>
+  <text x="425" y="190" textAnchor="middle" fontSize="16" fill="#1e40af">注入 allowed_workers</text>
+  <text x="425" y="215" textAnchor="middle" fontSize="16" fill="#1e40af">设置 db_id / thread_id</text>
+  <text x="425" y="240" textAnchor="middle" fontSize="16" fill="#1e40af">选择 /chat/agent/supervisor_agent</text>
+
+  <rect x="640" y="145" width="220" height="100" rx="18" fill="#ecfeff" stroke="#67e8f9" />
+  <text x="750" y="180" textAnchor="middle" fontSize="24" fontWeight="700" fill="#155e75">chat_router.py</text>
+  <text x="750" y="210" textAnchor="middle" fontSize="16" fill="#164e63">统一打包流式 chunk</text>
+
+  <rect x="930" y="145" width="220" height="100" rx="18" fill="#f5f3ff" stroke="#c4b5fd" />
+  <text x="1040" y="180" textAnchor="middle" fontSize="24" fontWeight="700" fill="#6d28d9">SupervisorAgent</text>
+  <text x="1040" y="210" textAnchor="middle" fontSize="16" fill="#5b21b6">graph.query() 入口</text>
+
+  <path d="M230 195 L300 195" stroke="#fb923c" strokeWidth="6" markerEnd="url(#agent-entry-arrow)" />
+  <path d="M550 195 L640 195" stroke="#3b82f6" strokeWidth="6" markerEnd="url(#agent-entry-arrow)" />
+  <path d="M860 195 L930 195" stroke="#8b5cf6" strokeWidth="6" markerEnd="url(#agent-entry-arrow)" />
+</svg>
+
+对初学者来说，你只要先记住这一点就够了：**Agent 模式不是“多一个工具调用”，而是进入了另一套运行时框架。**
+
+## `SupervisorAgent`：它不是在回答问题，而是在驱动图执行
+
+`src/agents/supervisor_agent.py` 的名字很容易让人误以为它就是“最终回答问题的主模型”。其实不是。它更像一个**图执行控制器**。
+
+对于初学者来说，你可以把它理解成“把用户问题放进 LangGraph 这张图里跑起来”的那层包装。
+
+最关键的逻辑是这一段：
+
+```python
+input_state: dict[str, Any] = {"messages": [HumanMessage(content=query)]}
+if allowed_workers is not None:
+    input_state["allowed_workers"] = allowed_workers
+if isinstance(db_id, str) and db_id.strip():
+    input_state["db_id"] = db_id.strip()
+
+config = {"configurable": {"thread_id": meta.get("thread_id", "default")}}
+
+async for event in self.graph.astream_events(input_state, config, version="v1"):
+    ...
+```
+
+这段代码说明了两件事：
+
+1. `SupervisorAgent` 不直接自己做业务决策，它是把初始状态送进 `graph`
+2. 后续所有节点执行，都会沿着这张图和共享状态继续推进
+
+换句话说，`SupervisorAgent` 更像是一个**graph runtime adapter**，而不是一个“超级模型”。
+
+## `AgentState`：为什么 Agent 系统需要一个共享状态对象
+
+如果你以前只写过普通函数调用，很容易不理解为什么 LangGraph 要专门定义一个 `AgentState`。其实原因很简单：
+
+> 当一个请求会经过多个节点，而且下一步路径还会动态变化时，你需要一个所有节点都能看懂、也都能修改的共享上下文容器。
+
+这个容器在 `pokemon agent` 里就是：
+
+```python
+class AgentState(TypedDict, total=False):
+    messages: Required[Annotated[Sequence[BaseMessage], operator.add]]
+    next: Required[str]
+    allowed_workers: NotRequired[list[str]]
+    db_id: NotRequired[str]
+    forward_directly: NotRequired[bool]
+    parallel_workers: NotRequired[list[str]]
+    parallel_count: NotRequired[int]
+    parallel_done: NotRequired[int]
+```
+
+### 初学者该怎么理解这里每个字段
+
+| 字段 | 它是什么 | 为什么需要 |
+| --- | --- | --- |
+| `messages` | 当前对话消息序列 | 让每个节点都能看到“到目前为止发生了什么” |
+| `next` | 下一步要去哪个节点 | 让 workflow 知道该往哪走 |
+| `allowed_workers` | 当前允许使用的 worker 列表 | 把前端约束传进执行图 |
+| `db_id` | 当前选中的知识库 id | 让 `rag_worker` 知道该查哪个库 |
+| `forward_directly` | 是否跳过再次回 supervisor | 用于减少多余调度与改写 |
+| `parallel_workers` | 要并行执行的 worker 列表 | 支持一次派多个 worker |
+| `parallel_count / parallel_done` | 并行任务数量与完成计数 | 用于判断并行是否已经全部结束 |
+
+如果用一句非常口语化的话来解释：
+
+> `AgentState` 就像是这次任务的“共享任务卡片”，谁接手都可以看这张卡片，知道前面做了什么、接下来要去哪里、还剩什么没做完。
+
+## `workflow.py`：为什么说 LangGraph 的核心不是模型，而是“图”
+
+很多初学者一开始接触 LangGraph，会把注意力都放在“节点里写了什么 prompt”。但从工程角度看，LangGraph 真正重要的地方其实是：
+
+- 你有哪些节点
+- 节点之间怎么连
+- 哪些情况下走哪条边
+- 什么情况算结束
+
+在这个项目里，`workflow.py` 明确把整张图搭了出来：
+
+```python
+workflow.add_node("supervisor", supervisor_node)
+workflow.add_node("rag_worker", rag_worker_node)
+workflow.add_node("web_worker", web_worker_node)
+workflow.add_node("graph_worker", graph_worker_node)
+workflow.add_node("stats_worker", stats_worker_node)
+workflow.add_node("mcp_worker", mcp_worker_node)
+workflow.add_node("finalizer", finalizer_node)
+```
+
+然后又定义了 worker 执行完后怎么走：
+
+```python
+for worker_name in ["rag_worker", "web_worker", "graph_worker", "stats_worker", "mcp_worker"]:
+    workflow.add_conditional_edges(worker_name, _post_worker_route, _worker_route_map)
+```
+
+再定义 supervisor 的分流逻辑：
+
+```python
+workflow.add_conditional_edges(
+    "supervisor",
+    _supervisor_route,
+    {
+        "rag_worker": "rag_worker",
+        "web_worker": "web_worker",
+        "graph_worker": "graph_worker",
+        "stats_worker": "stats_worker",
+        "mcp_worker": "mcp_worker",
+        "finalizer": "finalizer",
+        END: END,
+    },
+)
+```
+
+### 对初学者最重要的理解
+
+这里其实就只是在做一件事：
+
+> 用图来明确表示“谁之后接谁”。
+
+这比传统的 if/else 嵌套强很多，因为它让执行结构变得显式、可视化、可调试。你不用在一大段逻辑里猜测流程，而是能直接回答：
+
+- 图的入口是 `supervisor`
+- `supervisor` 决定去哪个 worker
+- worker 完成后，要么回 `supervisor`，要么去 `finalizer`，要么直接结束
+- `finalizer` 一定是终点前最后一个节点
+
+## 一张图看懂 Agent workflow
+
+<svg viewBox="0 0 1200 520" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="LangGraph workflow 图示意">
+  <defs>
+    <marker id="workflow-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#64748b" />
+    </marker>
+  </defs>
+
+  <rect x="90" y="210" width="170" height="90" rx="18" fill="#eff6ff" stroke="#93c5fd" />
+  <text x="175" y="245" textAnchor="middle" fontSize="26" fontWeight="700" fill="#1d4ed8">supervisor</text>
+  <text x="175" y="272" textAnchor="middle" fontSize="16" fill="#1e40af">决定下一步路由</text>
+
+  <rect x="380" y="60" width="170" height="70" rx="16" fill="#fff7ed" stroke="#fdba74" />
+  <text x="465" y="102" textAnchor="middle" fontSize="20" fontWeight="700" fill="#9a3412">rag_worker</text>
+
+  <rect x="380" y="150" width="170" height="70" rx="16" fill="#fefce8" stroke="#fde047" />
+  <text x="465" y="192" textAnchor="middle" fontSize="20" fontWeight="700" fill="#854d0e">graph_worker</text>
+
+  <rect x="380" y="240" width="170" height="70" rx="16" fill="#ecfeff" stroke="#67e8f9" />
+  <text x="465" y="282" textAnchor="middle" fontSize="20" fontWeight="700" fill="#155e75">web_worker</text>
+
+  <rect x="380" y="330" width="170" height="70" rx="16" fill="#f5f3ff" stroke="#c4b5fd" />
+  <text x="465" y="372" textAnchor="middle" fontSize="20" fontWeight="700" fill="#6d28d9">stats_worker</text>
+
+  <rect x="380" y="420" width="170" height="70" rx="16" fill="#fdf2f8" stroke="#f9a8d4" />
+  <text x="465" y="462" textAnchor="middle" fontSize="20" fontWeight="700" fill="#be185d">mcp_worker</text>
+
+  <rect x="760" y="210" width="190" height="90" rx="18" fill="#f0fdf4" stroke="#86efac" />
+  <text x="855" y="245" textAnchor="middle" fontSize="24" fontWeight="700" fill="#166534">finalizer</text>
+  <text x="855" y="272" textAnchor="middle" fontSize="16" fill="#166534">整理最终回答</text>
+
+  <rect x="1030" y="210" width="100" height="90" rx="18" fill="#fafafa" stroke="#d4d4d4" />
+  <text x="1080" y="265" textAnchor="middle" fontSize="24" fontWeight="700" fill="#404040">END</text>
+
+  <path d="M260 230 L380 95" stroke="#f97316" strokeWidth="5" fill="none" markerEnd="url(#workflow-arrow)" />
+  <path d="M260 245 L380 185" stroke="#eab308" strokeWidth="5" fill="none" markerEnd="url(#workflow-arrow)" />
+  <path d="M260 260 L380 275" stroke="#06b6d4" strokeWidth="5" fill="none" markerEnd="url(#workflow-arrow)" />
+  <path d="M260 275 L380 365" stroke="#8b5cf6" strokeWidth="5" fill="none" markerEnd="url(#workflow-arrow)" />
+  <path d="M260 290 L380 455" stroke="#ec4899" strokeWidth="5" fill="none" markerEnd="url(#workflow-arrow)" />
+
+  <path d="M550 95 L760 230" stroke="#64748b" strokeWidth="4" fill="none" markerEnd="url(#workflow-arrow)" />
+  <path d="M550 185 L760 240" stroke="#64748b" strokeWidth="4" fill="none" markerEnd="url(#workflow-arrow)" />
+  <path d="M550 275 L760 250" stroke="#64748b" strokeWidth="4" fill="none" markerEnd="url(#workflow-arrow)" />
+  <path d="M550 365 L760 260" stroke="#64748b" strokeWidth="4" fill="none" markerEnd="url(#workflow-arrow)" />
+  <path d="M550 455 L760 270" stroke="#64748b" strokeWidth="4" fill="none" markerEnd="url(#workflow-arrow)" />
+
+  <path d="M950 255 L1030 255" stroke="#16a34a" strokeWidth="6" markerEnd="url(#workflow-arrow)" />
+</svg>
+
+这张图虽然做了简化，但对初学者来说已经足够建立最重要的理解：**Agent 的本质不是一个“更强的模型”，而是一张会动态走边的执行图。**
+
+## `supervisor`：Agent 系统里真正的“小组长”
+
+如果把整个 Agent 模式比作一个协作小组，那么 `supervisor` 就是组长。它自己不一定真正去查知识、跑图谱、联网搜索，但它要做最重要的一件事：<strong>决定接下来由谁来处理这个问题</strong>。
+
+在 `supervisor.py` 里，这个逻辑分成了几层，读起来非常适合教学。
+
+### 第一层：先看是否已经可以直接结束
+
+```python
+if state.get("forward_directly") and len(state.get("messages", [])) > 1:
+    return {"next": "FINISH"}
+```
+
+初学者可以把这理解成：“如果前面已经明确知道答案可以直接往后送，就不要再绕回来重新思考一次。”
+
+### 第二层：并行任务是否已经全部完成
+
+```python
+parallel_count = state.get("parallel_count", 0)
+parallel_done = state.get("parallel_done", 0)
+if parallel_count > 0 and parallel_done >= parallel_count:
+    return {"next": "FINISH", "forward_directly": True}
+```
+
+这里的意思是：如果前面同时派了多个 worker 去做事，那就等他们都做完，再统一结束。
+
+### 第三层：简单问题优先走确定性路由
+
+```python
+decision = classify_intent(last_human or "")
+if decision.intent == Intent.POKEDEX_FACTS and decision.confidence >= 0.8:
+    if "stats_worker" in allowed:
+        return {"next": "stats_worker", "forward_directly": True}
+```
+
+这一层非常值得初学者认真看，因为它说明：
+
+> 一个成熟 Agent 系统，不应该把所有问题都交给 LLM 决定路由。
+
+如果系统已经能通过规则或意图识别高置信度判断“这就是一个图鉴事实问题”，那最好的做法就是直接派给合适的 worker，而不是再调用一次 LLM 来“思考该派谁”。
+
+### 第四层：规则路由与并行路由
+
+```python
+parallel_workers = rule_route_parallel(last_human or "", allowed)
+if len(parallel_workers) > 1:
+    return {
+        "next": "__PARALLEL__",
+        "parallel_workers": parallel_workers,
+        "parallel_count": len(parallel_workers),
+        "parallel_done": 0,
+        "forward_directly": True,
+    }
+
+route = rule_route(last_human or "", allowed)
+if route:
+    return {"next": route, "forward_directly": True}
+```
+
+这段代码又体现了一个很重要的工程思想：
+
+- 如果规则已经足够判断，那就用规则
+- 如果一个问题明显需要多个能力，那就直接并行派发
+- 不要把本来可以快速完成的路由问题交给 LLM 增加成本和不确定性
+
+### 第五层：最后才交给 LLM 做工具路由
+
+```python
+handoff_tools = _build_handoff_tools(allowed, support_parallel=True)
+llm_with_tools = self.llm.bind_tools(handoff_tools, tool_choice="required")
+...
+result = chain.invoke({"messages": state["messages"]})
+parsed = _parse_tool_call_route(result, allowed)
+```
+
+也就是说，在 `pokemon agent` 里，LLM 路由不是默认第一选择，而是**规则都不够时的兜底层**。
+
+这点对初学者尤其重要，因为很多人学 Agent 时会误以为“让大模型做所有决策”才是高级做法。实际上，真正好的工程往往恰恰相反：<strong>能规则化的部分尽量规则化，把 LLM 留给真正需要动态判断的地方</strong>。
+
+## Worker：为什么要拆成多个，而不是做一个万能执行器
+
+如果你第一次接触 Agent，很容易会问：为什么不做一个“大工具节点”，让它根据问题决定要查什么？
+
+答案是：因为那样会让职责边界变得非常模糊，后续很难调试和扩展。
+
+`pokemon agent` 把 worker 拆成多个，每个只负责一类能力：
+
+| Worker | 它负责什么 | 适合回答什么 |
+| --- | --- | --- |
+| `rag_worker` | RAG / 知识库 / 复杂检索增强 | 文档知识、向量检索、多步检索增强问题 |
+| `graph_worker` | 知识图谱问答 | 关系、进化、地区、图谱结构类问题 |
+| `web_worker` | 联网搜索 | 当前、最新、公告、活动、版本等问题 |
+| `stats_worker` | 属性、克制、统计、图鉴事实 | 对战、克制关系、种族值、属性类问题 |
+| `mcp_worker` | 地理位置 / 外接 MCP 能力 | 地点、坐标、地图相关查询 |
+
+### 对初学者的一个最重要启发
+
+> worker 的价值，不是“把系统拆得更复杂”，而是让每一类能力都拥有自己清晰的输入、输出和失败边界。
+
+这样做的好处至少有三个：
+
+1. 更容易调试：你能明确知道是哪一个 worker 出了问题
+2. 更容易替换：以后想升级图谱能力，只改 `graph_worker`
+3. 更容易路由：supervisor 不需要理解所有细节，只需要知道“这个问题更适合派给谁”
+
+## 逐个看 worker：它们其实没有你想象中那么神秘
+
+### `stats_worker`：最像“确定性工具”的 worker
+
+`stats_worker` 特别适合给初学者理解，因为它很多时候并不是靠 LLM 硬推理，而是先尽量走确定性回答。
+
+```python
+deterministic = _maybe_answer_type_matchup(query)
+if deterministic:
+    return {"messages": [AIMessage(content=deterministic)]}
+
+local = maybe_answer_pokedex(query)
+if local:
+    return {"messages": [AIMessage(content=local.content)]}
+```
+
+这说明即使在 Agent 模式下，worker 也不是“默认调用大模型”，而是会优先使用：
+
+- 类型克制表
+- 本地图鉴数据
+- 只有在这些不够时，才调用 LLM
+
+所以它更像一个“有 fallback 的能力节点”，而不是单纯的 prompt wrapper。
+
+### `graph_worker`：专门处理图谱关系，但也有本地兜底
+
+```python
+if not self.graph_store.graph:
+    return make_error_response(
+        "知识图谱未连接或未启用，暂时无法查询图谱关系。你可以改问宝可梦图鉴类问题（属性/特性/进化等）。"
+    )
+```
+
+这段代码非常适合给初学者讲“失败边界”的概念。一个 worker 不仅要知道自己会什么，还要知道：
+
+- 依赖服务没起来时怎么办
+- 能不能降级
+- 不能降级时该怎样给出明确错误
+
+### `web_worker`：最直观的“搜索 + 总结”模式
+
+```python
+response = self.tavily.search(query=query, search_depth="basic", max_results=3)
+...
+prompt = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            "You are a web researcher. Answer the query using the provided search results.\n\nResults:\n{context}",
+        ),
+        ("user", "{query}"),
+    ]
+)
+```
+
+对于初学者来说，这个 worker 最容易看懂：
+
+1. 先搜索
+2. 把结果整理成上下文
+3. 再交给 LLM 写出自然语言回答
+
+它基本就是一个最典型的“检索后生成”节点。
+
+### `mcp_worker`：处理外接能力，但接口仍然统一
+
+```python
+answer, coords = await cached_ask(query)
+return {"answer": answer or "", "coords": coords}
+```
+
+虽然 `mcp_worker` 底下接的是 MCP 能力，但从上层来看，它的返回形式和其他 worker 一样，仍然会被统一包装进 `messages`。这说明整个系统在设计 worker 时保持了一个很重要的原则：
+
+> 底层能力可以不同，但对上层 workflow 来说，节点输出接口应尽量统一。
+
+### `rag_worker`：最复杂，也最像真正的“多步能力节点”
+
+`rag_worker` 是这几个 worker 里最复杂的一个。它不像 `web_worker` 那么直接，也不像 `stats_worker` 那么确定性，而是一个更接近“小型检索流水线”的节点。
+
+比如它会：
+
+- 在有 `db_id` 时直接查 KB
+- 在向量库不可用时尝试本地图鉴兜底
+- 对复杂问题做 query decomposition
+- 根据 query 长度或复杂度选择是否启用 HyDE
+- 对多个子问题并行召回上下文
+- 再把这些上下文交给 LLM 生成答案
+
+```python
+if is_complex:
+    sub_queries = decomposer.decompose(query)
+...
+if use_hyde:
+    hyde_doc = hyde_operator.call(model_wrapper, query, "")
+...
+if len(sub_queries) > 1:
+    with ThreadPoolExecutor(max_workers=min(len(sub_queries), 4)) as executor:
+        ...
+```
+
+对于初学者来说，不必一开始就把这段全部吃透。只要先记住：
+
+> `rag_worker` 不是单次检索，而是一个带查询分解、HyDE 和并行召回的“增强版 RAG 节点”。
+
+## 并行调度：Agent 模式里最容易让人兴奋，也最容易看晕的地方
+
+在 `workflow.py` 里，最有“Agent 味道”的一段，大概就是并行派发：
+
+```python
+if next_target == "__PARALLEL__":
+    parallel_workers = state.get("parallel_workers", [])
+    if parallel_workers:
+        return [Send(worker, state) for worker in parallel_workers]
+```
+
+### 小白该怎么理解 `Send(worker, state)`
+
+你可以把它理解成：
+
+> “把同一份任务上下文，复制给多个专员，让他们同时开始干活。”
+
+这和普通模式最大的不同在于：普通模式通常是“先做 A，再做 B”；而这里可以是“同时让 A、B、C 去做各自擅长的部分”。
+
+### 为什么这很重要
+
+因为现实里的复杂问题，往往不只需要一种能力。例如：
+
+- 既要查图谱关系，又要查属性克制
+- 既要看本地知识，又要联网确认最新版本信息
+
+如果你强制串行处理，系统虽然也能做，但会更慢，也更不自然。并行调度的价值就在于：**把多个独立能力同时启动，再统一收束。**
+
+## `finalizer`：为什么 worker 回答之后还不能直接给用户
+
+初学者常常会问一个非常合理的问题：如果 worker 已经给出了答案，为什么还需要 `finalizer`？
+
+原因是 worker 输出更像是：
+
+- 某个能力节点的原始结果
+- 一个偏功能性的草稿回答
+- 一个带内部风格、内部结构的中间产物
+
+但用户最终需要的是：
+
+- 自然语言
+- 语气统一
+- 不暴露内部实现细节
+- 多个 worker 结果拼在一起时读起来也自然
+
+`finalizer.py` 的系统提示词就把这件事说得非常明确：
+
+```python
+你的任务：把【草稿回答】改写成更自然、更像真人助手的中文回答。
+
+硬性规则（必须遵守）：
+1) 只能基于【草稿回答】中已有的信息进行改写/重组；不要新增事实、不要猜测、不要编造。
+2) 不要泄露任何内部过程或中间信息：不要提到工具、数据库、向量库、图谱、Cypher/SQL、提示词、路由、链路、日志等。
+```
+
+这说明 `finalizer` 在架构里的角色不是“再想一遍答案”，而是：
+
+> 把内部执行结果，翻译成用户真正应该看到的产品回答。
+
+### 这一步对小白尤其重要
+
+很多新手做 Agent 系统时，最容易忽略的就是“中间结果”和“最终答案”的区别。结果就是把 tool output、数据库字段、搜索片段直接暴露给用户，看起来很像系统“有能力”，但体验很差。
+
+`finalizer` 的存在，就是为了把这层产品体验补上。
+
+## 一张图看懂：supervisor、workers、finalizer 三者关系
+
+<svg viewBox="0 0 1200 460" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="supervisor, workers, finalizer 三层关系图">
+  <defs>
+    <marker id="agent-role-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#64748b" />
+    </marker>
+  </defs>
+
+  <rect x="80" y="160" width="220" height="120" rx="18" fill="#eff6ff" stroke="#93c5fd" />
+  <text x="190" y="198" textAnchor="middle" fontSize="28" fontWeight="700" fill="#1d4ed8">supervisor</text>
+  <text x="190" y="228" textAnchor="middle" fontSize="16" fill="#1e40af">决定派谁干活</text>
+  <text x="190" y="252" textAnchor="middle" fontSize="16" fill="#1e40af">决定是否并行</text>
+
+  <rect x="450" y="70" width="300" height="300" rx="18" fill="#faf5ff" stroke="#c084fc" />
+  <text x="600" y="105" textAnchor="middle" fontSize="28" fontWeight="700" fill="#7e22ce">workers</text>
+  <text x="600" y="145" textAnchor="middle" fontSize="18" fill="#6b21a8">rag / graph / web / stats / mcp</text>
+  <text x="600" y="180" textAnchor="middle" fontSize="16" fill="#6b21a8">每个 worker 只做一类能力</text>
+  <text x="600" y="210" textAnchor="middle" fontSize="16" fill="#6b21a8">可以单独执行，也可以并行执行</text>
+  <text x="600" y="240" textAnchor="middle" fontSize="16" fill="#6b21a8">产出的是能力结果或草稿答案</text>
+
+  <rect x="900" y="160" width="220" height="120" rx="18" fill="#f0fdf4" stroke="#86efac" />
+  <text x="1010" y="198" textAnchor="middle" fontSize="28" fontWeight="700" fill="#166534">finalizer</text>
+  <text x="1010" y="228" textAnchor="middle" fontSize="16" fill="#166534">把草稿整理成最终回答</text>
+  <text x="1010" y="252" textAnchor="middle" fontSize="16" fill="#166534">不新增事实，只做收束</text>
+
+  <path d="M300 220 L450 220" stroke="#3b82f6" strokeWidth="6" markerEnd="url(#agent-role-arrow)" />
+  <path d="M750 220 L900 220" stroke="#22c55e" strokeWidth="6" markerEnd="url(#agent-role-arrow)" />
+</svg>
+
+如果你只记住一件事，那就记住这张图表达的核心：
+
+- `supervisor` 负责决策
+- `workers` 负责执行
+- `finalizer` 负责收口
+
+这三者的职责是分开的，这正是一个 Agent 系统能保持可维护性的关键。
+
+## 对小白最实用的总结：如何判断一个项目是真的在“做 Agent 编排”
+
+看到这里，你大概已经能明白，Agent 编排并不是“用了 LangGraph”就算完成。更本质的判断标准是：系统有没有清晰地回答以下几个问题。
+
+| 问题 | 在 `pokemon agent` 里的答案 |
+| --- | --- |
+| 请求从哪里进入 Agent 模式？ | 前端通过 `use_agent` 切换，后端走 `/chat/agent/supervisor_agent`。 |
+| 节点之间共享什么？ | 共享 `AgentState`。 |
+| 谁决定下一步做什么？ | `supervisor`。 |
+| 谁真正执行能力？ | `workers`。 |
+| 多能力怎么同时做？ | `parallel_workers + Send()`。 |
+| 结果怎么变成用户能读懂的答案？ | `finalizer`。 |
+| 如何防止 Agent 过度自由？ | `allowed_workers`、rule routing、deterministic fast path、forward_directly。 |
+
+如果一个系统能把这些问题都回答清楚，那它大概率已经不是“把工具硬塞给大模型”的实验，而是一套真正的 Agent harness。
+
+## 推荐阅读顺序
+
+如果你想继续沿着这个系列往下读，最自然的顺序是：
+
+1. **[Blog 1：项目总览](/blog/pokemon-chat-overview)**：先看系统全景图
+2. **[Blog 2：调用链路](/blog/pokemon-chat-request-lifecycle)**：看一次请求到底怎么走
+3. **[Blog 3：RAG 主链](/blog/pokemon-chat-rag-mainline)**：看普通模式下的检索增强
+4. **[Blog 4：Agent 编排](/blog/pokemon-chat-agent-orchestration)**：看动态调度是如何实现的
+5. **[Blog 5：配置热切换](/blog/pokemon-chat-config-hot-reload)**：看前端开关如何真正变成后端行为
+6. **[Blog 6：Docker 架构](/blog/pokemon-chat-docker-architecture)**：看多依赖 AI 系统如何组织部署边界
+7. **[Blog 7：LangGraph 工程化实战](/blog/pokemon-chat-langgraph-engineering)**：看 tools/runtime/JSON/memory/context 工程细节
+
+如果你是从系列入口顺着读到这里，那么这篇已经完成了整个系列的核心技术主干。接下来更适合继续读 **[Blog 5：配置热切换](/blog/pokemon-chat-config-hot-reload)**、**[Blog 6：Docker 架构](/blog/pokemon-chat-docker-architecture)** 和 **[Blog 7：LangGraph 工程化实战](/blog/pokemon-chat-langgraph-engineering)**，把配置控制面、基础设施边界和工程化细节一起补齐。

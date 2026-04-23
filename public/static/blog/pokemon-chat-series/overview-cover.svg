@@ -1,0 +1,30 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F172A"/>
+      <stop offset="1" stop-color="#1E293B"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="120" y1="120" x2="1080" y2="510" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F97316"/>
+      <stop offset="0.5" stop-color="#8B5CF6"/>
+      <stop offset="1" stop-color="#06B6D4"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" rx="32" fill="url(#bg)"/>
+  <circle cx="1060" cy="90" r="140" fill="#1D4ED8" fill-opacity="0.18"/>
+  <circle cx="150" cy="560" r="170" fill="#F97316" fill-opacity="0.12"/>
+  <rect x="72" y="72" width="1056" height="486" rx="28" stroke="url(#accent)" stroke-width="2"/>
+  <text x="96" y="138" fill="#94A3B8" font-size="28" font-family="Arial, sans-serif">pokemon-chat-esc 系列（一）</text>
+  <text x="96" y="238" fill="white" font-size="62" font-weight="700" font-family="Arial, sans-serif">系统设计全景图</text>
+  <text x="96" y="300" fill="#CBD5E1" font-size="28" font-family="Arial, sans-serif">System Overview / Architecture Map</text>
+  <rect x="96" y="364" width="300" height="120" rx="20" fill="#111827" stroke="#334155"/>
+  <rect x="450" y="364" width="300" height="120" rx="20" fill="#111827" stroke="#334155"/>
+  <rect x="804" y="364" width="300" height="120" rx="20" fill="#111827" stroke="#334155"/>
+  <text x="120" y="412" fill="#F8FAFC" font-size="30" font-weight="700" font-family="Arial, sans-serif">Frontend</text>
+  <text x="120" y="450" fill="#94A3B8" font-size="22" font-family="Arial, sans-serif">Control Layer</text>
+  <text x="474" y="412" fill="#F8FAFC" font-size="30" font-weight="700" font-family="Arial, sans-serif">Backend</text>
+  <text x="474" y="450" fill="#94A3B8" font-size="22" font-family="Arial, sans-serif">Routing / Runtime</text>
+  <text x="828" y="412" fill="#F8FAFC" font-size="30" font-weight="700" font-family="Arial, sans-serif">Agent + RAG</text>
+  <text x="828" y="450" fill="#94A3B8" font-size="22" font-family="Arial, sans-serif">Execution Paths</text>
+  <text x="96" y="535" fill="#64748B" font-size="24" font-family="Arial, sans-serif">Yunshen Blog · AI Engineering Series</text>
+</svg>

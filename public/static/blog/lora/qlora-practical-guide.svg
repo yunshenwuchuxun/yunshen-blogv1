@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900" fill="none">
+  <defs>
+    <marker id="arrow-qlora" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10Z" fill="#CBD5E1"/>
+    </marker>
+  </defs>
+
+  <rect width="1200" height="900" fill="#0B1220"/>
+  <text x="60" y="92" fill="#F8FAFC" font-size="38" font-family="Arial, sans-serif" font-weight="700">QLoRA 常用工程路径</text>
+  <text x="60" y="128" fill="#94A3B8" font-size="21" font-family="Arial, sans-serif">
+    <tspan x="60" dy="0">核心思路：先把底座模型压到 4-bit，再只训练 LoRA adapter。</tspan>
+  </text>
+
+  <rect x="90" y="190" width="320" height="300" rx="22" fill="#111827" stroke="#334155" stroke-width="2"/>
+  <text x="120" y="244" fill="#E2E8F0" font-size="28" font-family="Arial, sans-serif" font-weight="700">Step 1</text>
+  <text x="120" y="288" fill="#F8FAFC" font-size="30" font-family="Arial, sans-serif" font-weight="700">量化底座权重</text>
+  <text x="120" y="334" fill="#93C5FD" font-size="22" font-family="Arial, sans-serif">4-bit (NF4)</text>
+  <text x="120" y="368" fill="#93C5FD" font-size="22" font-family="Arial, sans-serif">Double Quant</text>
+  <rect x="120" y="408" width="245" height="58" rx="12" fill="#1E3A8A"/>
+  <text x="242" y="445" text-anchor="middle" fill="#DBEAFE" font-size="21" font-family="Arial, sans-serif">节省显存</text>
+
+  <rect x="440" y="190" width="320" height="300" rx="22" fill="#111827" stroke="#334155" stroke-width="2"/>
+  <text x="470" y="244" fill="#E2E8F0" font-size="28" font-family="Arial, sans-serif" font-weight="700">Step 2</text>
+  <text x="470" y="288" fill="#F8FAFC" font-size="30" font-family="Arial, sans-serif" font-weight="700">冻结底座模型</text>
+  <text x="470" y="334" fill="#A7F3D0" font-size="22" font-family="Arial, sans-serif">只训练 LoRA A/B</text>
+  <text x="470" y="368" fill="#A7F3D0" font-size="22" font-family="Arial, sans-serif">与任务头参数</text>
+  <rect x="470" y="408" width="245" height="58" rx="12" fill="#14532D"/>
+  <text x="592" y="445" text-anchor="middle" fill="#DCFCE7" font-size="21" font-family="Arial, sans-serif">参数效率高</text>
+
+  <rect x="790" y="190" width="320" height="300" rx="22" fill="#111827" stroke="#334155" stroke-width="2"/>
+  <text x="820" y="244" fill="#E2E8F0" font-size="28" font-family="Arial, sans-serif" font-weight="700">Step 3</text>
+  <text x="820" y="288" fill="#F8FAFC" font-size="30" font-family="Arial, sans-serif" font-weight="700">稳定前向计算</text>
+  <text x="820" y="334" fill="#FDE68A" font-size="22" font-family="Arial, sans-serif">compute dtype:</text>
+  <text x="820" y="368" fill="#FDE68A" font-size="22" font-family="Arial, sans-serif">bf16 / fp16</text>
+  <rect x="820" y="408" width="245" height="58" rx="12" fill="#78350F"/>
+  <text x="942" y="445" text-anchor="middle" fill="#FEF3C7" font-size="21" font-family="Arial, sans-serif">训练更可控</text>
+
+  <line x1="410" y1="340" x2="440" y2="340" stroke="#CBD5E1" stroke-width="3" marker-end="url(#arrow-qlora)"/>
+  <line x1="760" y1="340" x2="790" y2="340" stroke="#CBD5E1" stroke-width="3" marker-end="url(#arrow-qlora)"/>
+
+  <rect x="90" y="548" width="1020" height="130" rx="18" fill="#0F172A" stroke="#334155"/>
+  <text x="130" y="604" fill="#E2E8F0" font-size="26" font-family="Arial, sans-serif" font-weight="700">目标层选择建议</text>
+  <text x="130" y="642" fill="#94A3B8" font-size="21" font-family="Arial, sans-serif">
+    <tspan x="130" dy="0">先从 attention 投影层（q_proj / v_proj）起步，容量不足时再扩展到 o_proj 或 FFN。</tspan>
+  </text>
+
+  <rect x="90" y="720" width="1020" height="94" rx="16" fill="#10231D" stroke="#1F4B3B"/>
+  <text x="130" y="758" fill="#86EFAC" font-size="21" font-family="Arial, sans-serif">
+    <tspan x="130" dy="0">一句话：QLoRA = 低比特底座存储 + LoRA 参数高效更新。</tspan>
+    <tspan x="130" dy="30">它不改变 LoRA 的数学核心，只改变底座权重的存储与计算成本。</tspan>
+  </text>
+</svg>

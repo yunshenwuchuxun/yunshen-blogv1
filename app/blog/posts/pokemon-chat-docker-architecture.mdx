@@ -1,0 +1,399 @@
+---
+title: 'pokemon agent 系列（八）：Docker Compose 架构与服务分层'
+publishedAt: '2026-04-20T10:01:00'
+summary: '以 pokemon agent 为例，拆解一个多依赖 AI 系统如何用 Docker Compose 组织主干服务、能力服务与 profiles，并划分清晰的服务边界。'
+image: '/static/blog/pokemon-chat-series/docker-architecture-cover.svg'
+draft: false
+tags: [AI, Docker, DevOps, Infrastructure]
+---
+
+<PaperCard
+	title="pokemon agent · Blog 8"
+	description="这篇文章聚焦部署与基础设施层，解释这个项目为什么不能只被看作‘跑几个容器’，而应该被理解成：如何给一个多能力 AI 系统划分主干服务和能力依赖。"
+	links={[
+		{ label: 'Blog 9：LangGraph 工程化实战', url: '/blog/pokemon-chat-langgraph-engineering' },
+	]}
+/>
+
+> 系列导航：下一篇见 **[Blog 9：LangGraph 工程化实战](/blog/pokemon-chat-langgraph-engineering)**。本文负责回答：**这些能力在 Docker Compose 里到底是怎样被组织起来的。**
+
+很多人看到一个带 Docker Compose 的 AI 项目时，第一反应通常是：“哦，就是把后端、前端和几个数据库容器一起起起来。” 这种理解不能说错，但它太容易忽略一个更关键的问题：这些服务为什么这样分？哪些是产品主干，哪些是能力依赖，哪些应该默认启动，哪些应该按需打开？
+
+在 `pokemon agent` 里，Docker Compose 不是简单的“开发方便工具”，而是系统架构的一部分。因为它真正表达了这样一件事：
+
+> **这个项目不是一个单体应用，而是一个“主干服务 + 可选能力服务”的多层系统。**
+
+也就是说，Compose 文件在这里不只是描述“有哪些容器”，而是在描述：
+
+- 系统最小可运行单元是什么
+- 哪些能力依赖哪些基础设施
+- 什么东西应该总是在线
+- 什么东西应该按 profile 延迟启用
+- 当某个服务没起来时，系统应该如何退化
+
+这也是为什么，这篇文章更适合被理解成一篇“系统组织方式”的文章，而不是一篇“Docker 命令教学”。
+
+## TL;DR
+
+| 问题 | 简短结论 |
+| --- | --- |
+| 这个项目最小可运行单元是什么？ | `web + api`。 |
+| 为什么不是所有服务都默认启动？ | 因为图谱、向量库、MCP、ASR 都是能力依赖，不应该成为主干服务的启动前提。 |
+| `profiles` 在这里的作用是什么？ | 把“可选能力”显式分组，让系统按需扩展。 |
+| `infra` profile 包含什么？ | Neo4j、Milvus、MySQL 及其依赖（etcd、minio、bootstrap）。 |
+| `mcp` profile 和 `asr` profile 代表什么？ | 代表两类独立能力：外接工具能力和语音识别能力。 |
+| 为什么 Compose 结构本身很重要？ | 因为它定义了系统的服务边界和依赖关系。 |
+| 这个项目最值得借鉴的部署原则是什么？ | <strong>主干服务保持最小、增强能力按需挂载、功能可退化而不是全局不可用</strong>。 |
+
+## 先把最重要的一件事说清楚：这个项目不是“所有能力都必须同时在线”
+
+如果你只看功能列表，很容易以为这个项目必须同时依赖：
+
+- Web 前端
+- API 后端
+- Neo4j
+- Milvus
+- MySQL
+- MCP Server
+- FunASR
+- etcd
+- minio
+
+看起来像是“不起七八个服务就根本没法用”。但实际上，这个项目的 Compose 设计并不是这么想的。它的核心思路是：
+
+- **主干服务**应该尽量小，确保系统最基本功能可运行
+- **能力服务**应该按需挂载，而不是强行耦合进主干启动流程
+
+这也是为什么在 Compose 文件里：
+
+- `api` 和 `web` 是默认服务
+- 其他服务大多都挂在不同的 `profile` 下
+
+换句话说，这个项目并不是“一个必须全量起全套服务的系统”，而是“一个可以从最小闭环开始，再逐步打开能力”的系统。
+
+## 最小运行单元：为什么只有 `web + api`
+
+在 `docker/docker-compose.yml` 里，默认服务只有两个：
+
+- `api`
+- `web`
+
+从架构角度看，这个设计非常合理。因为无论系统后面接多少增强能力，产品真正的主干始终还是：
+
+- 前端页面
+- 后端统一入口
+
+只要这两个服务在，你至少就拥有：
+
+- 聊天界面
+- 普通聊天 API
+- 基础配置页
+- 健康检查
+- 在部分场景下的本地事实直答与基础能力
+
+也就是说，`web + api` 已经构成了“系统的骨架”。
+
+## 一张图看懂主干服务与能力服务
+
+<svg viewBox="0 0 1200 520" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="主干服务与能力服务分层图">
+  <defs>
+    <marker id="docker-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#64748b" />
+    </marker>
+  </defs>
+
+  <rect x="430" y="40" width="340" height="90" rx="18" fill="#fff7ed" stroke="#fdba74" />
+  <text x="600" y="78" textAnchor="middle" fontSize="28" fontWeight="700" fill="#9a3412">Product Backbone</text>
+  <text x="600" y="106" textAnchor="middle" fontSize="16" fill="#7c2d12">web + api</text>
+
+  <rect x="100" y="210" width="240" height="120" rx="18" fill="#eff6ff" stroke="#93c5fd" />
+  <text x="220" y="248" textAnchor="middle" fontSize="26" fontWeight="700" fill="#1d4ed8">infra profile</text>
+  <text x="220" y="278" textAnchor="middle" fontSize="16" fill="#1e40af">Neo4j / MySQL / Milvus</text>
+  <text x="220" y="302" textAnchor="middle" fontSize="16" fill="#1e40af">+ etcd / minio / bootstrap</text>
+
+  <rect x="480" y="210" width="240" height="120" rx="18" fill="#ecfeff" stroke="#67e8f9" />
+  <text x="600" y="248" textAnchor="middle" fontSize="26" fontWeight="700" fill="#155e75">mcp profile</text>
+  <text x="600" y="278" textAnchor="middle" fontSize="16" fill="#164e63">独立 MCP Server</text>
+  <text x="600" y="302" textAnchor="middle" fontSize="16" fill="#164e63">工具 / 数据源能力</text>
+
+  <rect x="860" y="210" width="240" height="120" rx="18" fill="#f5f3ff" stroke="#c4b5fd" />
+  <text x="980" y="248" textAnchor="middle" fontSize="26" fontWeight="700" fill="#6d28d9">asr profile</text>
+  <text x="980" y="278" textAnchor="middle" fontSize="16" fill="#5b21b6">FunASR</text>
+  <text x="980" y="302" textAnchor="middle" fontSize="16" fill="#5b21b6">语音识别能力</text>
+
+  <rect x="330" y="410" width="540" height="70" rx="18" fill="#f0fdf4" stroke="#86efac" />
+  <text x="600" y="452" textAnchor="middle" fontSize="22" fontWeight="700" fill="#166534">按需开启能力，而不是让所有能力成为主干启动前提</text>
+
+  <path d="M520 130 L260 210" stroke="#3b82f6" strokeWidth="5" fill="none" markerEnd="url(#docker-arrow)" />
+  <path d="M600 130 L600 210" stroke="#06b6d4" strokeWidth="5" markerEnd="url(#docker-arrow)" />
+  <path d="M680 130 L940 210" stroke="#8b5cf6" strokeWidth="5" fill="none" markerEnd="url(#docker-arrow)" />
+</svg>
+
+这张图最重要的意思是：**主干服务和增强能力不应该被混成一层。**
+
+如果你把所有服务都当成“必须同时在线”的东西，那么系统会变得：
+
+- 启动更慢
+- 调试更难
+- 故障面更大
+- 更不适合按需开发和演进
+
+而 `pokemon agent` 的 Compose 设计，正好是反过来的：先保住主干，再逐步挂能力。
+
+## `infra` profile：为什么图谱、向量库和 MySQL 要被放成一组
+
+Compose 文件里最大的一组 profile 是：
+
+- `neo4j`
+- `neo4j-bootstrap`
+- `etcd`
+- `minio`
+- `mysql`
+- `milvus`
+
+这些都被归到：
+- `profiles: ["infra"]`
+
+### 这组为什么叫 `infra`
+
+因为从系统视角看，它们不是“某一个功能点”，而是一整组增强能力的基础设施底座。
+
+#### Neo4j
+为知识图谱能力服务。
+
+#### MySQL
+为 MCP / 结构化能力提供依赖。
+
+#### Milvus
+为知识库向量检索提供存储与搜索能力。
+
+#### etcd + minio
+不是业务能力本身，而是 Milvus 的底层依赖。
+
+#### neo4j-bootstrap
+用于把图谱初始数据导入 Neo4j，属于一次性初始化任务。
+
+也就是说，这一组服务共同支撑的是：
+
+- 知识库
+- 知识图谱
+- 结构化 / 工具能力
+
+所以它们被放成一组 `infra`，不是因为技术实现相同，而是因为它们都属于“增强能力的底层基础设施”。
+
+## 为什么 `neo4j-bootstrap` 这个 one-shot 容器很值得讲
+
+在很多项目里，初始化逻辑会被偷偷塞进主服务启动脚本里，结果让主服务承担太多隐式职责。
+
+但这里没有这么做，而是专门拆了一个：
+
+- `neo4j-bootstrap`
+
+```yaml
+neo4j-bootstrap:
+  profiles: ["infra"]
+  image: pk-api
+  restart: "no"
+  command: ["python", "scripts/import_graph.py", "--wait-seconds", "120"]
+```
+
+这个设计很值得借鉴，因为它表达了一个清晰的原则：
+
+> 数据初始化是一个独立生命周期，不应该和主服务运行时强耦合。
+
+这样做的好处是：
+
+- 主服务职责更纯
+- 初始化可重跑、可观察
+- 故障边界更清晰
+- 更适合以后迁移到 CI / Job / 独立 bootstrap 流程
+
+## `mcp` profile：为什么独立工具服务不应该直接塞进 `api`
+
+在 Compose 文件里，`mcp` 被单独放在：
+
+- `profiles: ["mcp"]`
+
+这意味着它不是 API 进程里的一个内嵌线程，而是一个独立服务：
+
+```yaml
+mcp:
+  profiles: ["mcp"]
+  command: ["python", "-m", "src.mcp.mcp_server"]
+  depends_on:
+    mysql:
+      condition: service_healthy
+```
+
+### 这个拆分为什么合理
+
+因为 MCP 在系统里的角色，本质上就很像一个独立能力网关。它有自己的：
+
+- 生命周期
+- 网络端口
+- 依赖（这里是 MySQL）
+- 协议边界
+
+如果把它直接塞进 `api`，虽然短期看似简单，但长期会让：
+
+- 进程边界模糊
+- 依赖故障影响主 API
+- 观察和排障更困难
+
+而独立出去之后，就能更清晰地区分：
+
+- API 是系统主入口
+- MCP 是某类外接能力的服务端
+
+这和前面系列里讲的“能力层”和“执行层”分离，其实是同一种思路在部署层的体现。
+
+## `asr` profile：为什么语音能力也应该按需挂载
+
+`funasr` 被放在：
+
+- `profiles: ["asr"]`
+
+这同样很合理，因为语音识别并不是系统所有问答路径的前提条件。对于大部分文本问答来说，没有 ASR 服务也完全不影响系统工作。
+
+所以从部署设计角度看，ASR 非常适合被做成：
+
+- 可选能力
+- 独立容器
+- 按需挂载
+
+这和“默认把所有能力都塞进主服务”相比，会明显更灵活。
+
+## `api` 容器里那些 environment override 为什么非常关键
+
+`api` 服务里有这样一段配置：
+
+```yaml
+environment:
+  neo4j_uri: bolt://neo4j:7687
+  milvus_uri: http://milvus:19530
+  mysql_host: mysql
+  mysql_port: 3306
+  mcp_sse_url: http://mcp:8000/sse
+  funasr_url: ws://funasr:10095
+```
+
+对初学者来说，这里最值得理解的一点是：
+
+> `.env` 可以面向本地开发，但容器内服务通信地址必须在 Compose 里被覆盖成容器网络地址。
+
+也就是说：
+
+- `.env` 里你可以写 `localhost`
+- 但到了 Docker 网络里，`api` 不能再通过 `localhost` 去找 Neo4j 或 Milvus
+- 它必须用容器名去访问：`neo4j`、`milvus`、`mysql`、`mcp`、`funasr`
+
+这也是为什么 Compose 里的 environment override 本质上不是“重复配置”，而是**把开发时视角转换成容器内网络视角**。
+
+## healthcheck：为什么服务编排不能只靠“起起来了”
+
+Compose 文件里，`api`、`neo4j`、`mysql`、`milvus` 等服务都定义了 healthcheck。这一点非常关键，因为多服务系统最怕的就是“容器已经启动，但服务实际上还没 ready”。
+
+例如：
+
+- `web` 依赖 `api` 的 healthcheck
+- `mcp` 依赖 `mysql` healthy
+- `neo4j-bootstrap` 依赖 `neo4j` healthy
+
+这意味着这个 Compose 文件并不只是在说“启动顺序”，而是在说：
+
+> **只有上游服务真正 ready，下游服务才继续启动。**
+
+这对 AI 系统尤其重要，因为很多能力依赖不是“进程在不在”，而是“端口能不能连、协议是不是 ready、初始数据是不是已经导入”。
+
+## 一张表看懂各服务的角色
+
+| 服务 | 默认启动？ | profile | 在系统里的角色 |
+| --- | --- | --- | --- |
+| `api` | 是 | 无 | 主后端入口 |
+| `web` | 是 | 无 | 前端 UI |
+| `neo4j` | 否 | `infra` | 知识图谱底座 |
+| `neo4j-bootstrap` | 否 | `infra` | 图谱初始化任务 |
+| `milvus` | 否 | `infra` | 向量检索底座 |
+| `etcd` | 否 | `infra` | Milvus 依赖 |
+| `minio` | 否 | `infra` | Milvus 依赖 |
+| `mysql` | 否 | `infra` | MCP / 结构化数据底座 |
+| `mcp` | 否 | `mcp` | 外接工具能力服务 |
+| `funasr` | 否 | `asr` | 语音识别能力服务 |
+
+这张表最能帮助初学者理解：Compose 文件里的服务，不是在“堆功能”，而是在“定义系统边界”。
+
+## 这个 Compose 设计最值得借鉴的原则
+
+如果把整个设计压缩成几条部署原则，大概是这样的：
+
+### 1. 主干服务保持最小闭环
+
+先保证 `web + api` 能独立跑起来，让最基本产品体验成立。
+
+### 2. 增强能力按需挂载
+
+图谱、向量库、MCP、ASR 都不是主干的一部分，而是附加能力。
+
+### 3. 数据初始化独立成任务
+
+像 `neo4j-bootstrap` 这种 bootstrap job，不要偷塞进主服务启动流程。
+
+### 4. 容器内地址和本地开发地址分开处理
+
+容器网络里永远优先用服务名，而不是本机视角的 `localhost`。
+
+### 5. 依赖 ready 比依赖“进程已启动”更重要
+
+healthcheck 和 `depends_on: condition: service_healthy` 比简单的启动顺序更有意义。
+
+## 为什么这篇文章其实是在讲“系统架构”，不是在讲 Docker 命令
+
+如果只把这篇看成一篇 Docker Compose 教程，你会错过它真正有价值的地方。因为这里最值得学的其实不是：
+
+- `docker compose up -d` 怎么写
+- profile 参数怎么写
+
+而是：
+
+- 一个 AI 系统怎样划分主干与能力层
+- 哪些服务应该强依赖，哪些服务应该软依赖
+- 怎么让某个能力挂掉时，系统仍然能以退化方式继续工作
+
+也就是说，这篇更本质上是在讨论：
+
+> **多能力 AI 系统的服务边界，应该如何被组织。**
+
+## 总结
+
+`pokemon agent` 的 Compose 设计最值得借鉴的地方，不是“它起了很多容器”，而是它把这些容器组织成了一个清晰的层次结构：
+
+- `web + api` 是产品主干
+- `infra` 是增强能力的底座
+- `mcp` 和 `asr` 是可选能力服务
+- 数据初始化任务被显式拆分出来
+- 健康检查负责保证依赖真正 ready
+
+这背后体现的是一个非常重要的工程观：
+
+**不是所有能力都应该成为主干启动前提；一个好的系统，应该允许主干先活下来，再逐步挂能力。**
+
+对于 AI 应用来说，这一点尤其重要。因为随着能力越来越多，系统最容易出问题的地方，往往不是模型本身，而是依赖服务之间的边界被设计得太混乱。
+
+## 推荐阅读顺序
+
+如果你想沿着整个系列完整读下来，推荐顺序是：
+
+1. **[Blog 1：项目总览](/blog/pokemon-chat-overview)**：先建立系统地图
+2. **[Blog 2：调用链路](/blog/pokemon-chat-request-lifecycle)**：看一次请求到底怎么走
+3. **[Blog 3：RAG 主链](/blog/pokemon-chat-rag-mainline)**：看普通模式下的检索增强
+4. **[Blog 4：Agent 编排](/blog/pokemon-chat-agent-orchestration)**：看动态调度如何落地
+5. **[Blog 5：配置热切换](/blog/pokemon-chat-config-hot-reload)**：看前端开关如何真正变成后端行为
+6. **Blog 6：Docker 架构**：看多服务 AI 系统如何组织部署边界
+7. **[Blog 7：LangGraph 工程化实战](/blog/pokemon-chat-langgraph-engineering)**：看 tools/runtime/JSON/memory/context 工程细节
+
+如果你已经读完本文，那么这整个系列的主干就已经闭环了。再往后，更适合做的是：
+
+- SEO 与标题优化
+- 给每篇补 cover SVG
+- 增加一个系列导航页或标签页
+- 或者继续扩写“评测 / observability / tracing”这些更偏工程治理的话题

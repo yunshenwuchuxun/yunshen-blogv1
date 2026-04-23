@@ -1,0 +1,96 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#172554"/>
+      <stop offset="1" stop-color="#111827"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="630" rx="32" fill="url(#bg)"/>
+
+  <text x="90" y="118" fill="#BFDBFE" font-size="28" font-family="Arial, sans-serif">pokemon-chat-esc 系列（三）</text>
+  <text x="90" y="208" fill="white" font-size="56" font-weight="700" font-family="Arial, sans-serif">本地直答、缓存与 RAG 主链</text>
+  <text x="90" y="264" fill="#DBEAFE" font-size="24" font-family="Arial, sans-serif">Request → short-circuit layers → retrieval augmentation → streaming response</text>
+
+  <rect x="60" y="300" width="1080" height="280" rx="28" fill="#0B1220" stroke="#60A5FA"/>
+
+  <rect x="74" y="344" width="92" height="86" rx="16" fill="#1E293B" stroke="#93C5FD"/>
+  <text x="120" y="378" text-anchor="middle" fill="#F8FAFC" font-size="23" font-weight="700" font-family="Arial, sans-serif">用户问题</text>
+  <text x="120" y="403" text-anchor="middle" fill="#CBD5E1" font-size="14" font-family="Arial, sans-serif">user prompt</text>
+
+  <path d="M166 387H176" stroke="#60A5FA" stroke-width="3" stroke-linecap="round"/>
+  <path d="M176 381L184 387L176 393Z" fill="#60A5FA"/>
+
+  <rect x="184" y="344" width="128" height="86" rx="16" fill="#1D4ED8" fill-opacity="0.16" stroke="#60A5FA"/>
+  <text x="248" y="376" text-anchor="middle" fill="#F8FAFC" font-size="24" font-weight="700" font-family="Arial, sans-serif">/chat()</text>
+  <text x="248" y="402" text-anchor="middle" fill="#DBEAFE" font-size="14" font-family="Arial, sans-serif">query · meta · history</text>
+
+  <path d="M312 387H322" stroke="#60A5FA" stroke-width="3" stroke-linecap="round"/>
+  <path d="M322 381L330 387L322 393Z" fill="#60A5FA"/>
+
+  <rect x="330" y="344" width="120" height="86" rx="16" fill="#7C2D12" fill-opacity="0.18" stroke="#FB923C"/>
+  <text x="390" y="372" text-anchor="middle" fill="#FDE68A" font-size="18" font-weight="700" font-family="Arial, sans-serif">POKEDEX facts</text>
+  <text x="390" y="394" text-anchor="middle" fill="#FED7AA" font-size="13" font-family="Arial, sans-serif">deterministic fast path</text>
+  <text x="390" y="414" text-anchor="middle" fill="#FDBA74" font-size="13" font-family="Arial, sans-serif">hit ⇒ direct answer</text>
+
+  <path d="M450 387H460" stroke="#60A5FA" stroke-width="3" stroke-linecap="round"/>
+  <path d="M460 381L468 387L460 393Z" fill="#60A5FA"/>
+
+  <rect x="468" y="344" width="140" height="86" rx="16" fill="#1E3A8A" fill-opacity="0.18" stroke="#60A5FA"/>
+  <text x="538" y="370" text-anchor="middle" fill="#F8FAFC" font-size="20" font-weight="700" font-family="Arial, sans-serif">Semantic Cache</text>
+  <text x="538" y="392" text-anchor="middle" fill="#BFDBFE" font-size="13" font-family="Arial, sans-serif">single-turn only</text>
+  <text x="538" y="412" text-anchor="middle" fill="#93C5FD" font-size="13" font-family="Arial, sans-serif">non-retrieval only</text>
+
+  <path d="M608 387H618" stroke="#60A5FA" stroke-width="3" stroke-linecap="round"/>
+  <path d="M618 381L626 387L618 393Z" fill="#60A5FA"/>
+
+  <rect x="626" y="344" width="118" height="86" rx="16" fill="#0F766E" fill-opacity="0.18" stroke="#2DD4BF"/>
+  <text x="685" y="378" text-anchor="middle" fill="#F8FAFC" font-size="24" font-weight="700" font-family="Arial, sans-serif">Retriever</text>
+  <text x="685" y="403" text-anchor="middle" fill="#99F6E4" font-size="14" font-family="Arial, sans-serif">enabled by meta</text>
+
+  <path d="M744 387H754" stroke="#60A5FA" stroke-width="3" stroke-linecap="round"/>
+  <path d="M754 381L762 387L754 393Z" fill="#60A5FA"/>
+
+  <rect x="762" y="344" width="138" height="86" rx="16" fill="#14532D" fill-opacity="0.22" stroke="#4ADE80"/>
+  <text x="831" y="372" text-anchor="middle" fill="#F8FAFC" font-size="20" font-weight="700" font-family="Arial, sans-serif">Aggregate refs</text>
+  <text x="831" y="394" text-anchor="middle" fill="#BBF7D0" font-size="13" font-family="Arial, sans-serif">construct</text>
+  <text x="831" y="414" text-anchor="middle" fill="#BBF7D0" font-size="13" font-family="Arial, sans-serif">enhanced query</text>
+
+  <path d="M900 387H910" stroke="#60A5FA" stroke-width="3" stroke-linecap="round"/>
+  <path d="M910 381L918 387L910 393Z" fill="#60A5FA"/>
+
+  <rect x="918" y="344" width="88" height="86" rx="16" fill="#581C87" fill-opacity="0.22" stroke="#C084FC"/>
+  <text x="962" y="378" text-anchor="middle" fill="#F8FAFC" font-size="24" font-weight="700" font-family="Arial, sans-serif">LLM</text>
+  <text x="962" y="403" text-anchor="middle" fill="#E9D5FF" font-size="14" font-family="Arial, sans-serif">streaming</text>
+
+  <path d="M1006 387H1016" stroke="#60A5FA" stroke-width="3" stroke-linecap="round"/>
+  <path d="M1016 381L1024 387L1016 393Z" fill="#60A5FA"/>
+
+  <rect x="1024" y="344" width="98" height="86" rx="16" fill="#7F1D1D" fill-opacity="0.20" stroke="#F87171"/>
+  <text x="1073" y="378" text-anchor="middle" fill="#F8FAFC" font-size="20" font-weight="700" font-family="Arial, sans-serif">NDJSON</text>
+  <text x="1073" y="403" text-anchor="middle" fill="#FECACA" font-size="14" font-family="Arial, sans-serif">chunks out</text>
+
+  <path d="M685 430V446" stroke="#2DD4BF" stroke-width="3" stroke-linecap="round"/>
+  <path d="M679 446L685 458L691 446Z" fill="#2DD4BF"/>
+  <path d="M831 456V440" stroke="#4ADE80" stroke-width="3" stroke-linecap="round"/>
+  <path d="M825 440L831 428L837 440Z" fill="#4ADE80"/>
+
+  <rect x="612" y="456" width="296" height="104" rx="18" fill="#0F172A" stroke="#67E8F9" stroke-dasharray="8 8"/>
+  <text x="760" y="482" text-anchor="middle" fill="#A5F3FC" font-size="13" font-family="Arial, sans-serif">parallel recall by meta</text>
+
+  <rect x="638" y="496" width="48" height="24" rx="12" fill="#EA580C"/>
+  <text x="662" y="513" text-anchor="middle" fill="white" font-size="12" font-weight="700" font-family="Arial, sans-serif">KB</text>
+
+  <rect x="700" y="496" width="62" height="24" rx="12" fill="#CA8A04"/>
+  <text x="731" y="513" text-anchor="middle" fill="white" font-size="12" font-weight="700" font-family="Arial, sans-serif">Graph</text>
+
+  <rect x="776" y="496" width="52" height="24" rx="12" fill="#7C3AED"/>
+  <text x="802" y="513" text-anchor="middle" fill="white" font-size="12" font-weight="700" font-family="Arial, sans-serif">Web</text>
+
+  <rect x="842" y="496" width="46" height="24" rx="12" fill="#DB2777"/>
+  <text x="865" y="513" text-anchor="middle" fill="white" font-size="12" font-weight="700" font-family="Arial, sans-serif">MCP</text>
+
+  <text x="760" y="544" text-anchor="middle" fill="#ECFEFF" font-size="16" font-weight="700" font-family="Arial, sans-serif">KB · Graph · Web · MCP</text>
+
+  <text x="90" y="565" fill="#93C5FD" font-size="22" font-family="Arial, sans-serif">普通模式不是“直接调模型”，而是先走短路与缓存，再做多源检索增强，最后流式输出</text>
+</svg>

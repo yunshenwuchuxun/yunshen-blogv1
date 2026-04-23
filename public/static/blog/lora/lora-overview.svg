@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="860" viewBox="0 0 1200 860" fill="none">
+  <defs>
+    <marker id="arrow-light" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10Z" fill="#E2E8F0"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="860" fill="#0B1020"/>
+  <text x="60" y="88" fill="#F8FAFC" font-size="38" font-family="Arial, sans-serif" font-weight="700">全量微调 vs LoRA</text>
+  <text x="60" y="126" fill="#94A3B8" font-size="21" font-family="Arial, sans-serif">LoRA 不改主干模型，只在少量线性层旁边添加低秩增量分支。</text>
+
+  <rect x="60" y="170" width="500" height="520" rx="28" fill="#111827" stroke="#334155" stroke-width="2"/>
+  <text x="90" y="225" fill="#E2E8F0" font-size="30" font-family="Arial, sans-serif" font-weight="700">全量微调</text>
+  <rect x="110" y="285" width="170" height="210" rx="18" fill="#1F2937" stroke="#64748B"/>
+  <text x="195" y="390" text-anchor="middle" fill="#F8FAFC" font-size="30" font-family="Arial, sans-serif" font-weight="700">W₀</text>
+  <text x="195" y="425" text-anchor="middle" fill="#CBD5E1" font-size="20" font-family="Arial, sans-serif">预训练权重</text>
+  <rect x="340" y="285" width="170" height="210" rx="18" fill="#7C3AED" opacity="0.95"/>
+  <text x="425" y="390" text-anchor="middle" fill="white" font-size="30" font-family="Arial, sans-serif" font-weight="700">ΔW</text>
+  <text x="425" y="425" text-anchor="middle" fill="#F3E8FF" font-size="20" font-family="Arial, sans-serif">整块参数更新</text>
+  <path d="M288 390H328" stroke="#E2E8F0" stroke-width="5" stroke-linecap="round" marker-end="url(#arrow-light)"/>
+  <text x="306" y="374" fill="#E2E8F0" font-size="28" font-family="Arial, sans-serif">+</text>
+
+  <rect x="95" y="545" width="430" height="100" rx="18" fill="#1F2937"/>
+  <text x="120" y="582" fill="#FCA5A5" font-size="21" font-family="Arial, sans-serif">
+    <tspan x="120" dy="0">训练参数量大、显存压力高，</tspan>
+    <tspan x="120" dy="30">每个任务都像复制一份模型。</tspan>
+  </text>
+
+  <rect x="640" y="170" width="500" height="520" rx="28" fill="#111827" stroke="#334155" stroke-width="2"/>
+  <text x="670" y="225" fill="#E2E8F0" font-size="30" font-family="Arial, sans-serif" font-weight="700">LoRA 微调</text>
+  <rect x="675" y="285" width="170" height="210" rx="18" fill="#1F2937" stroke="#64748B"/>
+  <text x="760" y="390" text-anchor="middle" fill="#F8FAFC" font-size="30" font-family="Arial, sans-serif" font-weight="700">W₀</text>
+  <text x="760" y="425" text-anchor="middle" fill="#CBD5E1" font-size="20" font-family="Arial, sans-serif">冻结不更新</text>
+  <rect x="905" y="305" width="72" height="170" rx="14" fill="#F97316"/>
+  <text x="941" y="397" text-anchor="middle" fill="white" font-size="28" font-family="Arial, sans-serif" font-weight="700">B</text>
+  <rect x="1012" y="350" width="96" height="80" rx="14" fill="#14B8A6"/>
+  <text x="1060" y="398" text-anchor="middle" fill="white" font-size="28" font-family="Arial, sans-serif" font-weight="700">A</text>
+  <text x="995" y="391" fill="#E2E8F0" font-size="28" font-family="Arial, sans-serif">×</text>
+  <path d="M852 390H892" stroke="#E2E8F0" stroke-width="5" stroke-linecap="round" marker-end="url(#arrow-light)"/>
+  <text x="870" y="374" fill="#E2E8F0" font-size="28" font-family="Arial, sans-serif">+</text>
+  <text x="905" y="274" fill="#C4B5FD" font-size="20" font-family="Arial, sans-serif">仅训练低秩分支</text>
+
+  <rect x="675" y="545" width="430" height="100" rx="18" fill="#10231D" stroke="#1F4B3B"/>
+  <text x="700" y="582" fill="#86EFAC" font-size="21" font-family="Arial, sans-serif">
+    <tspan x="700" dy="0">只需保存 A、B 两个小矩阵，</tspan>
+    <tspan x="700" dy="30">主干模型可在多个任务之间共享。</tspan>
+  </text>
+
+  <rect x="60" y="740" width="1080" height="62" rx="14" fill="#111827" stroke="#334155"/>
+  <text x="95" y="777" fill="#E2E8F0" font-size="20" font-family="Arial, sans-serif">
+    <tspan x="95" dy="0">核心公式：W = W₀ + (α / r)BA。</tspan>
+    <tspan x="365" dy="0">其中 r 控制容量，α 控制更新项缩放强度。</tspan>
+  </text>
+</svg>

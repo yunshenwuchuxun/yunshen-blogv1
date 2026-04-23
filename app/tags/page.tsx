@@ -12,17 +12,44 @@ const TOPIC_GROUPS = [
 	{
 		title: 'AI Engineering',
 		description: 'Agents, tooling, and workflow-oriented posts.',
-		tags: ['AI', 'Agent', 'Tooling'],
+		tags: [
+			'AI',
+			'Agent',
+			'Tooling',
+			'Engineering',
+			'SystemDesign',
+			'CallChain',
+		],
+	},
+	{
+		title: 'LLM & RAG',
+		description:
+			'LLM applications, retrieval pipelines, and adaptation methods.',
+		tags: ['LLM', 'SFT', 'RAG', 'Retrieval', 'LoRA', 'PEFT'],
+	},
+	{
+		title: 'Agent Orchestration',
+		description:
+			'Agent scheduling, graph workflows, and coordination patterns.',
+		tags: ['LangGraph', 'Orchestration'],
 	},
 	{
 		title: 'Research',
 		description: 'Core research and paper-reading topics.',
-		tags: ['Paper', 'DL', 'CV', 'NLP', 'LLM', 'GenAI'],
+		tags: ['Paper', 'Paper Reading', 'DL', 'CV', 'NLP', 'GenAI'],
 	},
 	{
-		title: 'Systems',
-		description: 'Linux, infrastructure, and deployment notes.',
-		tags: ['Linux', 'Infra'],
+		title: 'Platform & DevOps',
+		description: 'Platform runtime, infrastructure, and deployment operations.',
+		tags: [
+			'Linux',
+			'Infra',
+			'Infrastructure',
+			'Docker',
+			'DevOps',
+			'Config',
+			'Runtime',
+		],
 	},
 ] as const;
 

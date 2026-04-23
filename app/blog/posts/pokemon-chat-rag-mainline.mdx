@@ -1,0 +1,513 @@
+---
+title: 'pokemon agent 系列（五）：本地直答、缓存与 RAG 主链'
+publishedAt: '2026-04-20T10:04:00'
+summary: '围绕普通聊天模式，拆解本地事实直答、语义缓存、多源 Retriever、查询改写与最终生成链路，解释 pokemon agent 的 RAG 主链如何工作。'
+image: '/static/blog/pokemon-chat-series/rag-mainline-cover.svg'
+draft: false
+tags: [AI, RAG, Retrieval, Engineering]
+---
+
+<PaperCard
+	title="pokemon agent · Blog 5"
+	description="这篇文章聚焦普通聊天模式，不讲 LangGraph 调度，而是专门拆解本地直答、缓存、Retriever、多源检索增强和最终生成链路。"
+	links={[
+		{ label: 'Blog 6：LangGraph Agent 编排', url: '/blog/pokemon-chat-agent-orchestration' },
+	]}
+/>
+
+> 系列导航：下一篇见 **[Blog 6：LangGraph Agent 编排](/blog/pokemon-chat-agent-orchestration)**。本文负责回答：**普通模式下，本地直答、缓存和 RAG 主链到底是怎么串起来的。**
+
+很多人一提到 AI Agent 或 RAG，就会下意识把焦点放在“多轮调度”“工具调用”“LangGraph”“supervisor”这些听起来更像智能体的部分。但如果你真的在做一个面向真实用户的问答系统，你很快会发现：很多请求根本不需要进入 Agent。真正决定系统体验的，往往不是“最复杂的那条路径”，而是<strong>普通模式下那条最常被命中的主链到底是否足够稳、足够快、足够可控</strong>。
+
+`pokemon agent` 就是一个很有代表性的例子。它虽然支持 Agent 模式，但普通聊天模式本身已经不是简单的“把 query 扔给模型”。在实际执行上，这条链会先经过<strong>本地事实直答、语义缓存、Retriever 多源证据聚合</strong>，最后才进入模型生成。也就是说，它已经具备了一个成熟 RAG 系统该有的大部分工程骨架，只是没有把流程控制权完全交给 Agent Loop。
+
+这篇文章就专门讲这一条链：一个不用 Agent 的聊天模式，如何通过短路、缓存、检索增强和 prompt 构造，做出一条既低延迟又可扩展的问答主链。
+
+## TL;DR
+
+| 问题 | 简短结论 |
+| --- | --- |
+| 普通模式的主链是什么？ | <strong>本地直答 → 语义缓存 → 检索增强 → 模型生成</strong>。 |
+| 为什么要把本地直答放在最前面？ | 因为对高确定性事实问题，直接命中本地数据最便宜、最快、最稳。 |
+| 缓存为什么只在部分场景启用？ | 为了避免跨轮上下文污染，也避免把依赖外部状态的结果错误缓存。 |
+| Retriever 的角色是什么？ | 不是直接回答，而是统一编排 KB / Graph / Web / MCP 证据，再构造成增强 query。 |
+| KB、Graph、Web、MCP 会串行执行吗？ | 当同一请求启用多个能力时，Retriever 会并行执行这些检索分支。 |
+| 这个系统为什么像 RAG，但又不只是 RAG？ | 因为它不只有向量检索，还把图谱、Web、MCP、缓存和本地直答放进了同一条增强主链。 |
+| 这条链最重要的设计原则是什么？ | <strong>先走便宜且确定的路径，再走昂贵且开放的路径</strong>。 |
+
+## 先厘清一个误区：不是所有问答系统都应该一上来就进 Agent
+
+实际工程里，Agent Loop 的最大问题从来不是“能不能工作”，而是：
+
+- 成本更高
+- 延迟更高
+- 路径更不稳定
+- 更难约束与回放
+
+因此，一个健壮的系统通常不会把所有请求都直接送进 Agent。更合理的做法是：<strong>先把那些高确定性、低成本、可快速结束的路径前置</strong>。只有这些路径无法解决的问题，才继续进入更昂贵的执行层。
+
+`pokemon agent` 的普通模式就是这样设计的。它不是 Agent 的“简化版”，而是一条经过精心分层的执行链：
+
+1. 能直接从本地数据回答的问题，立即返回
+2. 能从缓存复用的问题，立即返回
+3. 需要外部证据的问题，进入 Retriever 聚合证据
+4. 只有到了最后，才交给 LLM 做语言生成
+
+从系统设计角度看，这种结构的意义非常明确：<strong>把复杂性往后推，把确定性往前放</strong>。
+
+## 一张图看懂普通模式主链
+
+<svg viewBox="0 0 1200 360" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="pokemon agent 普通聊天模式主链图">
+  <defs>
+    <linearGradient id="ragmain-a" x1="0" x2="1">
+      <stop offset="0%" stopColor="#f97316" />
+      <stop offset="100%" stopColor="#ef4444" />
+    </linearGradient>
+    <linearGradient id="ragmain-b" x1="0" x2="1">
+      <stop offset="0%" stopColor="#3b82f6" />
+      <stop offset="100%" stopColor="#14b8a6" />
+    </linearGradient>
+  </defs>
+
+  <rect x="40" y="120" width="170" height="90" rx="16" fill="#fff7ed" stroke="#fdba74" />
+  <text x="125" y="155" textAnchor="middle" fontSize="24" fontWeight="700" fill="#9a3412">用户问题</text>
+  <text x="125" y="182" textAnchor="middle" fontSize="16" fill="#7c2d12">query + meta + history</text>
+
+  <rect x="260" y="120" width="190" height="90" rx="16" fill="#fef2f2" stroke="#fca5a5" />
+  <text x="355" y="155" textAnchor="middle" fontSize="24" fontWeight="700" fill="#b91c1c">本地直答</text>
+  <text x="355" y="182" textAnchor="middle" fontSize="16" fill="#991b1b">POKEDEX facts fast path</text>
+
+  <rect x="500" y="120" width="170" height="90" rx="16" fill="#eff6ff" stroke="#93c5fd" />
+  <text x="585" y="155" textAnchor="middle" fontSize="24" fontWeight="700" fill="#1d4ed8">语义缓存</text>
+  <text x="585" y="182" textAnchor="middle" fontSize="16" fill="#1e40af">single-turn, non-retrieval</text>
+
+  <rect x="720" y="90" width="220" height="150" rx="16" fill="#ecfeff" stroke="#67e8f9" />
+  <text x="830" y="125" textAnchor="middle" fontSize="24" fontWeight="700" fill="#155e75">Retriever</text>
+  <text x="830" y="155" textAnchor="middle" fontSize="16" fill="#164e63">KB · Graph · Web · MCP</text>
+  <text x="830" y="180" textAnchor="middle" fontSize="16" fill="#164e63">并行召回 · 聚合 refs</text>
+  <text x="830" y="205" textAnchor="middle" fontSize="16" fill="#164e63">构造成增强 query</text>
+
+  <rect x="990" y="120" width="170" height="90" rx="16" fill="#f5f3ff" stroke="#c4b5fd" />
+  <text x="1075" y="155" textAnchor="middle" fontSize="24" fontWeight="700" fill="#6d28d9">LLM 生成</text>
+  <text x="1075" y="182" textAnchor="middle" fontSize="16" fill="#5b21b6">NDJSON 流式输出</text>
+
+  <path d="M210 165 L248 165" stroke="url(#ragmain-a)" strokeWidth="4" strokeLinecap="round" />
+  <path d="M248 157 L260 165 L248 173 z" fill="#94c5ff" />
+  <path d="M450 165 L488 165" stroke="url(#ragmain-a)" strokeWidth="4" strokeLinecap="round" />
+  <path d="M488 157 L500 165 L488 173 z" fill="#94c5ff" />
+  <path d="M670 165 L708 165" stroke="url(#ragmain-b)" strokeWidth="4" strokeLinecap="round" />
+  <path d="M708 157 L720 165 L708 173 z" fill="#94c5ff" />
+  <path d="M940 165 L978 165" stroke="#8b5cf6" strokeWidth="4" strokeLinecap="round" />
+  <path d="M978 157 L990 165 L978 173 z" fill="#94c5ff" />
+</svg>
+
+这张图最想表达的一点是：<strong>普通模式并不是“少一个 Agent”，而是“多了三个前置决策层”</strong>。如果这些前置层设计得好，系统就能在大多数日常问题上把成本、延迟和复杂度压到很低，而不需要把所有请求都提升到 Agent 编排级别。
+
+## 第一层：本地事实直答为什么比 RAG 还重要
+
+对一个垂直领域问答系统来说，最理想的情况不是“什么都用检索 + 生成来做”，而是<strong>先识别哪些问题根本不值得做检索</strong>。
+
+`pokemon agent` 在 `chat_router.py` 里首先做的，就是对宝可梦事实类问题做本地直答短路：
+
+```python
+# 0. Local deterministic Pokédex shortcut
+if decision.intent == Intent.POKEDEX_FACTS and (decision.confidence >= 0.8 or decision.needs_clarification):
+    content = format_basic_facts(rec) + "\n\n" + format_evolution(rec, data=data)
+    refs = {
+        "model_name": "local_dataset",
+        "knowledge_base": {
+            "results": [],
+            "message": "Answer来自本地数据集（无 LLM 调用）",
+        },
+    }
+    yield make_chunk(meta, content=content, status="loading")
+    yield make_chunk(meta, status="finished", refs=refs)
+    return
+```
+
+这段逻辑体现的是一个很经典、但很容易被忽视的 RAG 设计原则：
+
+> 对那些可以被确定性数据源稳定回答的问题，最好的 RAG 往往是“不要走 RAG”。
+
+### 为什么这一步值钱
+
+#### 1. 延迟最低
+不需要 embedding，不需要向量检索，不需要模型生成，直接命中本地数据。
+
+#### 2. 成本最低
+不产生额外 token，也不依赖外部服务。
+
+#### 3. 幻觉风险最低
+在明确事实问答上，最稳的永远不是生成，而是直接查结构化或半结构化数据。
+
+### 这也解释了一个常见误判
+
+很多人会说：“我把知识库关了，为什么系统还能答对？”
+
+在这个项目里，一个非常常见的答案就是：<strong>因为它根本没走知识库，它在第一层就已经命中了本地事实直答</strong>。
+
+所以从系统可观测性角度看，单看“回答正确”远远不够，必须看 `refs` 或 `model_name` 才知道它到底走了哪条路径。
+
+## 第二层：语义缓存不是为了偷懒，而是为了稳定复用低风险答案
+
+本地直答之后，系统会尝试检查语义缓存。但这个缓存并不是“所有请求都先查一下”，而是被刻意限制在一个很保守的适用边界里：
+
+```python
+safe_cache = (not history) and (not need_retrieve(meta))
+if safe_cache:
+    cached_response = cache.get(query, meta=cache_meta)
+    if cached_response:
+        yield make_chunk(meta, content=cached_response, status="finished")
+        return
+```
+
+这意味着缓存只在以下条件同时满足时生效：
+
+- 没有历史消息
+- 当前请求不需要检索
+
+### 为什么要限制得这么严格
+
+因为缓存最怕两类错误：
+
+#### 第一类：上下文污染
+同样一句话，在不同历史上下文下可能含义完全不同。如果缓存不区分上下文，复用结果就很危险。
+
+#### 第二类：外部状态漂移
+如果一个答案依赖 KB / Web / MCP / Graph 这些外部证据源，那么缓存它意味着把一个本应动态计算的结果“冻结”下来，后续极容易过期或错误。
+
+### 这个缓存还有一个工程细节很值得注意
+
+`src/knowledge/cache/cache.py` 里的 `SemanticCache` 不是纯字符串缓存，而是 embedding 语义缓存。也就是说，它支持两类命中：
+
+1. **exact match**：完全相同的 query
+2. **similarity match**：语义相近、相似度超过阈值的 query
+
+```python
+if entry is not None and entry.meta == norm_meta:
+    logger.info("Cache HIT (exact)")
+    return entry.response
+
+query_embedding = np.array(model.embed_query(query))
+...
+if best_similarity >= self.similarity_threshold:
+    logger.info(f"Cache HIT: similarity={best_similarity:.3f}")
+    return best_match
+```
+
+这让缓存不只是“相同问题复用答案”，而是能覆盖一部分语义近似提问，从而进一步降低重复 LLM 调用。
+
+### 但它为什么仍然可控
+
+因为它还有一层 `meta` 命名空间约束：
+
+- `model_provider`
+- `model_name`
+- `system_prompt_sha`
+
+也就是说，即使 query 相同，只要模型或系统提示词环境不同，也不会错误复用缓存。这是一个非常典型的工程实践：<strong>缓存不是只按输入文本做 key，而是按执行语义空间做 key</strong>。
+
+## 第三层：Retriever 不是“接一个向量库”，而是多源证据编排器
+
+当系统发现请求需要检索时，普通模式会把问题交给 `src/knowledge/core/retriever.py`。这个模块在架构里的位置特别关键，因为它并不是单纯的 KB 封装器，而是负责统一管理多种证据源：
+
+- Knowledge Base（Milvus 向量检索）
+- Knowledge Graph（Neo4j 图谱问答）
+- Web Search
+- MCP
+
+它的核心入口大致是：
+
+```python
+def retrieval(self, query: str, history: list[dict[str, Any]], meta: dict[str, Any]) -> dict[str, Any]:
+    refs = {"query": query, "history": history, "meta": meta}
+    refs["entities"] = self.reco_entities(query, history, refs)
+
+    requested = sum(
+        1
+        for v in (
+            bool(meta.get("db_id")),
+            bool(meta.get("use_graph")),
+            bool(meta.get("use_web")),
+            bool(meta.get("mcp_id")),
+        )
+        if v
+    )
+```
+
+这段代码看上去简单，但它已经透露出 Retriever 的三个核心职责。
+
+### 1. 它会统一携带上下文与引用容器
+
+`refs` 不是一个临时变量，而是这条检索链的核心数据结构。它把：
+
+- 原始 query
+- history
+- meta
+- entities
+- 各检索源结果
+
+统一组织进一个引用对象里。后续无论是构造增强 query，还是回传给前端做引用展示，都依赖它。
+
+### 2. 它会按请求能力动态选择检索源
+
+Retriever 不会无条件查所有源，而是由 `meta` 决定：
+
+- `db_id` 决定是否启用知识库
+- `use_graph` 决定是否启用图谱
+- `use_web` 决定是否启用 Web Search
+- `mcp_id` 决定是否启用 MCP
+
+这意味着 Retriever 是一个<strong>runtime router</strong>，而不只是一个“数据库访问类”。
+
+### 3. 它支持并行证据召回
+
+当同一个请求开启多个能力源时，它会并行执行：
+
+```python
+if requested >= 2:
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        fut_kb = ex.submit(self.query_knowledgebase, query, history, refs)
+        fut_graph = ex.submit(self.query_graph, query, history, refs)
+        fut_web = ex.submit(self.query_web, query, history, refs)
+        fut_mcp = ex.submit(self.query_mysql_mcp, query, history, refs)
+```
+
+这点非常重要，因为这意味着系统对多源 RAG 的理解不是“多查几个地方”，而是“尽量把延迟压低到接近最慢那条分支”。
+
+## 知识库路径：向量检索不是默认入口，而是带 feature flag 的可选能力
+
+知识库检索的具体逻辑在 `query_knowledgebase(...)`，它有两个前置条件：
+
+1. 当前请求带了 `db_id`
+2. `enable_knowledge_base` 为真
+
+```python
+def query_knowledgebase(self, query, history, refs):
+    db_id = meta.get("db_id")
+    if not db_id or not feature_enabled("enable_knowledge_base"):
+        response["message"] = "知识库未启用、或未指定知识库、或知识库不存在"
+        return response
+```
+
+这意味着 KB 不会因为“系统里存在 Milvus”就自动生效，它同时依赖：
+
+- 前端是否真的选中了数据库
+- 后端 feature flag 是否开启
+
+### 检索前还会先做 query rewrite
+
+真正进入 KB 搜索前，Retriever 会调用 `rewrite_query(...)`：
+
+```python
+rw_query = self.rewrite_query(query, history, refs)
+kb_res = kb.search(
+    query=rw_query,
+    db_id=db_id,
+    distance_threshold=meta.get("distanceThreshold", self.default_distance_threshold),
+    rerank=True,
+    top_k=meta.get("topK", self.top_k),
+)
+```
+
+这也是这条链和一个“最简向量检索 Demo”最大的区别之一：它不是直接拿用户原始问题去查，而是给查询改写留了一个明确的钩子位。
+
+在实现上，这一步支持至少三种模式：
+
+- `off`：不改写
+- `on`：调用 prompt 做 query rewrite
+- `hyde`：走 HyDEOperator
+
+```python
+if rewrite_query_span == "off":
+    rewritten_query = query
+else:
+    rewritten_query_prompt = rewritten_query_prompt_template.format(history=history_query, query=query)
+    rewritten_query = model.invoke(rewritten_query_prompt).content
+
+if rewrite_query_span == "hyde":
+    res = HyDEOperator.call(model_callable=model.invoke, query=query, context_str=history_query)
+    rewritten_query = res.content
+```
+
+这意味着这个项目的 RAG 不是“只做向量召回”，而是已经把<strong>查询变换</strong>纳入了可调度链路里。
+
+## 图谱、Web、MCP：这不是单一 RAG，而是多源增强
+
+如果只盯着 KB，很容易把这个系统误解成“一个向量库问答系统”。但实际上它更像一个多源增强框架：
+
+| 能力源 | 触发条件 | 典型用途 | 输出形式 |
+| --- | --- | --- | --- |
+| Knowledge Base | `db_id` + `enable_knowledge_base=true` | 文档语义检索 | `knowledge_base.results` |
+| Graph | `use_graph` + `enable_knowledge_graph=true` | 实体关系 / 子图 / 图谱问答 | `graph_base.answer / results` |
+| Web Search | `use_web` + `enable_web_search=true` | 联网补充证据 | `web_search.results` |
+| MCP | `mcp_id` + `enable_mcp=true` | 工具 / 数据库 / 外接能力 | `mysql_mcp.answer` |
+
+这张表很关键，因为它说明：在普通模式下，系统已经具备一种“轻量 orchestrator”特征。虽然它没有进入 LangGraph worker 调度，但它已经会根据请求上下文动态打开不同证据源，并把它们聚合到同一个生成入口。
+
+## `construct_query()`：RAG 的真正关键往往不是检索，而是如何把证据送进模型
+
+检索完成后，Retriever 不会直接返回答案，而是会调用 `construct_query(...)` 把结果转成最终增强输入。
+
+```python
+external_parts = []
+
+graph_answer = refs.get("graph_base", {}).get("answer")
+if isinstance(graph_answer, str) and graph_answer.strip():
+    external_parts.append("图谱回答:\n" + graph_answer.strip())
+
+kb_res = refs.get("knowledge_base", {}).get("results", [])
+if kb_res:
+    kb_text = "\n".join(self.clean_kb_text(kb_res))
+    external_parts.append("知识库信息:\n" + kb_text)
+
+web_res = refs.get("web_search", {}).get("results", [])
+...
+
+if external_parts:
+    external = "\n\n".join(external_parts)
+    query = knowbase_qa_template.format(external=external, query=query)
+```
+
+这段逻辑揭示了一个 RAG 工程里非常常见、但也最容易被忽视的事实：
+
+> 检索并不会自动改善生成，真正起作用的是你如何把检索结果组织成模型更容易利用的上下文。
+
+在这个项目里，`construct_query(...)` 做了三件事：
+
+1. 统一格式化不同证据源
+2. 对 KB 结果进行去重与截断
+3. 将多源证据拼成一个统一外部上下文，再嵌入模板
+
+这说明它对“生成前上下文组织”是有明确设计意识的，而不是简单把一堆检索结果直接 append 在 query 后面。
+
+## 一张图看懂 Retriever 的内部角色
+
+<svg viewBox="0 0 1200 420" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="Retriever 多源检索增强图">
+  <defs />
+
+  <rect x="50" y="150" width="170" height="90" rx="16" fill="#eff6ff" stroke="#93c5fd" />
+  <text x="135" y="185" textAnchor="middle" fontSize="24" fontWeight="700" fill="#1d4ed8">原始问题</text>
+  <text x="135" y="212" textAnchor="middle" fontSize="16" fill="#1e40af">query + history + meta</text>
+
+  <rect x="290" y="105" width="230" height="180" rx="16" fill="#ecfeff" stroke="#67e8f9" />
+  <text x="405" y="140" textAnchor="middle" fontSize="24" fontWeight="700" fill="#155e75">Retriever</text>
+  <text x="405" y="170" textAnchor="middle" fontSize="16" fill="#164e63">entity recognition</text>
+  <text x="405" y="195" textAnchor="middle" fontSize="16" fill="#164e63">query rewrite / HyDE</text>
+  <text x="405" y="220" textAnchor="middle" fontSize="16" fill="#164e63">parallel retrieval</text>
+  <text x="405" y="245" textAnchor="middle" fontSize="16" fill="#164e63">refs aggregation</text>
+
+  <rect x="590" y="45" width="170" height="70" rx="16" fill="#fff7ed" stroke="#fdba74" />
+  <text x="675" y="85" textAnchor="middle" fontSize="20" fontWeight="700" fill="#9a3412">KB</text>
+
+  <rect x="590" y="135" width="170" height="70" rx="16" fill="#fefce8" stroke="#fde047" />
+  <text x="675" y="175" textAnchor="middle" fontSize="20" fontWeight="700" fill="#854d0e">Graph</text>
+
+  <rect x="590" y="225" width="170" height="70" rx="16" fill="#f5f3ff" stroke="#c4b5fd" />
+  <text x="675" y="265" textAnchor="middle" fontSize="20" fontWeight="700" fill="#6d28d9">Web</text>
+
+  <rect x="590" y="315" width="170" height="70" rx="16" fill="#fdf2f8" stroke="#f9a8d4" />
+  <text x="675" y="355" textAnchor="middle" fontSize="20" fontWeight="700" fill="#be185d">MCP</text>
+
+  <rect x="850" y="150" width="280" height="90" rx="16" fill="#f0fdf4" stroke="#86efac" />
+  <text x="990" y="185" textAnchor="middle" fontSize="24" fontWeight="700" fill="#166534">construct_query()</text>
+  <text x="990" y="212" textAnchor="middle" fontSize="16" fill="#166534">把多源证据拼成增强 query</text>
+
+  <path d="M220 195 L278 195" stroke="#3b82f6" strokeWidth="4" strokeLinecap="round" />
+  <path d="M278 187 L290 195 L278 203 z" fill="#94c5ff" />
+  <path d="M520 160 L580 92" stroke="#f97316" strokeWidth="4" fill="none" strokeLinecap="round" />
+  <path d="M571 92 L590 80 L580 100 z" fill="#94c5ff" />
+  <path d="M520 185 L575 173" stroke="#eab308" strokeWidth="4" fill="none" strokeLinecap="round" />
+  <path d="M565 166 L590 170 L569 182 z" fill="#94c5ff" />
+  <path d="M520 205 L577 250" stroke="#8b5cf6" strokeWidth="4" fill="none" strokeLinecap="round" />
+  <path d="M566 247 L590 260 L576 240 z" fill="#94c5ff" />
+  <path d="M520 225 L579 332" stroke="#ec4899" strokeWidth="4" fill="none" strokeLinecap="round" />
+  <path d="M568 325 L590 350 L579 320 z" fill="#94c5ff" />
+  <path d="M760 80 L840 160" stroke="#22c55e" strokeWidth="4" fill="none" strokeLinecap="round" />
+  <path d="M829 157 L850 170 L837 149 z" fill="#94c5ff" />
+  <path d="M760 170 L835 178" stroke="#22c55e" strokeWidth="4" fill="none" strokeLinecap="round" />
+  <path d="M823 171 L850 180 L822 187 z" fill="#94c5ff" />
+  <path d="M760 260 L839 203" stroke="#22c55e" strokeWidth="4" fill="none" strokeLinecap="round" />
+  <path d="M826 201 L850 195 L833 217 z" fill="#94c5ff" />
+  <path d="M760 350 L842 226" stroke="#22c55e" strokeWidth="4" fill="none" strokeLinecap="round" />
+  <path d="M828 226 L850 215 L838 240 z" fill="#94c5ff" />
+</svg>
+
+从这个视角看，Retriever 更像一个<strong>evidence orchestrator</strong>，它负责把多个来源的证据组织成一个模型更容易消费的输入，而不是简单把每个检索器暴露给上层各自调用。
+
+## 知识库本身：为什么它被设计成懒加载能力，而不是启动时强绑定
+
+`src/knowledge/store/knowledgebase.py` 也很值得一看，因为它揭示了这个系统对知识库的设计思路：知识库能力并不是服务启动时就强行初始化，而是懒加载的。
+
+```python
+# 初始化（轻量）
+self._check_migration()
+# 注意：Milvus/Embedding 初始化会阻塞/失败（服务未启动、未配置 key 等），
+# 因此这里改为懒加载，直到真正调用 KB 相关能力时再连接。
+```
+
+并且在真正使用前会统一经过 `_ensure_ready()`：
+
+```python
+if not self._is_enabled():
+    raise RuntimeError("KnowledgeBase is disabled (enable_knowledge_base=false).")
+
+if self.embed_model is None:
+    self._load_embedding_model(self._embedding_config)
+
+if self.client is None:
+    self._connect_milvus(self._milvus_uri)
+```
+
+这种设计的工程价值很高，因为它解决了一个真实问题：
+
+- 后端本身应该能启动
+- 但向量库、embedding 服务、reranker 服务不一定每次都齐全
+- 即使 KB 依赖缺失，也不应该拖垮整个聊天主服务
+
+所以知识库在这里不是“应用启动的前提条件”，而是“按需激活的可选能力”。这和很多现代 AI 系统的架构取向是一致的：主服务可运行，增强能力按需挂载。
+
+## 用一张表总结普通模式的各层职责
+
+| 层级 | 主要目标 | 设计原则 | 失败时影响 |
+| --- | --- | --- | --- |
+| 本地直答 | 低成本回答高确定性事实 | 能确定回答，就不要生成 | 只会回退到后续层，不会拖垮系统 |
+| 语义缓存 | 复用低风险答案 | 只缓存单轮、非检索场景 | miss 后继续后续流程 |
+| Retriever | 聚合外部证据 | 按需选择能力，必要时并行 | 某一路失败不一定影响其他路 |
+| construct_query | 将证据组织成可消费上下文 | 检索结果必须被格式化后再交给 LLM | 组织差会直接影响生成质量 |
+| LLM 生成 | 语言化输出最终回答 | 把生成放在最后一层 | 成本最高，延迟最高 |
+
+这张表很适合作为普通模式的核心理解框架：每一层都不是为了“多做一步”，而是为了把最昂贵、最不确定的生成尽可能往后推。
+
+## 为什么这条链很像 RAG，但又不只是传统 RAG
+
+如果只用教科书定义，RAG 是“先检索，再生成”。但 `pokemon agent` 的普通模式显然比这复杂得多。它更像一条带前置短路和多源增强的执行链：
+
+- 前面有本地事实直答
+- 中间有 embedding 语义缓存
+- 检索阶段不是单一向量检索，而是 KB / Graph / Web / MCP 的联合增强
+- 查询在进入 KB 之前还可能被 rewrite 或 HyDE
+- 最终不是直接把检索结果交给用户，而是先被拼装成增强 query 再进入模型
+
+因此，更准确地说，这不是一个“向量库聊天系统”，而是一个<strong>带多层前置优化的增强生成主链</strong>。
+
+这类系统比一个极简 RAG Demo 更接近真实生产实践，因为它真正处理了工程里最棘手的问题：
+
+- 什么问题根本不值得检索
+- 什么问题可以直接缓存
+- 多个证据源如何统一组织
+- 最终上下文怎么构造成模型更容易利用的形式
+
+## 推荐阅读顺序
+
+如果你想继续沿着这个系列往下读，最自然的顺序是：
+
+1. **[Blog 1：项目总览](/blog/pokemon-chat-overview)**：先看系统全景图
+2. **[Blog 2：调用链路](/blog/pokemon-chat-request-lifecycle)**：看一次请求到底怎么走
+3. **[Blog 3：RAG 主链](/blog/pokemon-chat-rag-mainline)**：看普通模式下的检索增强
+4. **[Blog 4：Agent 编排](/blog/pokemon-chat-agent-orchestration)**：看动态调度是如何实现的
+5. **[Blog 5：配置热切换](/blog/pokemon-chat-config-hot-reload)**：看前端开关如何真正变成后端行为
+6. **[Blog 6：Docker 架构](/blog/pokemon-chat-docker-architecture)**：看多依赖 AI 系统如何组织部署边界
+7. **[Blog 7：LangGraph 工程化实战](/blog/pokemon-chat-langgraph-engineering)**：看 tools/runtime/JSON/memory/context 工程细节
+
+如果你已经读完本文，那么下一篇最适合接着看的是 **[Blog 4：Agent 编排](/blog/pokemon-chat-agent-orchestration)**，因为普通模式的主链讲清楚之后，接下来最自然的问题就是：当普通模式不够时，系统是如何把执行控制权交给 `supervisor + workers + finalizer` 的。

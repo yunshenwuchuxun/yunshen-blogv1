@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="860" viewBox="0 0 1200 860" fill="none">
+  <rect width="1200" height="860" fill="#F8FAFC"/>
+  <text x="60" y="92" fill="#0F172A" font-size="38" font-family="Arial, sans-serif" font-weight="700">参数量为什么会明显下降</text>
+  <text x="60" y="128" fill="#475569" font-size="21" font-family="Arial, sans-serif">以一个 1024 × 512 的线性层为例，比较全量更新与 r = 32 的 LoRA 更新。</text>
+
+  <rect x="70" y="190" width="470" height="470" rx="26" fill="#111827"/>
+  <text x="105" y="250" fill="#F8FAFC" font-size="30" font-family="Arial, sans-serif" font-weight="700">全量更新</text>
+  <text x="105" y="315" fill="#CBD5E1" font-size="28" font-family="Arial, sans-serif">参数量 = 1024 × 512</text>
+  <text x="105" y="392" fill="#F87171" font-size="56" font-family="Arial, sans-serif" font-weight="700">524,288</text>
+  <rect x="105" y="445" width="370" height="28" rx="14" fill="#EF4444"/>
+  <rect x="105" y="520" width="390" height="92" rx="16" fill="#1F2937"/>
+  <text x="130" y="555" fill="#94A3B8" font-size="21" font-family="Arial, sans-serif">
+    <tspan x="130" dy="0">每个任务都要更新整块矩阵，</tspan>
+    <tspan x="130" dy="28">训练副本大、显存和存储都更贵。</tspan>
+  </text>
+
+  <rect x="660" y="190" width="470" height="470" rx="26" fill="#ECFDF5" stroke="#10B981" stroke-width="2"/>
+  <text x="695" y="250" fill="#064E3B" font-size="30" font-family="Arial, sans-serif" font-weight="700">LoRA 更新（r = 32）</text>
+  <text x="695" y="315" fill="#065F46" font-size="28" font-family="Arial, sans-serif">参数量 = 1024 × 32 + 32 × 512</text>
+  <text x="695" y="392" fill="#059669" font-size="56" font-family="Arial, sans-serif" font-weight="700">49,152</text>
+  <rect x="695" y="445" width="145" height="28" rx="14" fill="#10B981"/>
+  <rect x="695" y="520" width="390" height="92" rx="16" fill="#D1FAE5"/>
+  <text x="720" y="555" fill="#047857" font-size="21" font-family="Arial, sans-serif">
+    <tspan x="720" dy="0">约为全量更新的 9.4%。</tspan>
+    <tspan x="720" dy="28">r 越小，省得越多；但表达能力也会下降。</tspan>
+  </text>
+
+  <path d="M540 420H640" stroke="#64748B" stroke-width="4" stroke-dasharray="12 10"/>
+  <text x="590" y="398" text-anchor="middle" fill="#0F172A" font-size="28" font-family="Arial, sans-serif" font-weight="700">≈ 10.7× 更少</text>
+
+  <rect x="70" y="734" width="1060" height="74" rx="14" fill="#E2E8F0"/>
+  <text x="100" y="770" fill="#1E293B" font-size="20" font-family="Arial, sans-serif">
+    <tspan x="100" dy="0">这也是 LoRA 成为 SFT 默认起点的原因之一：</tspan>
+    <tspan x="100" dy="28">在很多任务上，参数量先降一个数量级，性能却不一定按比例下降。</tspan>
+  </text>
+</svg>

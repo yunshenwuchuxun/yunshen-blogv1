@@ -1,0 +1,89 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0A0F1E"/>
+      <stop offset="1" stop-color="#0F1E35"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="72" y1="72" x2="1128" y2="558" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38BDF8"/>
+      <stop offset="0.5" stop-color="#22C55E"/>
+      <stop offset="1" stop-color="#F59E0B"/>
+    </linearGradient>
+    <linearGradient id="nodeA" x1="0" y1="0" x2="180" y2="88" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0EA5E9"/>
+      <stop offset="1" stop-color="#2563EB"/>
+    </linearGradient>
+    <linearGradient id="nodeB" x1="0" y1="0" x2="180" y2="88" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22C55E"/>
+      <stop offset="1" stop-color="#16A34A"/>
+    </linearGradient>
+    <linearGradient id="nodeC" x1="0" y1="0" x2="180" y2="88" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F59E0B"/>
+      <stop offset="1" stop-color="#EA580C"/>
+    </linearGradient>
+    <linearGradient id="nodeD" x1="0" y1="0" x2="180" y2="88" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A78BFA"/>
+      <stop offset="1" stop-color="#8B5CF6"/>
+    </linearGradient>
+    <linearGradient id="nodeE" x1="0" y1="0" x2="180" y2="88" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F87171"/>
+      <stop offset="1" stop-color="#DC2626"/>
+    </linearGradient>
+    <linearGradient id="nodeF" x1="0" y1="0" x2="180" y2="88" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#14B8A6"/>
+      <stop offset="1" stop-color="#0D9488"/>
+    </linearGradient>
+    <filter id="blurGlow" x="-60" y="-60" width="1320" height="750" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="35"/>
+    </filter>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3.5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,7 L8,3.5 z" fill="#94A3B8"/>
+    </marker>
+  </defs>
+
+  <rect width="1200" height="630" rx="32" fill="url(#bg)"/>
+
+  <g filter="url(#blurGlow)">
+    <circle cx="1080" cy="90" r="120" fill="#38BDF8" fill-opacity="0.18"/>
+    <circle cx="150" cy="555" r="165" fill="#22C55E" fill-opacity="0.12"/>
+    <circle cx="660" cy="500" r="145" fill="#F59E0B" fill-opacity="0.1"/>
+  </g>
+
+  <rect x="72" y="72" width="1056" height="486" rx="28" stroke="url(#ring)" stroke-width="2"/>
+
+  <text x="96" y="132" fill="#93C5FD" font-size="27" font-family="Arial, sans-serif">Pokemon-data · SFT Data Engineering</text>
+  <text x="96" y="225" fill="#F8FAFC" font-size="58" font-weight="700" font-family="Arial, sans-serif">从爬取到可训练 JSONL</text>
+  <text x="96" y="282" fill="#CBD5E1" font-size="26" font-family="Arial, sans-serif">Crawl → Parse → Clean → Build-SFT → Dedup → Split</text>
+
+  <rect x="96" y="340" width="160" height="88" rx="14" fill="url(#nodeA)"/>
+  <text x="176" y="375" text-anchor="middle" fill="#F8FAFC" font-size="24" font-weight="700" font-family="Arial, sans-serif">抓取</text>
+  <text x="176" y="404" text-anchor="middle" fill="#DBEAFE" font-size="17" font-family="Arial, sans-serif">crawl</text>
+
+  <rect x="272" y="340" width="160" height="88" rx="14" fill="url(#nodeB)"/>
+  <text x="352" y="375" text-anchor="middle" fill="#F8FAFC" font-size="24" font-weight="700" font-family="Arial, sans-serif">解析</text>
+  <text x="352" y="404" text-anchor="middle" fill="#DCFCE7" font-size="17" font-family="Arial, sans-serif">parse</text>
+
+  <rect x="448" y="340" width="160" height="88" rx="14" fill="url(#nodeC)"/>
+  <text x="528" y="375" text-anchor="middle" fill="#F8FAFC" font-size="24" font-weight="700" font-family="Arial, sans-serif">清洗</text>
+  <text x="528" y="404" text-anchor="middle" fill="#FFEDD5" font-size="17" font-family="Arial, sans-serif">text.py</text>
+
+  <rect x="624" y="340" width="160" height="88" rx="14" fill="url(#nodeD)"/>
+  <text x="704" y="375" text-anchor="middle" fill="#F8FAFC" font-size="24" font-weight="700" font-family="Arial, sans-serif">转换</text>
+  <text x="704" y="404" text-anchor="middle" fill="#EDE9FE" font-size="17" font-family="Arial, sans-serif">build-sft</text>
+
+  <rect x="800" y="340" width="160" height="88" rx="14" fill="url(#nodeE)"/>
+  <text x="880" y="375" text-anchor="middle" fill="#F8FAFC" font-size="24" font-weight="700" font-family="Arial, sans-serif">去重</text>
+  <text x="880" y="404" text-anchor="middle" fill="#FEE2E2" font-size="17" font-family="Arial, sans-serif">quality.py</text>
+
+  <rect x="976" y="340" width="160" height="88" rx="14" fill="url(#nodeF)"/>
+  <text x="1056" y="375" text-anchor="middle" fill="#F8FAFC" font-size="24" font-weight="700" font-family="Arial, sans-serif">切分</text>
+  <text x="1056" y="404" text-anchor="middle" fill="#CCFBF1" font-size="17" font-family="Arial, sans-serif">split.py</text>
+
+  <line x1="256" y1="384" x2="268" y2="384" stroke="#94A3B8" stroke-width="3" marker-end="url(#arrow)"/>
+  <line x1="432" y1="384" x2="444" y2="384" stroke="#94A3B8" stroke-width="3" marker-end="url(#arrow)"/>
+  <line x1="608" y1="384" x2="620" y2="384" stroke="#94A3B8" stroke-width="3" marker-end="url(#arrow)"/>
+  <line x1="784" y1="384" x2="796" y2="384" stroke="#94A3B8" stroke-width="3" marker-end="url(#arrow)"/>
+  <line x1="960" y1="384" x2="972" y2="384" stroke="#94A3B8" stroke-width="3" marker-end="url(#arrow)"/>
+
+  <text x="96" y="532" fill="#64748B" font-size="23" font-family="Arial, sans-serif">Yunshen Blog · LLM Data Pipeline Series</text>
+</svg>

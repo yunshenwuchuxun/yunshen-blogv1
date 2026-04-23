@@ -1,0 +1,311 @@
+---
+title: 'LoRA 论文精读：低秩适配如何让大模型微调更高效'
+publishedAt: '2026-04-22'
+summary: 'LoRA 通过冻结预训练权重并注入低秩更新，在接近全量微调效果的同时显著降低可训练参数量、显存占用与部署成本。'
+draft: false
+image: '/static/blog/lora/lora-init-ab.svg'
+tags: [LLM, PEFT, LoRA, 'Paper Reading']
+---
+
+<PaperCard
+	title="LoRA: Low-Rank Adaptation of Large Language Models"
+	description="Edward Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean Wang, Lu Wang, Weizhu Chen — ICLR 2022 (Microsoft Corporation)"
+	links={[
+		{ label: "论文原文", url: "https://arxiv.org/abs/2106.09685" },
+		{ label: "代码实战", url: "https://colab.research.google.com/github/yunshenwuchuxun/yunshen-blogv1/blob/main/papers/LoRA/code.ipynb" },
+	]}
+/>
+
+LoRA 是参数高效微调方法里最有代表性的工作之一。它的关键洞察并不复杂：对大模型做下游适配时，真正需要学习的往往不是一整块全新的权重矩阵，而只是原有表示空间上的一个<strong>低维修正</strong>。如果把这部分修正显式参数化，就能把训练成本从“重写整个模型”压缩成“只训练一小组增量参数”。
+
+这篇论文的重要性不仅在于节省参数，更在于它给后续的大模型微调建立了一条非常稳定的工程主线：<strong>冻结底座、只训练小模块、尽量不增加推理负担</strong>。后来 PEFT、QLoRA 以及大量 SFT 实践，基本都沿着这条主线展开。
+
+## 研究动机
+
+随着预训练语言模型规模不断增大，全量微调的成本迅速上升。每个任务都复制并更新一整套模型参数，会同时带来显存、存储、分发和部署压力。LoRA 要解决的，就是这个“任务适配成本已经高到不可接受”的问题。
+
+| 方案 | 更新什么 | 训练成本 | 存储成本 | 推理影响 | 典型场景 |
+|------|------|------|------|------|------|
+| 全量微调 | 整个模型参数 | 很高 | 很高 | 无额外结构 | 小模型或资源充足场景 |
+| LoRA | 少量低秩矩阵 | 低 | 低 | 通常可并回原权重 | 大模型 SFT 默认起点 |
+| QLoRA | 量化底座 + LoRA | 更低 | 更低 | 训练更省显存 | 单卡或有限显存微调 |
+
+![全量微调与 LoRA 对比](/static/blog/lora/lora-overview.svg)
+
+从这个角度看，LoRA 的出发点非常务实：预训练模型已经学到了很强的通用表示，下游任务不一定需要“把整块权重重新写一遍”，更可能只需要沿着若干关键方向做修正。换句话说，下游变化往往可以被压缩到一个<strong>低秩空间</strong>里。
+
+## 核心方法/模型架构
+
+LoRA 的核心形式非常直接：把原本需要直接学习的权重更新 $\Delta W$，写成两个小矩阵的乘积。
+
+$$
+W = W_0 + \Delta W
+$$
+
+$$
+\Delta W = BA
+$$
+
+其中，$W_0 \in \mathbb{R}^{d_{out} \times d_{in}}$ 是冻结的原始权重，$A \in \mathbb{R}^{r \times d_{in}}$，$B \in \mathbb{R}^{d_{out} \times r}$，而 $r$ 是远小于输入输出维度的低秩超参数。
+
+为了稳定训练，论文与工程实现通常还会加入缩放系数：
+
+$$
+W = W_0 + \frac{\alpha}{r} BA
+$$
+
+![低秩分解示意图](/static/blog/lora/lora-decomposition.svg)
+
+这套写法的含义可以概括成一句话：<strong>不再直接学习高维更新，而是先把允许更新的空间限制到 rank = r 的低维子空间里</strong>。这样做有三个直接收益：
+
+- <strong>参数量显著下降</strong>：需要学习的参数从 $d_{out} \times d_{in}$ 变成 $d_{out} \times r + r \times d_{in}$。
+- <strong>主干模型保持冻结</strong>：优化只发生在 LoRA 分支，训练成本和显存占用显著降低。
+- <strong>结构改动极小</strong>：LoRA 挂在线性层旁边，不需要推翻 Transformer 主体架构。
+
+从架构角度看，LoRA 不是“新模型”，而是“给已有模型补一个低秩更新接口”。这也是它能快速融入 HuggingFace PEFT 生态的根本原因。
+
+## 组件详解
+
+### 低秩分解到底在学什么
+
+如果把全量微调理解为“在高维空间里任意移动”，那么 LoRA 更像是“先限定一个低维子空间，再只在这个子空间里移动”。因此，LoRA 不是简单地减少参数，而是在主动下注：<strong>任务适配所需的有效变化，本身就具有较强的低秩结构</strong>。
+
+这个假设并不是拍脑袋。LoRA 论文在多个模型与任务上的实验表明，哪怕只用很小的秩，也常常能逼近全量微调效果。这意味着很多任务真正需要的不是“处处都改”，而是“沿少数关键方向改”。
+
+### 参数量为什么会下降得这么多
+
+用户原始笔记里有一个直观例子：把一个大矩阵拆成两个小矩阵后，参数量会大幅下降。下面这个例子把这个结论重新画清楚了。
+
+![参数量节省示意图](/static/blog/lora/lora-parameter-savings.svg)
+
+以一个 `1024 × 512` 的线性层为例：
+
+| 更新方式 | 参数量公式 | 实际参数量 | 相对全量更新 |
+|------|------|------|------|
+| 全量更新 | `1024 × 512` | `524,288` | `100%` |
+| LoRA，`r = 32` | `1024 × 32 + 32 × 512` | `49,152` | `9.4%` |
+
+这张表最重要的不是具体数字，而是增长规律：当 $r \ll \min(d_{in}, d_{out})$ 时，LoRA 参数量近似随 $r$ 线性增长，而不是随完整矩阵面积增长。因此它特别适合“大层很多、每层都很宽”的 LLM。
+
+### 初始化与训练策略
+
+LoRA 的常见初始化方式是：$A$ 随机初始化，$B$ 从零开始。这样一来，训练刚开始时低秩分支几乎不会改变原模型行为，优化过程通常更平滑。
+
+![LoRA 初始化示意图（A 随机初始化，B 置零）](/static/blog/lora/lora-init-ab.svg)
+
+$$
+\text{effective weight} = W_0 + \frac{\alpha}{r} BA
+$$
+
+这里最关键的超参数有三个：
+
+| 超参数 | 作用 | 调大后的影响 | 常见理解 |
+|------|------|------|------|
+| `r` | 控制低秩子空间容量 | 表达能力更强，但参数更多 | 容量旋钮 |
+| `α` | 控制更新项缩放强度 | 更新幅度更大 | 强度旋钮 |
+| `dropout` | 抑制过拟合 | 更稳，但过大可能削弱学习 | 正则旋钮 |
+
+用户笔记中提到 `r` 常见取值为 `4`、`8`、`16`、`32`，这与实际工程经验一致。一般来说，任务越复杂、底座越大、目标层越多，越可能需要更大的 `r`；但默认起步通常仍会从较小的秩开始。
+
+### LoRA 在工程里通常挂在哪些层
+
+从论文到后续大模型 SFT 实践，一个非常稳定的经验是：LoRA 的常见起点是 attention 相关的线性投影层；如果任务更复杂或容量不够，再考虑扩展到 FFN 层。相比之下，embedding 与 `lm_head` 通常不是默认的第一选择。
+
+![LoRA 目标模块示意图](/static/blog/lora/lora-target-modules.svg)
+
+可以把常见选择总结为下面这张表：
+
+| 模块 | 是否优先 | 原因 | 备注 |
+|------|------|------|------|
+| `q_proj` / `k_proj` / `v_proj` | 高 | 直接影响注意力路由与特征交互 | 最常见起点 |
+| `o_proj` | 中高 | 影响多头注意力输出融合 | 常与 Q/V 一起加入 |
+| FFN 线性层 | 中 | 增强表达能力 | 任务更复杂时再扩展 |
+| Embedding | 低 | 受词表与输入分布影响更大 | 通常不是默认选项 |
+| `lm_head` | 低 | 更偏任务输出端 | 视任务而定 |
+
+用户 notebook 里的工程实现也体现了这个思路：它在 DistilBERT 上通过 `target_modules=['q_lin', 'v_lin']` 演示 LoRA 的最小工程落点。这个选择非常典型，因为 attention 投影通常是任务适配中最敏感、也最先值得下注的位置。
+
+### QLoRA 与 LoRA 的关系
+
+QLoRA 可以理解为 LoRA 的进一步工程化：LoRA 解决“更新太贵”，QLoRA 进一步解决“底座太重”。它先把底座模型量化到更低比特，再在量化底座上叠加 LoRA 分支。
+
+![QLoRA 示意图](/static/blog/lora/qlora-stack.svg)
+
+因此，QLoRA 与 LoRA 不是替代关系，而是叠加关系。它们分别作用在两个不同层面：
+
+- <strong>LoRA</strong>：减少需要训练的参数量。
+- <strong>QLoRA</strong>：减少底座模型训练时的显存占用。
+
+这也是为什么 QLoRA 会成为“单卡训练大模型”的关键技术组合之一。
+
+### QLoRA 常用配置速查
+
+如果你准备把 QLoRA 用到真实 SFT 流程里，最常见的一组配置可以概括为下面这张图：
+
+![QLoRA 工程路径速览](/static/blog/lora/qlora-practical-guide.svg)
+
+再配合这张参数表会更直观：
+
+| 配置项 | 常见取值 | 作用 | 实战建议 |
+|------|------|------|------|
+| `load_in_4bit` | `true` | 以 4-bit 形式加载底座权重 | QLoRA 的基础开关，通常默认开启 |
+| `bnb_4bit_quant_type` | `nf4` | 指定 4-bit 量化类型 | 大多数 LLM 场景优先 `nf4` |
+| `bnb_4bit_use_double_quant` | `true` | 二次量化，进一步节省显存 | 显存紧张时很常用，通常收益稳定 |
+| `bnb_4bit_compute_dtype` | `torch.bfloat16` / `torch.float16` | 前向/反向计算的数据类型 | 支持 BF16 的卡优先 BF16，否则用 FP16 |
+| `r` | `8` / `16` / `32` | LoRA 容量 | 先小后大，容量不够再加 |
+| `lora_alpha` | 常取 `2r` 或同量级 | 更新项缩放强度 | 与 `r` 联动调，不建议独立激进放大 |
+| `target_modules` | `q_proj`、`v_proj` 等 | 指定注入 LoRA 的层 | 先 attention，再按需扩展到 FFN |
+
+对应到 `transformers + peft + bitsandbytes` 的最小配置，大概就是下面这样：
+
+```python
+from transformers import AutoModelForCausalLM, BitsAndBytesConfig
+from peft import LoraConfig, get_peft_model
+import torch
+
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_quant_type="nf4",
+    bnb_4bit_use_double_quant=True,
+    bnb_4bit_compute_dtype=torch.bfloat16,
+)
+model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, quantization_config=bnb_config)
+lora_config = LoraConfig(r=16, lora_alpha=32, target_modules=["q_proj", "v_proj"], lora_dropout=0.05)
+model = get_peft_model(model, lora_config)
+```
+
+### 什么时候用 LoRA，什么时候用 QLoRA
+
+| 场景 | 更推荐 | 原因 |
+|------|------|------|
+| 显存比较充足，追求训练稳定性和实现简单 | LoRA | 工程路径更直接，调试链路更短 |
+| 单卡/小显存，需要把更大底座塞进训练 | QLoRA | 先压缩底座权重，显存压力明显下降 |
+| 需要快速做任务可行性验证（PoC） | QLoRA | 在有限资源下更容易先跑通 |
+| 已经有成熟 LoRA 配方，且模型规模不大 | LoRA | 维护成本更低，迁移更平滑 |
+
+### QLoRA 的常见坑
+
+- <strong>把 QLoRA 当成“白送提速”</strong>：它的核心收益是显存，不一定总是 wall-clock 更快。
+- <strong>目标模块铺得过大</strong>：`target_modules` 过多会抬高训练成本，先从 attention 关键层起步更稳。
+- <strong>只调 `r` 不看学习率</strong>：`r` 增大后通常需要一起复查学习率和 `lora_alpha`，否则训练会抖动。
+- <strong>忽视 dtype 兼容性</strong>：BF16/FP16 选择与硬件强相关，错误组合容易带来数值不稳定。
+
+## 实验结果
+
+LoRA 论文最重要的实验结论，不是某个单点分数，而是一个跨模型、跨任务的总体趋势：<strong>在大幅减少可训练参数的前提下，LoRA 往往仍能取得接近甚至达到全量微调的效果</strong>。这说明下游适配所需的更新，确实常常具有较强的低秩结构。
+
+从工程视角看，这个结果意味着三件事：
+
+- <strong>训练门槛更低</strong>：不需要为每个任务维护完整的可训练副本。
+- <strong>任务切换更灵活</strong>：不同任务只需保存各自的 LoRA 权重。
+- <strong>部署更经济</strong>：主干模型可以共享，增量参数独立分发。
+
+如果把 LoRA 放进今天的 LLM 微调工作流里，它的角色可以概括为：<strong>默认起点，而不是最后手段</strong>。通常先用 LoRA 在 attention 投影层上做一次便宜、快速、可复用的试探，再决定是否扩大目标模块、提升 `r`、或者进入 QLoRA 路线。
+
+## 总结
+
+LoRA 的真正价值，在于它把“大模型微调”重新表述成了一个更小、更便宜、也更工程友好的问题。它既没有推翻 Transformer，也没有引入复杂的新推理路径，而是直接沿着线性层这个最核心的接口，把任务适配压缩成低秩更新。
+
+如果你更关心实践而不是口号，那么 LoRA 最值得记住的不是某一个公式，而是一整套方法论：<strong>尽量复用底座能力，只为任务差异付费</strong>。这正是它能够长期留在主流 LLM 微调工具链中的原因。
+
+## 代码实战
+
+这份 notebook 很适合作为“原理到工程”的桥梁：前半部分手写 `LoRALinear`，把低秩更新如何进入前向传播完整展开；后半部分再用 `transformers + peft` 把同一个思想接到真实预训练模型上。
+
+<div style={{ display: 'flex', justifyContent: 'center' }}>
+	<a
+		href="https://colab.research.google.com/github/yunshenwuchuxun/yunshen-blogv1/blob/main/papers/LoRA/code.ipynb"
+		target="_blank"
+		rel="noopener noreferrer"
+	>
+		<img
+			src="https://colab.research.google.com/assets/colab-badge.svg"
+			alt="Open In Colab"
+			style={{ width: '150px', maxWidth: '100%', height: 'auto' }}
+		/>
+	</a>
+</div>
+
+先看学习路径里的最小实现。它直接把冻结权重、低秩矩阵和缩放项写进一个线性层，是理解 LoRA 公式最直观的方式。
+
+```python
+class LoRALinear(nn.Module):
+    def __init__(self, in_features, out_features, r=8, alpha=16, bias=False):
+        super().__init__()
+        self.r = r
+        self.alpha = alpha
+        self.scaling = alpha / r
+        self.weight = nn.Parameter(
+            torch.empty(out_features, in_features),
+            requires_grad=False,
+        )
+        nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
+        self.bias = None
+        if bias:
+            self.bias = nn.Parameter(torch.zeros(out_features), requires_grad=False)
+        self.lora_A = nn.Parameter(torch.empty(r, in_features))
+        nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
+        self.lora_B = nn.Parameter(torch.zeros(out_features, r))
+
+    def forward(self, x):
+        delta_w = (self.lora_B @ self.lora_A) * self.scaling
+        weight_eff = self.weight + delta_w
+        return torch.nn.functional.linear(x, weight_eff, self.bias)
+```
+
+然后看工程路径。notebook 使用 `glue/sst2` 作为示例任务，用 `DistilBERT + PEFT` 展示 LoRA 在真实 NLP pipeline 中的接法，其中最关键的是 `LoraConfig(...)` 与目标模块选择。
+
+```python
+base_model = AutoModelForSequenceClassification.from_pretrained(
+    HF_MODEL_NAME,
+    num_labels=NUM_CLASSES,
+)
+
+peft_config = LoraConfig(
+    task_type=TaskType.SEQ_CLS,
+    r=LORA_R,
+    lora_alpha=LORA_ALPHA,
+    lora_dropout=DROPOUT,
+    target_modules=['q_lin', 'v_lin'],
+    bias='none',
+)
+
+peft_model = get_peft_model(base_model, peft_config)
+peft_model.print_trainable_parameters()
+```
+
+训练部分则交给 HuggingFace `Trainer` 封装。这样做的价值不只是“代码更短”，而是把 LoRA 从理论原型平滑地接到了真实实验流程里。
+
+```python
+training_args = TrainingArguments(
+    output_dir='./tmp_lora_distilbert',
+    eval_strategy='epoch',
+    save_strategy='no',
+    logging_strategy='steps',
+    logging_steps=20,
+    learning_rate=HF_LR,
+    per_device_train_batch_size=HF_BATCH_SIZE,
+    per_device_eval_batch_size=HF_EVAL_BATCH_SIZE,
+    num_train_epochs=HF_NUM_EPOCHS,
+    weight_decay=0.01,
+    report_to=[],
+    remove_unused_columns=False,
+    seed=42,
+)
+
+trainer = Trainer(
+    model=peft_model,
+    args=training_args,
+    train_dataset=hf_train,
+    eval_dataset=hf_eval,
+    data_collator=data_collator,
+    processing_class=tokenizer,
+    compute_metrics=compute_metrics,
+)
+```
+
+## 参考文献
+
+- Hu, E., Shen, Y., Wallis, P., Allen-Zhu, Z., Li, Y., Wang, S., Wang, L., & Chen, W. (2022). [LoRA: Low-Rank Adaptation of Large Language Models](https://openreview.net/forum?id=nZeVKeeFYf9). ICLR 2022.
+- Microsoft. [LoRA GitHub Repository](https://github.com/microsoft/LoRA).
+- [LoRA 论文精读视频](https://www.bilibili.com/video/BV1euPkerEtL?vd_source=421df6b98aee0b275cf8c837bea8e696). Bilibili.
