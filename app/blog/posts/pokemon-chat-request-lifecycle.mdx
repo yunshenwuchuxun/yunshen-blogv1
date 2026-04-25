@@ -491,17 +491,3 @@ export async function readNdjsonStream(response, onJson, { onParseError } = {}) 
 `pokemon agent` 的价值不只在于它做了一个宝可梦问答系统，而在于它把很多现代 AI 应用会遇到的工程问题，真实地压缩进了一条用户可感知的产品链里：<strong>同一套 UI，背后既能走简单本地直答，也能走多源检索增强，还能切到 supervisor + workers 的 Agent 编排</strong>。
 
 从系统设计角度看，这种“单产品，多执行路径”的结构，比单独看某个组件更有学习价值。
-
-## 推荐阅读顺序
-
-如果你想继续沿着这个系列往下读，最自然的顺序是：
-
-1. **[Blog 1：项目总览](/blog/pokemon-chat-overview)**：先看系统全景图
-2. **[Blog 2：调用链路](/blog/pokemon-chat-request-lifecycle)**：看一次请求到底怎么走
-3. **[Blog 3：RAG 主链](/blog/pokemon-chat-rag-mainline)**：看普通模式下的检索增强
-4. **[Blog 4：Agent 编排](/blog/pokemon-chat-agent-orchestration)**：看动态调度是如何实现的
-5. **[Blog 5：配置热切换](/blog/pokemon-chat-config-hot-reload)**：看前端开关如何真正变成后端行为
-6. **[Blog 6：Docker 架构](/blog/pokemon-chat-docker-architecture)**：看多依赖 AI 系统如何组织部署边界
-7. **[Blog 7：LangGraph 工程化实战](/blog/pokemon-chat-langgraph-engineering)**：看 tools/runtime/JSON/memory/context 如何协同
-
-如果你已经读完本文，那么下一篇最适合接着看的是 **[Blog 3：RAG 主链](/blog/pokemon-chat-rag-mainline)**，因为调用链路之后，最自然的问题就是：普通模式下的本地直答、缓存和 Retriever 到底是怎么串起来的。

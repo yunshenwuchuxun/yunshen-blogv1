@@ -1,0 +1,61 @@
+<svg width="1200" height="700" viewBox="0 0 1200 700" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="LangGraph runtime map">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#64748B" />
+    </marker>
+  </defs>
+
+  <rect width="1200" height="700" rx="20" fill="#0F172A" />
+  <text x="48" y="58" fill="#E2E8F0" font-size="34" font-family="Segoe UI, Arial, sans-serif" font-weight="700">
+    LangGraph Runtime Map
+  </text>
+  <text x="48" y="92" fill="#94A3B8" font-size="20" font-family="Segoe UI, Arial, sans-serif">
+    state contract, routing, checkpoint, interrupt, resume
+  </text>
+
+  <rect x="60" y="150" width="230" height="100" rx="14" fill="#1E293B" stroke="#334155" />
+  <text x="85" y="190" fill="#BAE6FD" font-size="23" font-family="Segoe UI, Arial, sans-serif" font-weight="700">START</text>
+  <text x="85" y="220" fill="#93C5FD" font-size="18" font-family="Segoe UI, Arial, sans-serif">input + thread_id</text>
+
+  <rect x="350" y="150" width="280" height="100" rx="14" fill="#1E293B" stroke="#334155" />
+  <text x="376" y="190" fill="#86EFAC" font-size="23" font-family="Segoe UI, Arial, sans-serif" font-weight="700">Router Node</text>
+  <text x="376" y="220" fill="#BBF7D0" font-size="18" font-family="Segoe UI, Arial, sans-serif">rule first, model fallback</text>
+
+  <rect x="690" y="150" width="230" height="100" rx="14" fill="#1E293B" stroke="#334155" />
+  <text x="715" y="190" fill="#FDE68A" font-size="23" font-family="Segoe UI, Arial, sans-serif" font-weight="700">Tool Node</text>
+  <text x="715" y="220" fill="#FDE68A" font-size="18" font-family="Segoe UI, Arial, sans-serif">side effects possible</text>
+
+  <rect x="980" y="150" width="170" height="100" rx="14" fill="#1E293B" stroke="#334155" />
+  <text x="1010" y="190" fill="#C4B5FD" font-size="23" font-family="Segoe UI, Arial, sans-serif" font-weight="700">END</text>
+  <text x="1010" y="220" fill="#DDD6FE" font-size="18" font-family="Segoe UI, Arial, sans-serif">final answer</text>
+
+  <rect x="350" y="330" width="280" height="120" rx="14" fill="#172554" stroke="#1D4ED8" />
+  <text x="376" y="373" fill="#BFDBFE" font-size="23" font-family="Segoe UI, Arial, sans-serif" font-weight="700">Checkpoint</text>
+  <text x="376" y="404" fill="#93C5FD" font-size="18" font-family="Segoe UI, Arial, sans-serif">persist state snapshot</text>
+  <text x="376" y="432" fill="#93C5FD" font-size="18" font-family="Segoe UI, Arial, sans-serif">resume by thread_id</text>
+
+  <rect x="690" y="330" width="320" height="120" rx="14" fill="#3F1D2E" stroke="#9F1239" />
+  <text x="718" y="373" fill="#FBCFE8" font-size="23" font-family="Segoe UI, Arial, sans-serif" font-weight="700">Interrupt Gate (HITL)</text>
+  <text x="718" y="404" fill="#F9A8D4" font-size="18" font-family="Segoe UI, Arial, sans-serif">pause before risky actions</text>
+  <text x="718" y="432" fill="#F9A8D4" font-size="18" font-family="Segoe UI, Arial, sans-serif">resume with human decision</text>
+
+  <rect x="60" y="520" width="520" height="120" rx="14" fill="#052E16" stroke="#166534" />
+  <text x="86" y="563" fill="#DCFCE7" font-size="23" font-family="Segoe UI, Arial, sans-serif" font-weight="700">Observability Signals</text>
+  <text x="86" y="594" fill="#BBF7D0" font-size="18" font-family="Segoe UI, Arial, sans-serif">node latency · retries · route decision · tool errors</text>
+  <text x="86" y="622" fill="#BBF7D0" font-size="18" font-family="Segoe UI, Arial, sans-serif">used for replay and regression checks</text>
+
+  <rect x="640" y="520" width="510" height="120" rx="14" fill="#3A2600" stroke="#B45309" />
+  <text x="666" y="563" fill="#FDE68A" font-size="23" font-family="Segoe UI, Arial, sans-serif" font-weight="700">Failure Handling</text>
+  <text x="666" y="594" fill="#FCD34D" font-size="18" font-family="Segoe UI, Arial, sans-serif">recoverable: retry or resume</text>
+  <text x="666" y="622" fill="#FCD34D" font-size="18" font-family="Segoe UI, Arial, sans-serif">non-recoverable: escalate and compensate</text>
+
+  <path d="M290 200 L350 200" stroke="#64748B" stroke-width="4" marker-end="url(#arrow)" />
+  <path d="M630 200 L690 200" stroke="#64748B" stroke-width="4" marker-end="url(#arrow)" />
+  <path d="M920 200 L980 200" stroke="#64748B" stroke-width="4" marker-end="url(#arrow)" />
+
+  <path d="M490 250 L490 330" stroke="#1D4ED8" stroke-width="4" marker-end="url(#arrow)" />
+  <path d="M805 250 L850 330" stroke="#9F1239" stroke-width="4" marker-end="url(#arrow)" />
+
+  <path d="M490 450 L320 520" stroke="#166534" stroke-width="4" marker-end="url(#arrow)" />
+  <path d="M850 450 L900 520" stroke="#B45309" stroke-width="4" marker-end="url(#arrow)" />
+</svg>

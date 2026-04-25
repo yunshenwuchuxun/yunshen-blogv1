@@ -60,6 +60,13 @@ export default async function Blog(props: {
 						{formatDate(metadata.publishedAt)}
 					</p>
 				</div>
+				{metadata.image ? (
+					<img
+						src={metadata.image}
+						alt={metadata.title}
+						className='mt-6 w-full rounded-2xl border border-neutral-200 dark:border-neutral-800'
+					/>
+				) : null}
 			</section>
 			<article className='md:max-w-5xl'>{content}</article>
 		</>

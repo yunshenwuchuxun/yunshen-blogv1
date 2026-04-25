@@ -135,7 +135,10 @@ export const components = {
 	img: (props: ComponentPropsWithoutRef<'img'>) => (
 		// biome-ignore lint/a11y/useAltText: alt is passed via ...props from markdown ![alt](src)
 		// biome-ignore lint/performance/noImgElement: MDX images lack width/height required by next/image
-		<img className='mx-auto block' {...props} />
+		<img
+			className='mx-auto my-6 block h-auto w-full rounded-xl border border-gray-200 dark:border-gray-800'
+			{...props}
+		/>
 	),
 	table: (props: ComponentPropsWithoutRef<'table'>) => (
 		<div className='overflow-x-auto my-4'>

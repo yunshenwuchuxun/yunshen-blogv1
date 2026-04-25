@@ -357,20 +357,6 @@ Agent 模式不是单独一个功能点，而是把整个执行方式切换成 `
 ### 4. 配置热切换与基础设施组织
 `.env`、`ui_config.json`、feature flag、runtime reset、Docker profiles，这又是另一种工程主题。
 
-## 系列阅读顺序建议
-
-如果你是第一次读这个系列，推荐直接按下面顺序阅读：
-
-1. **[Blog 1：项目总览](/blog/pokemon-chat-overview)**：先建立系统地图
-2. **[Blog 2：调用链路](/blog/pokemon-chat-request-lifecycle)**：看一次请求到底怎么走
-3. **[Blog 3：RAG 主链](/blog/pokemon-chat-rag-mainline)**：看普通模式下的本地直答、缓存和 Retriever
-4. **[Blog 4：Agent 编排](/blog/pokemon-chat-agent-orchestration)**：看 LangGraph 动态调度如何落地
-5. **[Blog 5：配置热切换](/blog/pokemon-chat-config-hot-reload)**：看前端开关如何真正变成后端行为
-6. **[Blog 6：Docker 架构](/blog/pokemon-chat-docker-architecture)**：看多服务 AI 系统如何组织部署边界
-7. **[Blog 7：LangGraph 工程化实战](/blog/pokemon-chat-langgraph-engineering)**：看 tools/runtime/JSON/memory/context 如何组成可维护系统
-
-如果你已经对整体结构有概念，也可以直接从 **[Blog 2：调用链路](/blog/pokemon-chat-request-lifecycle)** 开始，它最适合作为整个系列的第一个技术抓手。
-
 ## 用表格总结：这个项目最值得学的是什么
 
 | 维度 | 最值得学习的点 |
@@ -396,12 +382,3 @@ Agent 模式不是单独一个功能点，而是把整个执行方式切换成 `
 也正因为如此，这个系列真正要讲的，不是“一个聊天机器人怎么做”，而是：
 
 > **一个现代 AI 问答系统，如何把多种能力、多种执行方式和多种基础设施组织成一个可运行、可解释、可扩展的整体。**
-
-接下来如果你准备继续往下读，最自然的顺序就是：
-
-1. [Blog 2：调用链路](/blog/pokemon-chat-request-lifecycle)
-2. [Blog 3：RAG 主链](/blog/pokemon-chat-rag-mainline)
-3. [Blog 4：Agent 编排](/blog/pokemon-chat-agent-orchestration)
-4. [Blog 7：LangGraph 工程化实战](/blog/pokemon-chat-langgraph-engineering)
-
-到这里，这个系列的主干就完整了。

@@ -1,0 +1,49 @@
+<svg width="1200" height="760" viewBox="0 0 1200 760" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="LangGraph interview matrix">
+  <rect width="1200" height="760" rx="20" fill="#111827" />
+  <text x="44" y="60" fill="#F9FAFB" font-size="34" font-family="Segoe UI, Arial, sans-serif" font-weight="700">
+    Enterprise Interview Matrix · LangGraph
+  </text>
+  <text x="44" y="95" fill="#9CA3AF" font-size="20" font-family="Segoe UI, Arial, sans-serif">
+    what is asked most, and what signals a strong answer
+  </text>
+
+  <rect x="44" y="132" width="1112" height="64" rx="10" fill="#1F2937" />
+  <text x="70" y="172" fill="#93C5FD" font-size="22" font-family="Segoe UI, Arial, sans-serif" font-weight="700">Topic</text>
+  <text x="330" y="172" fill="#A7F3D0" font-size="22" font-family="Segoe UI, Arial, sans-serif" font-weight="700">Why Companies Ask</text>
+  <text x="790" y="172" fill="#FDE68A" font-size="22" font-family="Segoe UI, Arial, sans-serif" font-weight="700">Strong Answer Signal</text>
+
+  <rect x="44" y="214" width="1112" height="78" rx="10" fill="#0B1220" stroke="#374151" />
+  <text x="70" y="260" fill="#E5E7EB" font-size="20" font-family="Segoe UI, Arial, sans-serif">Runtime & State</text>
+  <text x="330" y="248" fill="#D1FAE5" font-size="18" font-family="Segoe UI, Arial, sans-serif">Need predictable execution, not demo loops</text>
+  <text x="330" y="272" fill="#D1FAE5" font-size="18" font-family="Segoe UI, Arial, sans-serif">across retries and restarts</text>
+  <text x="790" y="248" fill="#FEF3C7" font-size="18" font-family="Segoe UI, Arial, sans-serif">Can explain state contract and</text>
+  <text x="790" y="272" fill="#FEF3C7" font-size="18" font-family="Segoe UI, Arial, sans-serif">node-level responsibilities</text>
+
+  <rect x="44" y="304" width="1112" height="78" rx="10" fill="#0B1220" stroke="#374151" />
+  <text x="70" y="350" fill="#E5E7EB" font-size="20" font-family="Segoe UI, Arial, sans-serif">Checkpoint & Recovery</text>
+  <text x="330" y="338" fill="#D1FAE5" font-size="18" font-family="Segoe UI, Arial, sans-serif">Production incidents require resume,</text>
+  <text x="330" y="362" fill="#D1FAE5" font-size="18" font-family="Segoe UI, Arial, sans-serif">not full replay from scratch</text>
+  <text x="790" y="338" fill="#FEF3C7" font-size="18" font-family="Segoe UI, Arial, sans-serif">Can design thread_id and</text>
+  <text x="790" y="362" fill="#FEF3C7" font-size="18" font-family="Segoe UI, Arial, sans-serif">recoverable vs non-recoverable failures</text>
+
+  <rect x="44" y="394" width="1112" height="78" rx="10" fill="#0B1220" stroke="#374151" />
+  <text x="70" y="440" fill="#E5E7EB" font-size="20" font-family="Segoe UI, Arial, sans-serif">HITL Interrupt</text>
+  <text x="330" y="428" fill="#D1FAE5" font-size="18" font-family="Segoe UI, Arial, sans-serif">Sensitive actions need approvals and</text>
+  <text x="330" y="452" fill="#D1FAE5" font-size="18" font-family="Segoe UI, Arial, sans-serif">auditability</text>
+  <text x="790" y="428" fill="#FEF3C7" font-size="18" font-family="Segoe UI, Arial, sans-serif">Places interrupt at risk gates and</text>
+  <text x="790" y="452" fill="#FEF3C7" font-size="18" font-family="Segoe UI, Arial, sans-serif">defines timeout fallback</text>
+
+  <rect x="44" y="484" width="1112" height="78" rx="10" fill="#0B1220" stroke="#374151" />
+  <text x="70" y="530" fill="#E5E7EB" font-size="20" font-family="Segoe UI, Arial, sans-serif">Structured Output</text>
+  <text x="330" y="518" fill="#D1FAE5" font-size="18" font-family="Segoe UI, Arial, sans-serif">Downstream systems break on malformed</text>
+  <text x="330" y="542" fill="#D1FAE5" font-size="18" font-family="Segoe UI, Arial, sans-serif">JSON and schema drift</text>
+  <text x="790" y="518" fill="#FEF3C7" font-size="18" font-family="Segoe UI, Arial, sans-serif">Uses schema validation plus</text>
+  <text x="790" y="542" fill="#FEF3C7" font-size="18" font-family="Segoe UI, Arial, sans-serif">graceful fallback path</text>
+
+  <rect x="44" y="574" width="1112" height="78" rx="10" fill="#0B1220" stroke="#374151" />
+  <text x="70" y="620" fill="#E5E7EB" font-size="20" font-family="Segoe UI, Arial, sans-serif">Multi-agent & Ops</text>
+  <text x="330" y="608" fill="#D1FAE5" font-size="18" font-family="Segoe UI, Arial, sans-serif">Scale needs explicit orchestration,</text>
+  <text x="330" y="632" fill="#D1FAE5" font-size="18" font-family="Segoe UI, Arial, sans-serif">cost control and observability</text>
+  <text x="790" y="608" fill="#FEF3C7" font-size="18" font-family="Segoe UI, Arial, sans-serif">Can justify when to split workers</text>
+  <text x="790" y="632" fill="#FEF3C7" font-size="18" font-family="Segoe UI, Arial, sans-serif">and how to debug by layer</text>
+</svg>

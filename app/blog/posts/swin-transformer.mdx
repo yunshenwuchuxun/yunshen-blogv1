@@ -1,9 +1,9 @@
 ---
 title: 'Swin Transformer 论文精读'
 publishedAt: '2026-03-15'
-summary: 'ICCV 2021 Best Paper 精读：Swin Transformer 通过层级式特征图和移动窗口自注意力，将计算复杂度降为线性，成为首个全面替代 CNN 的通用视觉骨干网络。'
+summary: '按原始笔记完整重构：从研究动机、复杂度推导、Patch Merging 到 Shifted Window 与 Mask 机制，系统拆解 Swin Transformer。'
 draft: false
-image: '/static/blog/swin-transformer/complexity-comparison.png'
+image: '/static/blog/swin-transformer/image137.png'
 tags: [Paper, DL, CV]
 ---
 
@@ -17,126 +17,182 @@ tags: [Paper, DL, CV]
 	]}
 />
 
-ViT 证明了 Transformer 能做图像分类，但它无法取代 CNN 成为通用的视觉骨干网络——全局自注意力的平方级复杂度使其无法处理高分辨率输入，单一尺度的特征图也无法对接检测、分割等下游任务。2021 年，微软亚洲研究院提出的 <strong>Swin Transformer</strong> 解决了这两个核心问题，凭借层级式特征图和移动窗口机制一举拿下 ICCV Best Paper，成为首个在检测和分割任务上全面碾压 CNN 的 Transformer 架构。
+ViT 证明了 Transformer 可以做图像分类，但它在视觉密集任务里仍有两块短板：<strong>单尺度特征</strong>和<strong>全局注意力的平方复杂度</strong>。Swin Transformer 的价值就在于，它不是简单把 ViT 搬到视觉里，而是把“层级金字塔 + 局部建模 + 跨窗口通信”组合成了一套可落地的通用视觉 backbone。
 
-## 研究动机
+## 摘要
 
-将 Transformer 直接应用于视觉任务面临两大根本挑战：
+这篇文章聚焦一个核心问题：为什么 ViT 在分类成功后，仍很难直接成为检测/分割的通用 backbone。
 
-<strong>尺度变化巨大</strong>：图像中的物体尺寸差异很大。目标检测和实例分割等任务极度依赖类似 FPN（特征金字塔）的多尺度特征来识别不同大小的物体。而 ViT 生成的特征图是固定分辨率的（始终 16x 下采样），无法提供多尺度信息。
+Swin Transformer 的答案可以概括为两点：
 
-<strong>平方级计算复杂度</strong>：ViT 的全局自注意力计算复杂度为 $O(N^2)$，其中 $N$ 是 Patch 数量。当处理高分辨率图像（如语义分割常用的 $512 \times 512$ 甚至更大）时，计算量和内存消耗爆炸式增长。
+1. <strong>层级式特征图</strong>：通过 Patch Merging 构建金字塔特征，解决单尺度问题。
+2. <strong>移动窗口注意力</strong>：在局部窗口内算注意力，再通过 Shifted Window 建立跨窗口连接，将复杂度从二次降到线性。
 
-<strong>Swin Transformer 的核心思路</strong>：设计一种具有层级结构且计算复杂度与图像大小呈<strong>线性关系</strong>的 Transformer，使其能像 ResNet 一样无缝接入各种下游密集预测任务。
+下文按“动机 -> 架构 -> 复杂度 -> SW-MSA 细节 -> 实验与讨论”展开。
 
-| 特性 | ViT | Swin Transformer |
+## 引言与动机
+
+![ViT 与 Swin 在视觉任务中的核心差异示意](/static/blog/swin-transformer/image137.png)
+
+一句话概括：<strong>Swin 用窗口约束计算，ViT 用全局 Patch 计算</strong>。
+
+ViT 在视觉密集任务里主要卡在两点：
+
+1. <strong>尺度变化巨大</strong>：检测和分割依赖多尺度特征，而 ViT 的主干特征通常是单一分辨率。
+2. <strong>高分辨率复杂度过高</strong>：全局注意力在输入变大后代价迅速上升，难以直接用于高分辨率密集预测。
+
+从复杂度视角看，两者差异可以直接写成：
+
+1. ViT 使用全局自注意力，复杂度近似为 $O((H \times W)^2)$。
+2. Swin 把注意力限制在局部窗口，在窗口大小固定时复杂度近似为 $O(H \times W)$。
+
+ViT 的 `patch_size` 固定，当输入分辨率增大时，Patch 数上升会导致平方级开销；Swin 则因为每个窗口内计算规模固定，总开销主要随窗口数量线性增长。
+
+| 对比维度 | ViT | Swin Transformer |
 |------|-----|------------------|
 | 自注意力范围 | 全局 | 局部窗口 + 移动窗口 |
-| 计算复杂度 | $O((H \times W)^2)$ | $O(H \times W)$ |
-| 特征图尺度 | 单一尺度 | 多尺度层级（类似 CNN） |
-| 下游任务 | 主要分类 | 通用 backbone（分类/检测/分割） |
+| 复杂度随分辨率变化 | 二次增长 | 线性增长 |
+| 特征图结构 | 单尺度 | 多尺度层级 |
+| 下游任务适配 | 以分类为主 | 分类/检测/分割通用 |
 
-## 整体架构
+这也是 Swin 的核心价值：把 Transformer 变成可以像 ResNet 一样直接接到 FPN/U-Net 的通用骨干。
 
-![Swin Transformer 层级架构：4 个 Stage 逐步降低分辨率、增加通道数，Patch Merging 连接相邻 Stage](/static/blog/swin-transformer/architecture.svg)
+## 如何生成多尺度特征
 
-Swin Transformer 的整体设计与 CNN 十分相似，分为四个 Stage，逐步降低分辨率、增加通道数：
+在 CNN 里，多尺度通常来自 pooling/stride；在 Swin 里，对应操作是 <strong>Patch Merging</strong>。
 
-### Patch Partition 与 Linear Embedding
+![Patch Merging 将相邻 patch 合并并提升通道维度](/static/blog/swin-transformer/image141.png)
 
-将输入 $224 \times 224 \times 3$ 图像切割成 $4 \times 4$ 大小的不重叠 Patch：
+其思路可以理解为“空间降采样 + 通道重排 + 线性映射”：
 
-- 切割后 Patch 数量：$(224/4)^2 = 56 \times 56 = 3136$ 个
-- 每个 Patch 维度：$4 \times 4 \times 3 = 48$
-- 线性层映射到 $C = 96$（Swin-T 配置）
-- 输出形状：$56 \times 56 \times 96$
+1. 对特征图做间隔采样，得到 4 个 $H/2 \times W/2$ 子张量。
+2. 在通道维拼接为 $H/2 \times W/2 \times 4C$。
+3. 再用线性层映射到 $2C$。
 
-由于 3136 个 Token 做全局自注意力开销过大，Swin 引入窗口机制，每个窗口默认包含 $7 \times 7 = 49$ 个 Patch。
+这一步可理解为 Pixel Shuffle 的逆过程：把空间分辨率折叠进通道，再做线性压缩。这样得到的层级特征可以直接接 FPN 做检测，或接 U-Net 做分割。
 
-### 四个 Stage 与 Patch Merging
+## 整体结构（以 Swin-T 为例）
 
-每个 Stage 内，Swin Transformer Block 不改变输入输出尺寸。Stage 之间通过 <strong>Patch Merging</strong> 逐步降低分辨率：
+![Swin Transformer 主干的阶段化结构](/static/blog/swin-transformer/image144.png)
+
+输入是 $224 \times 224 \times 3$，先做 Patch Partition + Linear Embedding：
+
+$$
+224 \times 224 \times 3 \rightarrow 56 \times 56 \times 48 \rightarrow 56 \times 56 \times 96
+$$
+
+然后进入 4 个 Stage，每个 Stage 内堆叠 Swin Transformer Block。Swin-T 的层数配置是 $[2,2,6,2]$，Stage 之间通过 Patch Merging 下采样并扩展通道。
+
+通道与分辨率沿网络深度变化为：
 
 $$
 56 \times 56 \times 96 \rightarrow 28 \times 28 \times 192 \rightarrow 14 \times 14 \times 384 \rightarrow 7 \times 7 \times 768
 $$
 
-Patch Merging 的具体步骤（类似 Pixel Shuffle 的逆过程）：
+对应到 Swin-T 的 Stage 级配置可写成：
 
-1. 对张量每隔一个点采样，得到四个 $H/2 \times W/2$ 的子张量
-2. 按通道维度拼接，得到 $H/2 \times W/2 \times 4C$ 的张量
-3. 通过线性变换将通道数降为 $2C$
+| Stage | 分辨率 | 通道数 | Block 数 |
+|------|--------|--------|---------|
+| Stage 1 | $56 \times 56$ | 96 | 2 |
+| Stage 2 | $28 \times 28$ | 192 | 2 |
+| Stage 3 | $14 \times 14$ | 384 | 6 |
+| Stage 4 | $7 \times 7$ | 768 | 2 |
 
-最后经过 Average Pooling 变为 $1 \times 768$，再接分类头输出。这种金字塔式的多尺度特征图可以直接输入 FPN 做检测、输入 U-Net 做分割。
+最后经 Average Pooling 变为 $1 \times 768$，再接分类头。这个流程和经典 CNN 在形态上非常接近，但核心计算单元从卷积替换成了窗口注意力。
 
 ## 窗口自注意力（W-MSA）
 
-### 复杂度分析
+### 复杂度推导（详细版）
 
-标准全局自注意力的复杂度：
+记 $N = hw$，窗口大小为 $M \times M$，每个窗口 token 数为 $M^2$。全局 MSA 的主要开销可拆成四步：
+
+1. 线性映射得到 $Q/K/V$：约 $3hwC^2$。
+2. 计算注意力矩阵 $QK^T$：约 $(hw)^2C$。
+3. 注意力矩阵与 $V$ 相乘：约 $(hw)^2C$。
+4. 输出投影：约 $hwC^2$。
+
+合并后得到：
 
 $$
 \Omega(\text{MSA}) = 4hwC^2 + 2(hw)^2C
 $$
 
-Swin 将注意力计算限制在 $M \times M$ 大小的窗口内（默认 $M = 7$），共有 $hw / M^2$ 个窗口：
+若将注意力限制在 $M \times M$ 窗口内，窗口数量是 $hw/M^2$。把每个窗口开销乘以窗口数可得：
 
 $$
-\Omega(\text{W-MSA}) = 4hwC^2 + 2M^2hwC
+\Omega(\text{W-MSA}) = \frac{hw}{M^2} \left(4M^2C^2 + 2(M^2)^2C\right) = 4hwC^2 + 2M^2hwC
 $$
 
-当 $M$ 固定时，复杂度关于 $hw$ 为<strong>线性</strong>。以 Swin-T 第一阶段（$56 \times 56 \times 96$）为例，窗口注意力的 FLOPs 仅为全局注意力的约 1/8。
+当 $M$ 固定（默认 $M=7$）时，复杂度关于 $hw$ 为线性。以第一阶段 $56 \times 56 \times 96$ 为例，W-MSA 的 FLOPs 约为全局注意力的 1/8。
 
-![全局 MSA（红）vs 窗口 W-MSA（蓝）的计算复杂度对比：窗口注意力随 Token 数线性增长](/static/blog/swin-transformer/complexity-comparison.png)
+![全局 MSA 与窗口 W-MSA 的复杂度趋势对比](/static/blog/swin-transformer/complexity-comparison.png)
 
 ### 相对位置偏置
 
-Swin 摒弃了 ViT 的绝对位置编码，在注意力计算中加入<strong>相对位置偏置</strong> $B$：
+Swin 在注意力中加入相对位置偏置 $B$：
 
 $$
-\text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d}} + B\right) V
+\text{Attention}(Q,K,V)=\text{softmax}\left(\frac{QK^T}{\sqrt{d}}+B\right)V
 $$
 
-窗口内沿两个坐标轴的相对位置范围为 $[-(M-1), M-1]$，模型参数化一个 $(2M-1) \times (2M-1)$ 的偏置表，$B$ 中的值通过坐标索引查表得到。消融实验表明，相对位置偏置比绝对位置编码在密集预测任务上效果显著更好。
+窗口内相对坐标范围是 $[-(M-1),M-1]$，因此可学习偏置表大小为 $(2M-1)\times(2M-1)$。这种设计在密集预测里通常比绝对位置编码更稳。
 
-## 移动窗口机制（SW-MSA）
+## 核心创新：窗口注意力与移动窗口
 
-### 为什么需要移动窗口？
-
-固定窗口内自注意力虽然高效，但窗口之间完全没有信息交互。移动窗口机制使得原本只能在同一窗口内交互的 Patch 可以与相邻窗口的 Patch 进行自注意力计算。
-
-### Swin Transformer Block
-
-每个 Block 由两个连续子块组成，交替使用 W-MSA 和 SW-MSA：
+这里的核心模块是“连续两个 Block 交替使用 W-MSA 与 SW-MSA”。其对应关系可写为：
 
 $$
-\hat{z}^l = \text{W-MSA}(\text{LN}(z^{l-1})) + z^{l-1}
+\hat{z}^{l} = \mathrm{W\text{-}MSA}(\mathrm{LN}(z^{l-1})) + z^{l-1}
 $$
 
 $$
-z^l = \text{MLP}(\text{LN}(\hat{z}^l)) + \hat{z}^l
+z^{l} = \mathrm{MLP}(\mathrm{LN}(\hat{z}^{l})) + \hat{z}^{l}
 $$
 
 $$
-\hat{z}^{l+1} = \text{SW-MSA}(\text{LN}(z^l)) + z^l
+\hat{z}^{l+1} = \mathrm{SW\text{-}MSA}(\mathrm{LN}(z^{l})) + z^{l}
 $$
 
 $$
-z^{l+1} = \text{MLP}(\text{LN}(\hat{z}^{l+1})) + \hat{z}^{l+1}
+z^{l+1} = \mathrm{MLP}(\mathrm{LN}(\hat{z}^{l+1})) + \hat{z}^{l+1}
 $$
 
-### 循环移位实现
+以第一阶段特征图 $56 \times 56 \times 96$ 为例，默认窗口大小是 $7 \times 7$，因此窗口数量是 $(56/7)\times(56/7)=8\times8$。
 
-移动窗口并非真的移动"框"，而是通过<strong>循环移位</strong>（Cyclic Shift）高效实现：
+### 为什么需要 Shifted Window
 
-1. <strong>循环移位</strong>：将特征图向左上方移动 $\lfloor M/2 \rfloor$ 个 Patch（`torch.roll`）
-2. <strong>重新划分窗口</strong>：在移位后的特征图上正常划分，窗口数保持不变
-3. <strong>掩码注意力</strong>：移位后同一窗口可能包含不相邻区域，通过掩码矩阵（不相邻区域填 $-100$）屏蔽非法交互，$\text{softmax}(A + \text{Mask})$ 后对应位置权重趋近于 0
-4. <strong>逆循环移位</strong>：计算完成后移回原位
+只做 W-MSA 会导致窗口间没有通信，所以 Swin 在连续两个 block 里交替使用：
 
-![窗口划分、循环移位与掩码注意力的可视化](/static/blog/swin-transformer/window-cyclic-shift.png)
+1. W-MSA（常规窗口）
+2. SW-MSA（移动窗口）
 
-这种设计避免了直接移动窗口导致的碎片窗口问题（2x2 变成 3x3 个不等大小窗口），消融实验表明比 Naive Padding 做法快 <strong>13%-18%</strong>。
+![W-MSA 与 SW-MSA 的交替通信机制](/static/blog/swin-transformer/image150.png)
+
+这样就把“局部高效”与“跨窗口信息流动”结合起来。
+
+## SW-MSA 的实现细节：Cyclic Shift + Mask
+
+直接移动窗口会出现窗口数量变化和不规则分块问题。
+
+![直接平移窗口导致碎片化窗口问题](/static/blog/swin-transformer/image151.png)
+
+Swin 采用 Cyclic Shift：先对特征图循环位移，再按常规窗口切分。这样移位前后窗口数量保持一致，便于 batch 化计算。
+
+![循环位移后保持窗口数稳定，同时引入跨窗口连接](/static/blog/swin-transformer/image142.png)
+
+移位后原本不同窗口的 token 会进入同一个局部窗口参与注意力计算，这就是 SW-MSA 建立跨窗口连接的核心。
+
+但 Cyclic Shift 会把空间上不相邻区域拼到同一窗口，需用 Mask 约束：
+
+1. 对循环移位后的区域做编号并展平。
+2. 先算注意力分数矩阵 $B$。
+3. 构造掩码矩阵 $C$：允许位置填 0，不允许位置填大负数（如 -100）。
+4. 计算 $\text{softmax}(B + C)$，非法位置权重会趋近于 0。
+5. 注意力计算后再 reverse cyclic shift 回原位。
+
+这个流程既保留了批处理友好性，也避免了错误的跨区域信息混合。
+
+可以把它理解成“先制造跨窗口邻接，再用 Mask 切掉伪邻接”。
 
 ## 架构配置与实验结果
 
@@ -160,27 +216,42 @@ $$
 | ViT-L/16 | $384^2$ | 307M | 190.7G | 85.2% |
 | <strong>Swin-L</strong> | $384^2$ | 197M | 103.9G | <strong>87.3%</strong> |
 
-### COCO 目标检测
+### COCO 检测与关键消融
 
-Swin 在检测任务上的表现震惊了整个 CV 界。在同等参数和 FLOPs 下，使用 Cascade Mask R-CNN 框架，<strong>Swin-T 比 ResNet-50 的 Box AP 暴涨 +4.2，Mask AP 暴涨 +3.3</strong>。最终融合 HTC++ 策略的 Swin-L 拿下 <strong>58.7 Box AP</strong>，实现了对纯 CNN 架构的跨代碾压。
+在同等参数和 FLOPs 下，采用 Cascade Mask R-CNN 时，Swin-T 相比 ResNet-50 的 Box AP 提升约 +4.2，Mask AP 提升约 +3.3。更大模型结合更强检测策略后，Swin-L 可达到 58.7 Box AP。
 
-### 关键消融实验
+关键消融结果显示：
 
-- <strong>Shifted Window</strong>：取消 Shift 后，ImageNet Top-1 掉 1.1%，COCO AP 暴跌 2.8 个点——跨窗口信息交互是重建感受野的关键
-- <strong>相对位置偏置</strong>：加入绝对位置编码反而使密集任务性能下降；相对位置偏置比无位置编码高 1.2%
+1. 去掉 Shifted Window，ImageNet Top-1 下降约 1.1%，COCO AP 下降约 2.8。
+2. 相对位置偏置优于绝对位置编码，尤其在密集预测任务中更稳定。
 
 ## 讨论与展望
 
-### 创新之处
+### 创新价值
 
-- <strong>完美的架构对齐</strong>：借用了 CNN "逐渐降采样"的智慧，完美适配 FPN、U-Net 等下游框架，工程友好度满分
-- <strong>优雅的复杂度解决路径</strong>：Local Window 控制复杂度为 $O(N)$，Shift 实现跨窗口信息交互，设计哲学清晰
-- <strong>断层级的霸榜性能</strong>：在检测和分割任务上以 2.0+ AP 的优势碾压所有纯 CNN 架构
+1. 架构形态与 CNN 金字塔对齐，工程适配成本低。
+2. Window + Shift 设计同时解决了复杂度和跨窗口建模问题。
+3. 在检测和分割任务上实现了对传统 CNN backbone 的显著超越。
 
 ### 局限性
 
-- <strong>局部性妥协</strong>：Swin 重新走回了"通过堆叠局部感受野来扩大全局感受野"的老路，损失了 ViT 第一层就能建立全局关联的核心红利
-- <strong>手工设计痕迹</strong>：窗口大小固定 $M=7$、Shift 位移固定 $\lfloor M/2 \rfloor$、Patch Merging 的 $2 \times 2$ 拼接——本质上和 CNN 的 Kernel Size=3x3 并无哲学区别。Swin 更像是"披着 Self-Attention 外衣的强悍 CNN"
+1. 仍然依赖局部感受野堆叠来扩大信息范围，不是首层全局建模。
+2. 窗口大小、位移规则、Patch Merging 方式都带有较强人工设计先验。
+
+### 适用边界
+
+1. 对高分辨率、密集预测友好的任务（检测、分割）通常更能体现 Swin 优势。
+2. 若任务更强调首层全局建模，纯局部窗口机制可能需要借助更大模型或额外全局模块补强。
+
+## 小结
+
+Swin Transformer 的价值不只是“指标高”，而是其工程形态真正接上了视觉任务生态：
+
+1. 层级特征让它天然兼容检测与分割框架。
+2. 局部窗口把复杂度从平方降到线性。
+3. Shifted Window + Mask 在效率和表达力之间取得了可用平衡。
+
+这也是它能从分类扩展到通用视觉 backbone 的根本原因。
 
 ## 代码实战
 
