@@ -317,6 +317,19 @@ def retrieval(self, query: str, history: list[dict[str, Any]], meta: dict[str, A
 
 这张表能解释一件很常见、但也最容易误判的事情：在这个系统里，“回答来源”不是一个二元判断，不是只有“模型”或“知识库”两种，而是至少有四种可能的路径。
 
+### 一个很常见的误解：`rerank` 开了，到底改变了什么
+
+很多人第一次看 RAG 链路时，会把 `rerank` 理解成“开了才会把检索结果塞进 prompt，不开就不塞”，或者反过来理解成“不开就把所有结果全塞进去”。这两种理解都不准确。
+
+更准确的说法是：
+
+- 不开 `rerank`：系统直接按向量检索结果取前 `top_k`
+- 开 `rerank`：系统会先多召回一批候选，再用 reranker 二次打分、过滤、排序，最后仍然只保留前 `top_k`
+
+也就是说，`rerank` 改变的是<strong>候选结果如何被二次筛选和重排</strong>，而不是“是否把所有结果都塞进 prompt”。真正进入 prompt 的，始终只是被筛过的一小部分上下文。
+
+这点非常重要，因为它解释了为什么打开 `rerank` 往往会提升回答质量：它并不是让系统“知道更多”，而是减少那些“向量相似但回答并不真正相关”的片段进入最终上下文。
+
 ## Agent 模式：从固定分流升级成图式调度
 
 如果用户打开 `Agent mode`，系统就不再走 `chat_router.py` 的普通模式主链，而是进入 `supervisor_agent` 和 `src/graph/workflow.py` 所定义的 LangGraph 工作流。
@@ -334,6 +347,22 @@ def retrieval(self, query: str, history: list[dict[str, Any]], meta: dict[str, A
 - `mcp_worker` 负责 MCP 工具能力
 - `stats_worker` 负责统计或结构化辅助能力
 - `finalizer` 负责最终收束输出
+
+这里特别值得补一句：Agent 模式虽然包含 `rag_worker`，但<strong>Agent 模式本身并不等于 RAG</strong>。更准确地说，Agent 是一层编排框架，而 RAG 只是其中一种可被调度的能力。一个问题如果被派给 `graph_worker`、`web_worker` 或 `stats_worker`，它走的就不是 RAG 路径，而是图谱、联网搜索或确定性事实/统计路径。
+
+### 几个最常被追问的概念澄清
+
+| 问题 | 更准确的理解 |
+| --- | --- |
+| `supervisor` 是不是一个“裸 LLM”？ | 不是。它首先走规则与确定性 fast path；只有规则不够时，才用带 handoff tools 的 LLM 做兜底路由。 |
+| `supervisor_agent` 和 `supervisor` 是一回事吗？ | 也不是。`supervisor_agent` 更像图执行入口和 runtime adapter；真正做路由决策的是图里的 `supervisor` 节点。 |
+| `graph_worker` 和 `rag_worker` 一样吗？ | 不一样。`graph_worker` 面向图结构关系查询；`rag_worker` 面向文档/向量检索后的生成。两者都可能有本地事实兜底，但依赖的数据形态完全不同。 |
+| `stats_worker` 是做什么的？ | 它既是一个常见的规则直达目标节点，也常常在 worker 内部先做确定性直答，例如属性克制、图鉴事实这类问题。 |
+| Agent 模式里的 `rag_worker` 和普通模式 RAG 一样吗？ | 不完全一样。普通模式更像“检索增强主链”；Agent 模式里的 `rag_worker` 是一个被调度的独立 worker，而且通常更像一条增强版 RAG 子流水线。 |
+
+如果用一句很口语化的话概括这一组关系，那就是：
+
+> `supervisor` 决定“谁来干”，`worker` 负责“怎么干”，`finalizer` 负责“怎么把内部结果说成人能直接读的答案”。
 
 `workflow.py` 里最关键的部分是下面这段：
 
@@ -354,6 +383,16 @@ def _supervisor_route(state: AgentState) -> list[Send] | str:
 ```
 
 这段代码直接揭示了 Agent 模式最重要的能力：<strong>同一个问题可以被拆给多个 worker 并行执行</strong>。这也是普通模式和 Agent 模式最大的结构差异。
+
+### 但也别误解成“整个 Agent 都在并行跑”
+
+并行能力在这个项目里是<strong>局部存在</strong>的，而不是所有步骤都并行。
+
+- 在 workflow 层，`supervisor` 返回 `__PARALLEL__` 时，多个 worker 可以通过 `Send(...)` 并行执行
+- 在 `rag_worker` 内部，只有“多个子问题的检索召回”这一步会并行
+- 但像 `db_id` 分支判断、是否做 query decomposition、是否启用 HyDE、最后把上下文交给 LLM 生成答案，这些步骤本身仍然是串行控制流程
+
+因此，这套系统更准确的描述是：<strong>串行主流程里嵌入局部并行阶段</strong>，而不是一条从头到尾全并行的流水线。
 
 ### 普通模式与 Agent 模式，到底差在哪？
 

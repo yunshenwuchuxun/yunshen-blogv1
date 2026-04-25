@@ -408,6 +408,39 @@ parsed = _parse_tool_call_route(result, allowed)
 
 这点对初学者尤其重要，因为很多人学 Agent 时会误以为“让大模型做所有决策”才是高级做法。实际上，真正好的工程往往恰恰相反：<strong>能规则化的部分尽量规则化，把 LLM 留给真正需要动态判断的地方</strong>。
 
+### 这里的 tools 到底有哪些
+
+很多人看到 `bind_tools(...)` 这行代码，会下意识把它联想到 LangChain 教程里常见的“查天气”“搜网页”“读 PDF”这类工具。这个联想不算错，但在这里要再补一句：**`supervisor` 绑定的这批 tools，主要不是直接给 LLM 增加业务能力，而是给它一个可控的路由接口。**
+
+在这个项目里，`supervisor` 真正绑定给 LLM 的 handoff tools 主要有：
+
+- `route_to_rag_worker`
+- `route_to_graph_worker`
+- `route_to_web_worker`
+- `route_to_stats_worker`
+- `route_to_mcp_worker`
+- `route_parallel`
+- `finish`
+
+如果只看形式，它们当然也是 `bind_tools(...)` 给 LLM 的标准 tool-calling 接口；但如果看语义，它们做的事情并不是“让 LLM 自己去查天气”或“自己去解析 PDF”，而是：
+
+> 让 LLM 通过 tool-calling 明确表达：下一步应该把任务交给哪个 worker，或者是否应该并行派发多个 worker。
+
+也就是说，这里的 tools 更像“派工按钮”，而不是直接执行外部动作的“业务工具”。
+
+### 为什么这点值得专门说清楚
+
+因为它正好解释了一个很常见的误会：很多人会觉得 `workers` 本身就等于 tools。其实在这套 LangGraph 编排里，两者不是一回事。
+
+- `tool`：是给 `supervisor` 绑定的路由接口
+- `worker`：是 workflow 里的执行节点
+
+换句话说，`supervisor` 调用 tool，不是为了亲自完成能力，而是为了把工作**交接**给真正负责执行的 worker。
+
+如果用一句特别口语化的话来概括：
+
+> 这里的 tool 负责“决定派谁去做”，worker 负责“把这件事做完”。
+
 ## Worker：为什么要拆成多个，而不是做一个万能执行器
 
 如果你第一次接触 Agent，很容易会问：为什么不做一个“大工具节点”，让它根据问题决定要查什么？
