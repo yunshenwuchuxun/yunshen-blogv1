@@ -129,6 +129,23 @@ print(result["answer"])
 
 ![LangGraph runtime map: state, router, checkpoint, interrupt, resume](/static/blog/langgraph-crash-course-enterprise-qa/runtime-map.svg)
 
+这张图讲的不是“节点怎么连线”这么简单，而是 LangGraph runtime 怎么把一条生产级执行链真正拼完整。你可以把它理解成五件套：<strong>主流程、状态持久化、人工审批、失败恢复、可观测性</strong>。
+
+1. <strong>主干流程</strong>：上面这条线是 `START -> Router Node -> Tool Node -> END`。
+   `START` 接收输入，通常会同时带上 `thread_id`；`Router Node` 先用规则做确定性判断，必要时再让模型兜底决定下一步；`Tool Node` 才是真正执行外部动作的位置，例如写库、发消息、调用第三方 API；最后 `END` 输出最终结果。关键点不是“有几个节点”，而是<strong>把决策节点和副作用节点分开</strong>，这样路由、审批、恢复都会更清晰。
+
+2. <strong>Checkpoint</strong>：中间蓝框表示状态快照持久化。`persist state snapshot` 的意思是把当前 `state` 和执行位置一起存下来；`resume by thread_id` 表示后续可以靠 `thread_id` 找回同一条执行链继续跑。它解决的不是日志留痕，而是<strong>可恢复执行</strong>：进程重启、长流程跨轮、人工审批后继续，都依赖这层。
+
+3. <strong>Interrupt Gate (HITL)</strong>：右侧红框表示 Human-in-the-Loop。它的作用是在高风险动作前显式暂停，等人工给出批准、拒绝或补充信息，再恢复图执行。这也是为什么 `interrupt(...)` 最好放在“外部副作用发生之前”，而不是藏在工具内部；否则流程虽然能停，但审批边界不清楚，也不利于审计。
+
+4. <strong>Failure Handling</strong>：右下角棕框强调生产系统不能把所有错误都当成一种错误处理。可恢复失败通常是超时、瞬时依赖故障、可重试工具异常，这类问题适合 `retry` 或从 checkpoint 恢复；不可恢复失败则要升级告警、人工接管，必要时执行补偿动作。换句话说，<strong>LangGraph 的价值不只是“失败了”，而是“失败后按类型进入不同路径”</strong>。
+
+5. <strong>Observability Signals</strong>：左下角绿框是线上排障和评测的基础。至少要采集节点延迟、重试次数、路由决策、工具错误这些信号，它们会直接决定你能不能 replay 一次故障现场、能不能做回归检查、能不能知道问题到底出在路由、工具还是生成层。很多团队的问题不是图没搭出来，而是图跑起来后<strong>不可解释、不可回放、不可比较</strong>。
+
+一句话看完整张图：<strong>LangGraph 不只是把节点串起来执行，而是围绕 `thread_id + checkpoint` 搭出了一套可暂停、可恢复、可审批、可观测的 agent runtime。</strong>
+
+如果你要把这张图记成面试回答，可以直接压缩成一句：<strong>LangGraph 的生产价值不在“图”本身，而在 durable execution、HITL、failure recovery 和 observability 这几层 runtime 能力。</strong>
+
 ## 三、为什么这些问题“企业高频”
 
 截至 2026-04，官方公开案例覆盖客服、招聘、代码助手、安全运营、地产等多行业场景。  
@@ -244,8 +261,6 @@ print(result["answer"])
 8. 将“可恢复失败”与“不可恢复失败”分开处理。
 
 ## 六、附录：面试题和解答（分组题库）
-
-![Enterprise interview matrix for LangGraph roles](/static/blog/langgraph-crash-course-enterprise-qa/interview-matrix.svg)
 
 ### A 组：架构与运行时（6 题）
 

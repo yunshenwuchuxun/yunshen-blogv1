@@ -73,7 +73,7 @@ export const extraProjects: DeployedProject[] = [
 		role: 'Infra / Tooling Developer',
 		summary:
 			'把命令行能力封装成可调用的 HTTP API，用一个管理面板统一管理和调试 CLI 调用。',
-		url: 'https://uestc.zeabur.app/management.html',
+		url: 'https://cpa.yunshen.online/management.html',
 		githubUrl: 'https://github.com/router-for-me/CLIProxyAPI',
 	},
 	{
@@ -82,7 +82,7 @@ export const extraProjects: DeployedProject[] = [
 		color: '#dcfce7',
 		role: 'Backend Developer',
 		summary: '把 Grok 能力封装成标准化 API 服务，提供管理后台进行配置与监控。',
-		url: 'http://62.234.31.111:8000/admin/login',
+		url: 'https://grok2api.yunshen.online/chat',
 		githubUrl: 'https://github.com/chenyme/grok2api',
 	},
 	{
@@ -767,7 +767,7 @@ export const projectDetails: Record<string, ProjectDetail> = {
 				role: 'Infra / Tooling Developer',
 				summary:
 					'把命令行能力封装成可调用的 HTTP API，用一个管理面板统一管理和调试 CLI 调用。',
-				url: 'https://uestc.zeabur.app/management.html',
+				url: 'https://cpa.yunshen.online/management.html',
 				githubUrl: 'https://github.com/router-for-me/CLIProxyAPI',
 				image: '/static/images/project/CLIProxyAPI.png',
 				imageAlt: 'CLI Proxy API 项目截图',
