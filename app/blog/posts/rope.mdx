@@ -1,0 +1,293 @@
+---
+title: 'RoPE 论文精读：旋转位置编码如何把绝对位置转成相对位置'
+publishedAt: '2026-04-29'
+summary: 'RoPE 论文精读笔记：从绝对位置编码的交叉噪声出发，推导旋转矩阵如何让注意力点积天然只依赖相对距离。'
+draft: false
+image: '/static/blog/rope/cover.svg'
+tags: [Paper, DL, NLP, Transformer, Paper Reading]
+---
+
+<PaperCard
+	title="RoFormer: Enhanced Transformer with Rotary Position Embedding"
+	description="Jianlin Su, Yu Lu, Shengfeng Pan, Ahmed Murtadha, Bo Wen, Yunfeng Liu — Neurocomputing 2024 (Zhuiyi Technology)"
+	links={[
+		{ label: "论文原文", url: "https://arxiv.org/abs/2104.09864" },
+		{ label: "AI 总结", url: "/static/blog/rope/ai-summary.html" },
+	]}
+/>
+
+RoPE（Rotary Position Embedding）是一种把位置编码写进注意力计算本身的方法。它不再把位置向量直接加到 token 表示上，而是让 query 和 key 在不同位置按不同角度旋转；当二者做点积时，绝对位置会自然合成为相对位置。
+
+这篇笔记关注 RoPE 最核心的数学直觉：为什么「旋转」可以保留语义向量的模长，又能让注意力分数只依赖 $m-n$ 这样的相对距离。
+
+## 研究动机
+
+Transformer 早期常用正余弦绝对位置编码，把位置向量 $P_m$ 直接加到 token 表示 $X_m$ 上，再投影得到 query 和 key：
+
+$$
+Q = W_q(X_m + P_m)
+$$
+
+$$
+K = W_k(X_n + P_n)
+$$
+
+为了看清问题，可以先忽略投影矩阵，只观察点积形式：
+
+$$
+\begin{aligned}
+\mathrm{Score}
+&= (X_m + P_m)(X_n + P_n)^T \\
+&= (X_m + P_m)(X_n^T + P_n^T) \\
+&= X_mX_n^T + X_mP_n^T + P_mX_n^T + P_mP_n^T
+\end{aligned}
+$$
+
+其中四项含义分别是：
+
+- $X_mX_n^T$：纯语义相似度。
+- $P_mP_n^T$：纯位置关系。
+- $X_mP_n^T + P_mX_n^T$：语义与位置的交叉项，会把本应分开的信息混在一起。
+
+RoPE 的目标是构造特殊的 $f_q$ 和 $f_k$，使得编码位置后的点积结果只依赖 token 表示和相对距离：
+
+$$
+\langle f_q(x_m,m), f_k(x_n,n) \rangle = g(x_m,x_n,m-n)
+$$
+
+也就是说，模型仍然可以使用绝对位置 $m,n$，但最终注意力分数要以相对位置的形式出现。
+
+## 核心方法/模型架构
+
+RoPE 的核心做法很简单：不同位置的 token 向量按不同角度旋转。位置越靠后，旋转角度越大；不同维度对使用不同频率，因此可以覆盖不同尺度的位置关系。
+
+![RoPE 封面示意](/static/blog/rope/cover.svg)
+
+形式上，RoPE 先对 query 和 key 做普通线性投影，再把位置 $m$ 或 $n$ 写成旋转矩阵：
+
+$$
+f_q(x_m,m)=R_{\Theta,m}^d W_qx_m
+$$
+
+$$
+f_k(x_n,n)=R_{\Theta,n}^d W_kx_n
+$$
+
+关键不是「旋转矩阵」这个名字，而是它满足一个非常有用的性质：两个不同位置的旋转矩阵在点积里相乘后，会合并成只依赖位置差的旋转矩阵。
+
+## 组件详解
+
+### 二维旋转：位置变成角度
+
+先从二维向量开始。对二维坐标 $(x,y)$ 旋转角度 $\theta$ 后得到：
+
+$$
+(x',y') = (x\cos\theta - y\sin\theta,\ x\sin\theta + y\cos\theta)
+$$
+
+矩阵形式为：
+
+$$
+\begin{bmatrix}
+x' \\
+y'
+\end{bmatrix}
+=
+\begin{bmatrix}
+\cos\theta & -\sin\theta \\
+\sin\theta & \cos\theta
+\end{bmatrix}
+\begin{bmatrix}
+x \\
+y
+\end{bmatrix}
+$$
+
+![二维旋转示意图](/static/blog/rope/rotation-2d.svg)
+
+旋转不会改变向量模长，因此语义信息的强度不会因为位置编码而被直接放大或缩小。位置只是变成了方向上的相位差。
+
+### 相对位置如何从点积里出现
+
+令旋转矩阵为 $R(\theta)$。位置 $m$ 的 query 和位置 $n$ 的 key 分别旋转：
+
+$$
+q' = R(m\theta)q
+$$
+
+$$
+k' = R(n\theta)k
+$$
+
+注意力分数为：
+
+$$
+\begin{aligned}
+\mathrm{Score}
+&= (q')^T k' \\
+&= (R(m\theta)q)^T(R(n\theta)k) \\
+&= q^T R(m\theta)^T R(n\theta)k
+\end{aligned}
+$$
+
+二维旋转矩阵的转置等于反向旋转。把 $R(\alpha)$ 展开后可以直接看到这一点：
+
+$$
+\begin{aligned}
+R(\alpha)^T
+&=
+\begin{bmatrix}
+\cos\alpha & -\sin\alpha \\
+\sin\alpha & \cos\alpha
+\end{bmatrix}^T \\
+&=
+\begin{bmatrix}
+\cos\alpha & \sin\alpha \\
+-\sin\alpha & \cos\alpha
+\end{bmatrix} \\
+&=
+\begin{bmatrix}
+\cos(-\alpha) & -\sin(-\alpha) \\
+\sin(-\alpha) & \cos(-\alpha)
+\end{bmatrix} \\
+&= R(-\alpha)
+\end{aligned}
+$$
+
+因此：
+
+$$
+\mathrm{Score} = q^T R(-m\theta)R(n\theta)k
+$$
+
+两个旋转矩阵相乘，角度会相加：
+
+$$
+R(-m\theta)R(n\theta)=R((n-m)\theta)
+$$
+
+最终得到：
+
+$$
+\mathrm{Score} = q^T R((n-m)\theta)k
+$$
+
+![RoPE 相对位置来源](/static/blog/rope/relative-position.svg)
+
+这就是 RoPE 最关键的地方：query 和 key 各自编码的是绝对位置，但点积之后只剩下相对位置 $n-m$。
+
+### 高维扩展：块对角旋转矩阵
+
+真实模型中的注意力头不是二维向量，而是 $d$ 维向量。RoPE 的高维扩展方式是把 $d$ 维空间两两划分为 $d/2$ 个独立二维子空间，每个子空间各自旋转。
+
+例如一个 head 的向量是：
+
+$$
+[x_0,x_1,x_2,x_3,x_4,x_5]
+$$
+
+RoPE 会拆成三组二维坐标：
+
+- $(x_0,x_1)$
+- $(x_2,x_3)$
+- $(x_4,x_5)$
+
+然后每一组都使用对应频率做二维旋转。
+
+![高维 RoPE 分块旋转矩阵](/static/blog/rope/block-diagonal.svg)
+
+对应的高维旋转矩阵是块对角矩阵：
+
+$$
+R_{\Theta,m}^d=
+\begin{bmatrix}
+\cos m\theta_1 & -\sin m\theta_1 & 0 & 0 & \cdots & 0 & 0 \\
+\sin m\theta_1 & \cos m\theta_1 & 0 & 0 & \cdots & 0 & 0 \\
+0 & 0 & \cos m\theta_2 & -\sin m\theta_2 & \cdots & 0 & 0 \\
+0 & 0 & \sin m\theta_2 & \cos m\theta_2 & \cdots & 0 & 0 \\
+\vdots & \vdots & \vdots & \vdots & \ddots & \vdots & \vdots \\
+0 & 0 & 0 & 0 & \cdots & \cos m\theta_{d/2} & -\sin m\theta_{d/2} \\
+0 & 0 & 0 & 0 & \cdots & \sin m\theta_{d/2} & \cos m\theta_{d/2}
+\end{bmatrix}
+$$
+
+这里 $\Theta$ 是所有频率的集合：
+
+$$
+\Theta = \lbrace \theta_i = 10000^{-2(i-1)/d},\ i \in [1,2,\cdots,d/2] \rbrace
+$$
+
+应用到 self-attention 后：
+
+$$
+q_m^Tk_n = (R_{\Theta,m}^d W_qx_m)^T(R_{\Theta,n}^d W_kx_n)
+$$
+
+由于每个二维块都满足同样的旋转合成性质，整体也可以写成只依赖相对位置的形式：
+
+$$
+(R_mx_m)^T(R_nx_n)=x_m^TR_m^TR_nx_n=x_m^TR_{n-m}x_n
+$$
+
+### 为什么要乘 $\theta_i$
+
+如果只用位置 $m$ 当角度，所有二维维度对都会按同一个频率旋转：
+
+$$
+\cos(m),\ \sin(m)
+$$
+
+这意味着每往后一个 token，所有维度对都转同样大的角度。这样的表达能力不够，因为模型需要同时捕捉不同尺度的位置关系：
+
+- 有些维度适合表示短距离变化，角度变化要更快。
+- 有些维度适合表示长距离变化，角度变化要更慢。
+
+因此第 $i$ 个二维子空间会有自己的频率 $\theta_i$。位置 $m$ 在这一对维度上的总旋转角是：
+
+$$
+m\theta_i
+$$
+
+对于第 $i$ 个二维子空间，常见写法是从 $i=0$ 开始：
+
+$$
+\theta_i = 10000^{-2i/d}
+$$
+
+等价地写成：
+
+$$
+\theta_i = \frac{1}{10000^{2i/d}}
+$$
+
+直观理解是：位置 $m$ 表示走了多少步，$\theta_i$ 表示每一步在该维度对上转多少角度，二者相乘才是总相位。
+
+## 实验结果
+
+RoFormer 论文在长文本分类等任务上验证了 RoPE 的有效性。相较于直接使用绝对位置编码的 baseline，RoPE 的优势主要体现在三个方面：
+
+| 特性 | 含义 |
+|------|------|
+| 相对位置建模 | 点积结果显式依赖 $n-m$，更贴合注意力中 token-token 关系的需求 |
+| 长度外推灵活性 | 位置通过旋转相位进入模型，比固定长度的位置表更容易扩展到更长序列 |
+| 与线性注意力兼容 | RoPE 可以在保持线性注意力复杂度的同时引入相对位置编码 |
+
+这篇笔记没有展开论文中的完整 benchmark 表格，因为 RoPE 后来更重要的影响是成为 LLaMA 等大语言模型的基础位置编码方案。理解它的数学形式，比记住某个分类任务上的具体分数更关键。
+
+## 总结
+
+RoPE 的核心贡献可以压缩成一句话：把位置从「加到向量上的额外特征」变成「作用在 query/key 上的旋转相位」。
+
+这种设计同时满足三件事：
+
+1. 旋转保持向量模长，尽量不破坏语义表示本身。
+2. query 和 key 各自编码绝对位置，但点积后自然合成为相对位置。
+3. 高维向量按二维子空间分组，不同频率负责不同尺度的位置关系。
+
+因此 RoPE 不是一个孤立的小技巧，而是把位置编码、点积注意力和相对位置建模统一到同一个线性代数结构中。
+
+## 参考文献
+
+- Jianlin Su, Yu Lu, Shengfeng Pan, Ahmed Murtadha, Bo Wen, Yunfeng Liu. [RoFormer: Enhanced Transformer with Rotary Position Embedding](https://arxiv.org/abs/2104.09864). arXiv:2104.09864, 2021.
+- ScienceDirect. [RoFormer: Enhanced transformer with Rotary Position Embedding](https://www.sciencedirect.com/science/article/abs/pii/S0925231223011864). Neurocomputing, Volume 568, 2024.
+- Hugging Face Papers. [RoFormer: Enhanced Transformer with Rotary Position Embedding](https://huggingface.co/papers/2104.09864).

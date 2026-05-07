@@ -1,0 +1,844 @@
+---
+title: 'Pokemon Chat 狭义 RAG 主流程：Knowledge Base 从入库到回答'
+publishedAt: '2026-05-07T09:30:00'
+summary: '围绕 Pokemon Chat 的 Knowledge Base RAG，拆解从上传文件、解析切块、Embedding、写入 Milvus，到用户提问、向量召回、Rerank、拼接 Prompt、LLM 生成和返回 refs 的完整工程链路。'
+draft: false
+tags: [AI, RAG, PokemonChat, Engineering]
+---
+
+<PaperCard
+  title="Pokemon Chat · Knowledge Base RAG"
+  description="本文只讨论狭义 RAG：Knowledge Base 文档语义检索，不包含 Graph、Web Search、MCP，也不把 LangGraph Agent 编排算进主链路。"
+  links={[
+    { label: '通用 RAG 原理', url: '/blog/rag-guide' },
+    { label: '普通模式 RAG 主链', url: '/blog/pokemon-chat-rag-mainline' },
+    { label: 'Agent 编排链路', url: '/blog/pokemon-chat-agent-orchestration' },
+  ]}
+/>
+
+这篇文章只讲 `Pokemon Chat` 项目里的<strong>狭义 RAG / Knowledge Base RAG</strong>。这里的“狭义”有一个明确边界：它只包含用户导入文档之后，通过 embedding 写入 Milvus，再在问答时做向量相似度检索并把结果拼进 prompt 的链路。
+
+因此，下面这些能力不算本文讨论的狭义 RAG 主体：
+
+- `Graph`：知识图谱查询，不是向量文档检索。
+- `Web Search`：联网补充证据，不是本地知识库检索。
+- `MCP`：外部工具或数据库调用，不是 RAG 本体。
+- `LangGraph Agent`：可以复用底层 KB 检索，但属于另一套调度链路。
+
+本文关注的问题是：<strong>一份文档如何进入知识库？一个用户问题如何从 Milvus 里召回 chunk？召回结果又如何变成 LLM 的上下文？</strong>
+
+## TL;DR
+
+| 问题 | 结论 |
+| --- | --- |
+| 这条链路属于普通模式还是 Agent 模式？ | 主要是普通聊天模式的 Knowledge Base RAG；入库部分也会被 Agent 模式复用。 |
+| RAG 数据从哪里来？ | 用户上传或指定服务器路径/目录导入的文件。 |
+| 原始文件存在哪里？ | `resources/save/data/<db_id>/uploads/`。 |
+| 元数据存在哪里？ | `data/knowledge.db`，由 SQLAlchemy 模型管理。 |
+| 向量和 chunk 文本存在哪里？ | Milvus collection，collection 名通常就是 `db_id`。 |
+| 检索方式是什么？ | 当前主链路是 dense vector similarity search，不是 BM25，也不是完整 hybrid search。 |
+| Query Rewrite 有吗？ | 有，但默认关闭；可通过 `use_rewrite_query` 打开或使用 `hyde`。 |
+| Rerank 有吗？ | 有，可选，受 `enable_reranker` 和调用参数影响。 |
+| 返回引用吗？ | 返回 `refs.knowledge_base.results/all_results/rw_query`，但不是严格论文式 citation。 |
+
+## 一张图看懂狭义 KB RAG 主流程
+
+<svg viewBox="0 0 1280 520" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="Pokemon Chat Knowledge Base RAG 主流程图">
+  <defs>
+    <linearGradient id="kb-rag-a" x1="0" x2="1">
+      <stop offset="0%" stopColor="#f97316" />
+      <stop offset="100%" stopColor="#ef4444" />
+    </linearGradient>
+    <linearGradient id="kb-rag-b" x1="0" x2="1">
+      <stop offset="0%" stopColor="#3b82f6" />
+      <stop offset="100%" stopColor="#14b8a6" />
+    </linearGradient>
+    <linearGradient id="kb-rag-c" x1="0" x2="1">
+      <stop offset="0%" stopColor="#8b5cf6" />
+      <stop offset="100%" stopColor="#ec4899" />
+    </linearGradient>
+    <marker id="kb-rag-arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#64748b" />
+    </marker>
+  </defs>
+
+  <text x="640" y="34" textAnchor="middle" fontSize="26" fontWeight="700" fill="#111827" className="dark:fill-white">Knowledge Base RAG：离线入库 + 在线检索生成</text>
+
+  <rect x="40" y="82" width="190" height="78" rx="16" fill="#fff7ed" stroke="#fdba74" />
+  <text x="135" y="116" textAnchor="middle" fontSize="21" fontWeight="700" fill="#9a3412">上传/选择文件</text>
+  <text x="135" y="142" textAnchor="middle" fontSize="14" fill="#7c2d12">upload / ingest</text>
+
+  <rect x="280" y="82" width="190" height="78" rx="16" fill="#fef2f2" stroke="#fca5a5" />
+  <text x="375" y="116" textAnchor="middle" fontSize="21" fontWeight="700" fill="#b91c1c">解析与清洗</text>
+  <text x="375" y="142" textAnchor="middle" fontSize="14" fill="#991b1b">PDF / DOCX / TXT / MD</text>
+
+  <rect x="520" y="82" width="170" height="78" rx="16" fill="#eff6ff" stroke="#93c5fd" />
+  <text x="605" y="116" textAnchor="middle" fontSize="21" fontWeight="700" fill="#1d4ed8">切 chunk</text>
+  <text x="605" y="142" textAnchor="middle" fontSize="14" fill="#1e40af">size + overlap</text>
+
+  <rect x="740" y="82" width="180" height="78" rx="16" fill="#ecfeff" stroke="#67e8f9" />
+  <text x="830" y="116" textAnchor="middle" fontSize="21" fontWeight="700" fill="#155e75">chunk embedding</text>
+  <text x="830" y="142" textAnchor="middle" fontSize="14" fill="#164e63">Embedding API</text>
+
+  <rect x="970" y="82" width="230" height="78" rx="16" fill="#f5f3ff" stroke="#c4b5fd" />
+  <text x="1085" y="116" textAnchor="middle" fontSize="21" fontWeight="700" fill="#6d28d9">写入 Milvus</text>
+  <text x="1085" y="142" textAnchor="middle" fontSize="14" fill="#5b21b6">vector + text + file_id</text>
+
+  <path d="M230 121 L270 121" stroke="url(#kb-rag-a)" strokeWidth="4" markerEnd="url(#kb-rag-arrow)" />
+  <path d="M470 121 L510 121" stroke="url(#kb-rag-a)" strokeWidth="4" markerEnd="url(#kb-rag-arrow)" />
+  <path d="M690 121 L730 121" stroke="url(#kb-rag-b)" strokeWidth="4" markerEnd="url(#kb-rag-arrow)" />
+  <path d="M920 121 L960 121" stroke="url(#kb-rag-b)" strokeWidth="4" markerEnd="url(#kb-rag-arrow)" />
+
+  <rect x="80" y="300" width="170" height="78" rx="16" fill="#fff7ed" stroke="#fdba74" />
+  <text x="165" y="334" textAnchor="middle" fontSize="21" fontWeight="700" fill="#9a3412">用户问题</text>
+  <text x="165" y="360" textAnchor="middle" fontSize="14" fill="#7c2d12">query + meta.db_id</text>
+
+  <rect x="295" y="300" width="190" height="78" rx="16" fill="#fefce8" stroke="#fde047" />
+  <text x="390" y="334" textAnchor="middle" fontSize="21" fontWeight="700" fill="#854d0e">Rewrite / HyDE</text>
+  <text x="390" y="360" textAnchor="middle" fontSize="14" fill="#713f12">默认关闭，可选</text>
+
+  <rect x="530" y="300" width="180" height="78" rx="16" fill="#eff6ff" stroke="#93c5fd" />
+  <text x="620" y="334" textAnchor="middle" fontSize="21" fontWeight="700" fill="#1d4ed8">query embedding</text>
+  <text x="620" y="360" textAnchor="middle" fontSize="14" fill="#1e40af">同一 embedding 模型</text>
+
+  <rect x="755" y="300" width="190" height="78" rx="16" fill="#ecfeff" stroke="#67e8f9" />
+  <text x="850" y="334" textAnchor="middle" fontSize="21" fontWeight="700" fill="#155e75">向量召回</text>
+  <text x="850" y="360" textAnchor="middle" fontSize="14" fill="#164e63">Top-N + distance</text>
+
+  <rect x="990" y="274" width="220" height="130" rx="16" fill="#faf5ff" stroke="#d8b4fe" />
+  <text x="1100" y="310" textAnchor="middle" fontSize="21" fontWeight="700" fill="#7e22ce">Rerank + Prompt</text>
+  <text x="1100" y="338" textAnchor="middle" fontSize="14" fill="#6b21a8">过滤 / 重排 / Top-K</text>
+  <text x="1100" y="362" textAnchor="middle" fontSize="14" fill="#6b21a8">context 拼进 prompt</text>
+  <text x="1100" y="386" textAnchor="middle" fontSize="14" fill="#6b21a8">LLM 生成 + refs</text>
+
+  <path d="M250 339 L285 339" stroke="url(#kb-rag-c)" strokeWidth="4" markerEnd="url(#kb-rag-arrow)" />
+  <path d="M485 339 L520 339" stroke="url(#kb-rag-c)" strokeWidth="4" markerEnd="url(#kb-rag-arrow)" />
+  <path d="M710 339 L745 339" stroke="url(#kb-rag-b)" strokeWidth="4" markerEnd="url(#kb-rag-arrow)" />
+  <path d="M945 339 L980 339" stroke="url(#kb-rag-b)" strokeWidth="4" markerEnd="url(#kb-rag-arrow)" />
+
+  <path d="M1085 162 C1085 220, 850 236, 850 292" stroke="#94a3b8" strokeWidth="3" strokeDasharray="8 8" fill="none" markerEnd="url(#kb-rag-arrow)" />
+  <text x="1005" y="232" fontSize="15" fill="#475569">Milvus 中的向量索引被在线查询复用</text>
+</svg>
+
+这条链可以拆成两个阶段：
+
+1. <strong>离线入库阶段</strong>：把文件变成可检索的向量数据。
+2. <strong>在线问答阶段</strong>：把问题变成向量，召回相关 chunk，再交给 LLM 生成答案。
+
+在代码里，这两个阶段并不在同一个文件中完成，而是由路由层、解析层、知识库层、检索器和聊天生成层共同串起来。
+
+## 0. 先划清边界：本文讲的是 Knowledge Base RAG
+
+普通聊天模式里的 `Retriever` 可以同时聚合四类外部信息：
+
+| 能力源 | 是否属于本文狭义 RAG | 说明 |
+| --- | --- | --- |
+| Knowledge Base | 是 | 文档 chunk embedding 后进入 Milvus，再做语义检索。 |
+| Graph | 否 | Neo4j 图谱查询，适合关系、子图、多跳问题。 |
+| Web Search | 否 | 联网补充证据，不是本地向量知识库。 |
+| MCP | 否 | 工具或数据库能力，不属于 RAG 本体。 |
+
+因此，本文只看 `query_knowledgebase(...)` 这一支。
+
+```python
+# src/knowledge/core/retriever.py
+
+def query_knowledgebase(self, query, history, refs):
+    meta = refs["meta"]
+    db_id = meta.get("db_id")
+    if not db_id or not feature_enabled("enable_knowledge_base"):
+        response["message"] = "知识库未启用、或未指定知识库、或知识库不存在"
+        return response
+
+    rw_query = self.rewrite_query(query, history, refs)
+    kb = self._get_kb()
+    kb_res = kb.search(
+        query=rw_query,
+        db_id=db_id,
+        distance_threshold=meta.get("distanceThreshold", self.default_distance_threshold),
+        rerank=True,
+        top_k=meta.get("topK", self.top_k),
+    )
+```
+
+这里已经能看到狭义 KB RAG 的在线条件：
+
+- 请求里必须有 `db_id`。
+- `enable_knowledge_base` 必须为 `true`。
+- 问题会先进入可选的 `rewrite_query(...)`。
+- 真正的向量检索由 `KnowledgeBase.search(...)` 执行。
+
+## 1. 数据准备：RAG 数据来自用户导入的文档
+
+这个项目的 KB RAG 数据不是自动从 `resources/data/raw_data` 进入的，而是通过前端或接口导入。
+
+主要入口在 `server/routers/data_router.py`：
+
+| 动作 | 接口 | 作用 |
+| --- | --- | --- |
+| 创建知识库 | `POST /data/` | 创建一个 Milvus collection 对应的知识库记录。 |
+| 上传文件 | `POST /data/upload` | 把前端文件保存到后端目录。 |
+| 文件转 chunk | `POST /data/file-to-chunk` | 只解析和切块，用于预览或手动确认。 |
+| chunk 入库 | `POST /data/add-by-chunks` | 把前端确认后的 chunk 写入 Milvus。 |
+| 服务器文件导入 | `POST /data/ingest/file` | 从服务器路径导入单个文件。 |
+| 服务器目录导入 | `POST /data/ingest/dir` | 批量导入目录下文件。 |
+
+上传文件的落盘逻辑大致如下：
+
+```python
+# server/routers/data_router.py
+
+@data.post("/upload")
+async def upload_file(file: UploadFile = File(...), db_id: str | None = Form(None)):
+    upload_dir = kb.work_dir
+    if db_id:
+        _, upload_dir = kb._ensure_directories(db_id)
+
+    name, ext = os.path.splitext(file.filename)
+    fname = f"{name}_{hashstr(name, 4, True)}{ext}"
+    path = os.path.join(upload_dir, fname)
+    with open(path, "wb") as buf:
+        buf.write(await file.read())
+    return {"file_path": path, "db_id": db_id}
+```
+
+结合 `KnowledgeBase._ensure_directories(...)`，文件通常会保存到：
+
+```text
+resources/save/data/<db_id>/uploads/
+```
+
+这一步只解决“文件到了后端哪里”的问题，还没有进入向量库。
+
+## 2. 文档解析和清洗：把各种文件格式变成纯文本
+
+文件进入 RAG 前，必须先被解析成文本。统一入口是：
+
+```text
+src/knowledge/core/indexing.py -> chunk_file(...)
+```
+
+`chunk_file(...)` 内部会调用新的解析器入口：
+
+```python
+# src/knowledge/core/indexing.py
+
+def chunk_file(file_path: str, chunk_size: int = 1000, chunk_overlap: int = 100, ...):
+    text = new_parse_file(
+        file_path,
+        do_ocr=do_ocr,
+        ocr_det_threshold=ocr_det_threshold,
+        use_deepdoc=use_deepdoc,
+    )
+    splitter = _get_splitter(chunk_size, chunk_overlap)
+    sub_texts = splitter.split_text(text)
+```
+
+真正按文件类型分发解析器的是：
+
+```text
+src/knowledge/ingestion/parsers/base.py
+```
+
+它支持的主路径包括：
+
+- PDF：优先 `PyPDFLoader`，必要时尝试 OCR，失败后回退 `MarkItDown`。
+- PPT / PPTX：使用 `DeepDocParser`。
+- DOCX / Excel / CSV / TXT / MD：优先 `MarkItDownParser`，必要时回退。
+
+这一步的“清洗”不是复杂的数据清洗流水线，而是偏工程实用的解析容错：
+
+- 检查文件是否存在。
+- PDF 文本层乱码时尝试 OCR。
+- 不同格式选择不同 parser。
+- parser 失败时尝试 fallback。
+
+所以它更准确的定位是：<strong>多格式文档解析 + 基础异常兜底</strong>。
+
+## 3. 切 chunk：递归分块，保留 overlap
+
+项目使用 `RecursiveCharacterTextSplitter` 做切块：
+
+```python
+# src/knowledge/core/indexing.py
+
+def _get_splitter(chunk_size: int, chunk_overlap: int) -> RecursiveCharacterTextSplitter:
+    return RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        separators=["\n\n", "\n", ". ", "。", "! ", "? ", "！", "？", "; ", "；", ", ", "，", " ", ""],
+        length_function=len,
+        is_separator_regex=False,
+    )
+```
+
+这意味着它不是简单按固定长度硬切，而是按优先级尝试：
+
+1. 段落
+2. 换行
+3. 句号、问号、感叹号
+4. 分号、逗号
+5. 空格
+6. 最后才退化到字符级切分
+
+每个 chunk 会附带基础 metadata：
+
+```python
+metadata = {
+    "source_file": file_path,
+    "chunk_index": idx,
+}
+docs.append(Document(page_content=s, metadata=metadata))
+```
+
+这个 `chunk_index` 很重要。它可以让系统知道某段文本在原文件中的顺序，为后续相邻 chunk 扩展或文档展示提供依据。
+
+## 4. chunk embedding：调用项目统一 Embedding 模型
+
+chunk 进入向量库前，需要先变成向量。`KnowledgeBase._insert_vectors(...)` 是入库核心：
+
+```python
+# src/knowledge/store/knowledgebase.py
+
+def _insert_vectors(self, collection_name: str, file_id: str, docs: list[str], chunk_infos: list[dict[str, Any]]):
+    self._ensure_ready()
+    if not self.client.has_collection(collection_name):
+        raise ValueError("Collection不存在")
+
+    vecs = self.embed_model.batch_encode(docs)
+```
+
+这里的 `self.embed_model` 来自 `KnowledgeBase._load_embedding_model(...)`：
+
+```python
+# src/knowledge/store/knowledgebase.py
+
+model_name = settings.embedding.model_name
+self.conf = model_name
+self.embed_model = get_embedding_model(model=model_name)
+```
+
+最终会进入统一的 embedding 工厂：
+
+```text
+src/models/embedding.py -> get_embedding_model(...)
+```
+
+项目里支持的 provider 包括：
+
+- `siliconflow`
+- `openai`
+- `ollama`
+- `dashscope`
+
+因此，KB RAG 的 embedding 不是聊天模型自动完成的，而是走单独的 embedding 配置。
+
+核心配置在：
+
+```text
+src/core/settings.py -> EmbeddingSettings
+```
+
+```python
+class EmbeddingSettings(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="embedding_", extra="ignore")
+
+    provider: str = "siliconflow"
+    api_key: str = ""
+    api_base: str = "https://api.siliconflow.cn/v1/embeddings"
+    model_name: str = "BAAI/bge-m3"
+    dimension: int = 1024
+```
+
+这也解释了为什么知识库维度必须和 embedding 模型一致。如果 collection 按 `1024` 维创建，但实际模型返回 `1536` 维，入库或检索就会出问题。
+
+## 5. 存入 Milvus：collection 里保存 vector、text 和 file_id
+
+创建知识库时，项目会创建对应的 Milvus collection：
+
+```python
+# src/knowledge/store/knowledgebase.py
+
+def add_collection(self, name: str, dimension: int) -> None:
+    fields = [
+        FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, auto_id=False, max_length=128),
+        FieldSchema(name="vector", dtype=DataType.FLOAT_VECTOR, dim=dimension),
+        FieldSchema(name="file_id", dtype=DataType.VARCHAR, max_length=128),
+        FieldSchema(name="text", dtype=DataType.VARCHAR, max_length=65535),
+    ]
+    schema = CollectionSchema(fields=fields, description="KB vector schema")
+    self.client.create_collection(collection_name=name, schema=schema)
+```
+
+当前主链路的 schema 非常直接：
+
+| 字段 | 作用 |
+| --- | --- |
+| `id` | 向量记录主键，格式通常是 `file_id_idx`。 |
+| `vector` | chunk embedding 向量。 |
+| `file_id` | 关联原始文件元数据。 |
+| `text` | chunk 原文。 |
+
+入库时会把每个 chunk 变成一条 Milvus 记录：
+
+```python
+entities = []
+for idx, v in enumerate(vecs):
+    meta = chunk_infos[idx]
+    meta["file_id"] = file_id
+    meta["text"] = docs[idx]
+    vector_id = f"{file_id}_{idx}"
+    entities.append({"id": vector_id, "vector": v, "file_id": meta["file_id"], "text": meta["text"]})
+
+return self.client.insert(collection_name=collection_name, data=entities)
+```
+
+这里要注意一个工程细节：
+
+- Milvus 保存的是向量和 chunk 文本。
+- 文件级元数据保存在 SQLite。
+- 两者通过 `file_id` 关联。
+
+SQLite 侧的模型在：
+
+```text
+src/models/kb_models.py
+```
+
+核心表包括：
+
+| 表 | 作用 |
+| --- | --- |
+| `knowledge_databases` | 知识库记录：`db_id/name/embed_model/dimension`。 |
+| `knowledge_files` | 文件记录：`file_id/filename/path/status`。 |
+| `knowledge_nodes` | 知识块记录，但主检索链路主要从 Milvus 取 chunk。 |
+
+数据库文件路径在：
+
+```text
+data/knowledge.db
+```
+
+对应管理器是：
+
+```text
+src/knowledge/store/kb_db.py
+```
+
+## 6. 用户提问：普通模式从 chat_router 进入检索阶段
+
+在线问答入口在：
+
+```text
+server/routers/chat_router.py
+```
+
+普通模式里，只有当 `meta` 表示需要检索时，才会调用 `Retriever`：
+
+```python
+# server/routers/chat_router.py
+
+if meta and need_retrieve(meta):
+    yield make_chunk(meta, status="searching")
+    retriever = get_retriever()
+    modified_query, refs = await to_thread(
+        retriever,
+        modified_query,
+        history,
+        meta,
+    )
+    yield make_chunk(meta, status="generating")
+```
+
+这里的 `modified_query` 很关键。它不一定等于用户原始问题。进入 `Retriever` 后，如果命中 KB RAG，会先检索知识库，再把检索结果拼成增强后的 query。
+
+## 7. Query Rewrite / HyDE：有，但默认关闭
+
+`Retriever.rewrite_query(...)` 支持三种状态：
+
+| 参数 | 行为 |
+| --- | --- |
+| `off` | 不改写，直接使用原始 query。 |
+| `on` | 基于历史对话改写 query。 |
+| `hyde` | 先生成一个假想答案/文档，再用它做检索查询。 |
+
+代码逻辑如下：
+
+```python
+# src/knowledge/core/retriever.py
+
+def rewrite_query(self, query, history, refs):
+    model = self._get_llm(refs.get("meta"))
+    if refs["meta"].get("mode") == "search":
+        rewrite_query_span = refs["meta"].get("use_rewrite_query", "off")
+    else:
+        rewrite_query_span = "off"
+
+    if rewrite_query_span == "off":
+        rewritten_query = query
+    else:
+        history_query = [entry["content"] for entry in history if entry["role"] == "user"] if history else ""
+        rewritten_query_prompt = rewritten_query_prompt_template.format(history=history_query, query=query)
+        rewritten_query = model.invoke(rewritten_query_prompt).content
+
+    if rewrite_query_span == "hyde":
+        res = HyDEOperator.call(model_callable=model.invoke, query=query, context_str=history_query)
+        rewritten_query = res.content
+
+    return rewritten_query
+```
+
+这里的默认行为是保守的：如果不是 `mode == "search"`，或者前端没有显式传 `use_rewrite_query`，就不会做 rewrite。
+
+这是一个合理设计，因为 query rewrite 会带来两个成本：
+
+1. 多一次 LLM 调用，延迟和费用增加。
+2. 改写质量不稳定时，可能把原问题改偏。
+
+## 8. Query embedding：用同一个 embedding 模型编码问题
+
+进入 `KnowledgeBase.search(...)` 后，第一步就是把用户问题编码成向量：
+
+```python
+# src/knowledge/store/knowledgebase.py
+
+vector = self.embed_model.batch_encode([query])[0]
+```
+
+这里复用的是入库时同一套 embedding 模型配置。对于向量检索系统来说，<strong>文档 embedding 和 query embedding 必须处在同一个向量空间里</strong>，否则相似度没有意义。
+
+## 9. Milvus 向量召回：当前主链路是 dense vector search
+
+项目随后调用 Milvus search：
+
+```python
+raw_res = self.client.search(
+    db_id,
+    [vector],
+    limit=self.default_max_query_count,
+    output_fields=["text", "file_id"],
+)
+```
+
+这里的几个点很重要：
+
+- `db_id` 就是要搜索的 Milvus collection。
+- `[vector]` 是 query embedding。
+- `limit` 使用 `default_max_query_count`，默认配置里是 `20`。
+- 返回字段只取 `text` 和 `file_id`。
+
+这说明当前 KB 主链路不是关键词检索，也不是标准 BM25 + dense vector 的 hybrid search，而是以 dense vector similarity 为核心。
+
+项目里另有 `src/knowledge/store/vector.py`，它包含 `enable_sparse` 和 sparse vector 字段设计，但在这里讨论的普通 KB 主链路中，`KnowledgeBase.search(...)` 走的是更直接的 MilvusClient dense vector 检索。
+
+## 10. 召回 Top-K 前：先拿候选，再做过滤
+
+Milvus 返回的原始 hits 会被转成普通 Python dict：
+
+```python
+hits: list[dict[str, Any]] = raw_res[0]
+results: list[dict[str, Any]] = []
+for h in hits:
+    entity = h.get("entity", {})
+    results.append(
+        {
+            "entity": {
+                "text": entity.get("text", ""),
+                "file_id": entity.get("file_id"),
+                "id": h.get("id"),
+            },
+            "distance": h.get("distance", h.get("score", 0.0)),
+        }
+    )
+```
+
+然后做距离阈值过滤：
+
+```python
+if dt >= 1.0:
+    filtered = results
+else:
+    filtered = [r for r in results if r["distance"] < dt]
+```
+
+默认阈值来自：
+
+```text
+src/core/settings.py -> KnowledgeBaseConfig.default_distance_threshold
+```
+
+```python
+class KnowledgeBaseConfig(BaseSettings):
+    default_distance_threshold: float = 0.5
+    default_max_query_count: int = 20
+    default_top_k: int = 10
+```
+
+这一步的意义是把“Milvus 召回的候选”进一步筛掉一部分低质量结果。注意这里用的是 `distance < threshold`，所以阈值越小越严格；当 `dt >= 1.0` 时禁用过滤，方便调试。
+
+## 11. Rerank：可选，但当前调用默认打开
+
+过滤之后，如果启用了 reranker，会对候选文本重新打分排序：
+
+```python
+# src/knowledge/store/knowledgebase.py
+
+if rerank and self.reranker and filtered:
+    try:
+        texts = [r["entity"]["text"] for r in filtered]
+        scores = self.reranker.compute_score(query, texts, normalize=False)
+        for r, s in zip(filtered, scores):
+            r["rerank_score"] = float(s)
+        filtered.sort(key=lambda x: x["rerank_score"], reverse=True)
+    except Exception as e:
+        logger.warning(f"Rerank failed, using distance order: {e}")
+        filtered.sort(key=lambda x: x["distance"])
+```
+
+Rerank 的价值是纠正纯向量召回的排序问题。向量检索擅长召回“语义相近”的 chunk，但排序不一定完全等价于“最能回答问题”。Reranker 会拿 `query + candidate text` 成对打分，更适合判断候选是否真正相关。
+
+最终只返回 Top-K：
+
+```python
+return {"results": filtered[:tk], "all_results": results}
+```
+
+这里有两个输出：
+
+| 字段 | 含义 |
+| --- | --- |
+| `results` | 经过过滤、可选 rerank、Top-K 截断后的结果。 |
+| `all_results` | Milvus 原始候选转换后的结果，用于调试和前端展示。 |
+
+## 12. 过滤、去重、压缩：当前是轻量实现
+
+严格的高级 RAG 系统通常会在召回后做更多后处理，例如：
+
+- 去重
+- 相邻 chunk 合并
+- 上下文压缩
+- 引用规范化
+- 长上下文预算控制
+
+但在这条普通 KB RAG 主链中，后处理相对轻量：
+
+- 有 `distance_threshold` 过滤。
+- 有可选 `rerank` 排序。
+- 有 Top-K 截断。
+- prompt 拼接前有 `clean_kb_text(...)` 做简单去重和截断展示。
+
+`clean_kb_text(...)` 的逻辑是：
+
+```python
+# src/knowledge/core/retriever.py
+
+def clean_kb_text(self, kb_res, max_len=100):
+    seen = set()
+    cleaned = []
+    for r in kb_res:
+        text = r.get("entity", {}).get("text", "").strip().replace("\n", " ")
+        if text not in seen:
+            seen.add(text)
+            short_text = text[:max_len] + "..." if len(text) > max_len else text
+            cleaned.append(f"{r.get('id', 'N/A')}: {short_text}")
+    return cleaned
+```
+
+这不是严格意义上的 context compression，更像是为了构造 prompt 而做的轻量整理。它会去掉重复文本，并把每段 chunk 截短到默认 `100` 字符。
+
+这也是当前链路的一个重要特点：<strong>它已经具备完整 RAG 闭环，但不是一个重后处理的高级 RAG pipeline</strong>。
+
+## 13. 拼进 prompt：把检索结果变成增强 query
+
+普通模式里，`Retriever` 并不会直接调用最终 LLM。它的职责是把外部证据拼成增强后的 query。
+
+核心逻辑在 `construct_query(...)`：
+
+```python
+# src/knowledge/core/retriever.py
+
+kb_res = refs.get("knowledge_base", {}).get("results", [])
+if kb_res:
+    kb_text = "\n".join(self.clean_kb_text(kb_res))
+    external_parts.append("知识库信息:\n" + kb_text)
+
+if external_parts:
+    external = "\n\n".join(external_parts)
+    query = knowbase_qa_template.format(external=external, query=query)
+```
+
+模板在：
+
+```text
+src/knowledge/core/prompts.py
+```
+
+```python
+knowbase_qa_template = """
+请利用查询到的资料回答问题，回答问题时，不要过度的分点作答。
+
+<参考资料>：
+{external}
+</参考资料>
+
+<问题>
+{query}
+</问题>"
+"""
+```
+
+因此，LLM 实际看到的不是原始问题，而是类似下面这样的增强问题：
+
+```text
+请利用查询到的资料回答问题，回答问题时，不要过度的分点作答。
+
+<参考资料>：
+知识库信息:
+N/A: 皮卡丘是电属性宝可梦...
+N/A: 皮卡丘可以进化为雷丘...
+</参考资料>
+
+<问题>
+皮卡丘的属性和进化是什么？
+</问题>
+```
+
+这是典型的 RAG prompt 注入方式：模型不需要知道 Milvus、embedding 或 rerank 的存在，它只接收整理后的参考资料和原问题。
+
+## 14. 调用 LLM 生成：chat_router 继续流式输出
+
+`Retriever` 返回后，`chat_router.py` 会选择模型并开始流式生成：
+
+```python
+# server/routers/chat_router.py
+
+model = select_model(model_provider=model_provider, model_name=model_name)
+messages = history_manager.get_history_with_msg(modified_query, max_rounds=meta.get("history_round"))
+history_manager.add_user(modified_query)
+
+content = ""
+for delta in model.predict(formatted_messages, stream=True):
+    content += delta.content or ""
+    yield make_chunk(meta, content=delta.content, status="loading")
+```
+
+这里的 `modified_query` 就是前面经过 RAG 增强后的 query。也就是说，最终 LLM 调用阶段不再显式感知“现在是 RAG”，它只是收到了一条已经包含 `<参考资料>` 的用户消息。
+
+## 15. 返回答案和 refs：答案给用户，refs 给前端和调试
+
+生成完成后，后端会返回最终 chunk：
+
+```python
+# server/routers/chat_router.py
+
+yield make_chunk(meta, status="finished", history=history_serializable, refs=refs)
+```
+
+其中 `refs` 包含 Knowledge Base 检索信息：
+
+```text
+refs.knowledge_base.results
+refs.knowledge_base.all_results
+refs.knowledge_base.rw_query
+refs.knowledge_base.message
+```
+
+这些字段的意义是：
+
+| 字段 | 作用 |
+| --- | --- |
+| `results` | 实际用于增强回答的候选结果。 |
+| `all_results` | 原始召回结果，便于调试检索质量。 |
+| `rw_query` | rewrite / HyDE 后用于检索的 query。 |
+| `message` | 错误或状态信息。 |
+
+因此，这个项目的“引用”更像是工程调试和前端展示用的 `refs`，不是严格论文问答系统里的引用标注。它能告诉你：这次回答检索到了哪些 chunk、来自哪个 `file_id`、距离或 rerank 分数是多少。
+
+## 把 15 步和代码文件对应起来
+
+| 步骤 | 项目实现 | 关键文件 |
+| --- | --- | --- |
+| 1. 数据准备 | 上传文件、选择服务器文件或目录 | `server/routers/data_router.py` |
+| 2. 文档解析和清洗 | 按文件类型选择 parser，PDF 乱码时尝试 OCR | `src/knowledge/ingestion/parsers/base.py` |
+| 3. 切 chunk | `RecursiveCharacterTextSplitter` | `src/knowledge/core/indexing.py` |
+| 4. chunk embedding | `self.embed_model.batch_encode(docs)` | `src/knowledge/store/knowledgebase.py`、`src/models/embedding.py` |
+| 5. 存入向量库 | 写入 Milvus collection | `src/knowledge/store/knowledgebase.py` |
+| 6. 用户提问 | 普通聊天接口进入检索阶段 | `server/routers/chat_router.py` |
+| 7. Query Rewrite / HyDE | 默认关闭，可选打开 | `src/knowledge/core/retriever.py` |
+| 8. Query embedding | 对 rewritten query 做 embedding | `src/knowledge/store/knowledgebase.py` |
+| 9. 向量相似度检索 | Milvus dense vector search | `src/knowledge/store/knowledgebase.py` |
+| 10. 召回 Top-K | 先召回 `default_max_query_count`，再截断 Top-K | `src/core/settings.py`、`knowledgebase.py` |
+| 11. Rerank | 可选 reranker 重排 | `src/models/reranker_model.py`、`knowledgebase.py` |
+| 12. 过滤、去重、压缩 | 距离过滤、简单去重、文本截断 | `knowledgebase.py`、`retriever.py` |
+| 13. 拼 context | `knowledge_base.results` 进入 `knowbase_qa_template` | `src/knowledge/core/retriever.py`、`prompts.py` |
+| 14. LLM 生成 | `model.predict(..., stream=True)` | `server/routers/chat_router.py` |
+| 15. 返回答案和引用 | NDJSON + `refs` | `server/routers/chat_router.py` |
+
+## 当前实现的几个关键取舍
+
+### 1. 它是 dense vector RAG，不是完整 hybrid RAG
+
+虽然项目里存在 `src/knowledge/store/vector.py`，也能看到 sparse vector 相关设计，但普通 KB 主链路中的 `KnowledgeBase.search(...)` 主要是 dense vector similarity search。也就是说，关键词索引 / BM25 并不是当前狭义主链路的核心组件。
+
+这带来的优点是实现简单、路径清晰；缺点是对精确关键词、编号、专有名词、短 query 的稳定性可能不如 hybrid search。
+
+### 2. Query Rewrite 默认关闭是合理的
+
+很多 RAG 系统喜欢一上来就加 query rewrite，但这个项目默认关闭，只有在 `mode == "search"` 且显式指定时才启用。这是一个偏工程稳健的选择：
+
+- 简单问题不需要额外 LLM 调用。
+- 改写可能引入偏移。
+- HyDE 对复杂问题有帮助，但成本更高。
+
+### 3. Rerank 是质量增强层，不是召回层
+
+Rerank 发生在 Milvus 已经召回候选之后。它不能找回没有被向量召回拿到的文档，只能在候选集合里重新排序。因此，如果正确 chunk 根本没有进入候选集，rerank 也救不了。
+
+这意味着检索质量的第一优先级仍然是：
+
+- 文档解析是否正确
+- chunk 粒度是否合适
+- embedding 模型是否匹配
+- query 是否能表达用户真实意图
+
+### 4. refs 更适合调试，不是最终引用系统
+
+当前 `refs` 能帮助开发者看到：
+
+- 是否真的走了 KB
+- rewrite 后的 query 是什么
+- 召回了哪些 chunk
+- distance / rerank score 如何
+
+但如果要做面向用户的正式引用，还需要继续增强：
+
+- 保存页码、标题、段落位置
+- 在回答中插入引用编号
+- 把 chunk 映射回原文位置
+- 避免只展示截断后的文本
+
+## 最后总结
+
+`Pokemon Chat` 的狭义 Knowledge Base RAG 可以概括为下面这条链：
+
+```text
+上传/选择文件
+-> 解析文件
+-> chunk
+-> chunk embedding
+-> 存入 Milvus
+-> 用户问题
+-> 可选 Query Rewrite / HyDE
+-> query embedding
+-> Milvus 向量召回
+-> distance 过滤
+-> 可选 rerank
+-> Top-K 截断
+-> 拼进 prompt
+-> LLM 生成
+-> 返回答案 + refs
+```
+
+它已经具备一个标准向量 RAG 的完整闭环：数据进入、向量索引、在线召回、上下文增强、答案生成和引用返回。与此同时，它也保留了明显的工程边界：Graph、Web Search、MCP 是普通模式 `Retriever` 的外部增强源，但不是本文讨论的狭义 KB RAG；Agent 模式可以复用底层知识库能力，但它的问题后处理链路属于 `supervisor + worker` 编排体系。
+
+如果只想理解“文档是怎么被检索进 prompt 的”，看这条 Knowledge Base RAG 主链就够了。如果要理解“系统为什么有时查图谱、有时联网、有时走 Agent”，那就需要继续看普通模式多源 Retriever 和 LangGraph Agent 编排链路。

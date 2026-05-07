@@ -1,0 +1,215 @@
+---
+title: '强化学习基础到推理预测过程'
+publishedAt: '2026-05-07'
+summary: '按笔记顺序梳理强化学习基础、Policy Gradient、Actor-Critic / PPO / Q-learning 学到的内容，以及训练完成后的推理预测流程。'
+draft: false
+image: '/static/blog/reinforcement-learning-policy-gradient-inference/cover.svg'
+tags: [Reinforcement Learning, Policy Gradient, MDP, Deep Learning, Tech Blog]
+---
+
+强化学习研究的是：智能体如何在复杂、不确定的环境中，通过不断交互学到一套策略，让长期累积回报尽可能大。
+
+这篇文章按照笔记顺序展开：先看强化学习基础，再看 Policy Gradient 的三步理解方式，接着对比 Actor-Critic、PPO、Q-learning 学到的东西，最后整理训练完成后的推理预测流程。
+
+## 强化学习基础
+
+强化学习（Reinforcement Learning, RL）可以理解为：在马尔科夫决策过程（MDP）中，智能体通过与环境交互，学习一套策略 $\pi$，使长期累积回报最大化。
+
+| 组成部分 | 含义 |
+|---|---|
+| 智能体（Agent） | 做动作、做决策的一方 |
+| 环境（Environment） | 接收动作，返回新状态和奖励的一方 |
+
+交互过程可以按这条线理解：
+
+1. 智能体接收当前状态。
+2. 智能体输出动作。
+3. 环境执行动作。
+4. 环境返回下一个状态和奖励。
+5. 智能体继续做下一步决策。
+
+![强化学习交互闭环](/static/blog/reinforcement-learning-policy-gradient-inference/rl-loop.svg)
+
+用符号表示，一次交互轨迹是：
+
+$$
+s_1 \rightarrow a_1 \rightarrow r_1 \rightarrow s_2 \rightarrow a_2 \rightarrow r_2 \rightarrow \cdots \rightarrow a_T \rightarrow r_T
+$$
+
+智能体的目标就是从环境中获得尽可能多的奖励。
+
+## 强化学习为什么困难
+
+强化学习最大的困难是：动作的好坏不一定马上体现。
+
+比如智能体走了很多步之后才得到正向奖励，此时就会出现 credit assignment 问题：到底是哪一步动作带来了这个好结果？
+
+| 难点 | 说明 |
+|---|---|
+| 延迟回报（Delayed Reward） | 行动影响可能很久以后才体现，难判断哪一步贡献最大 |
+| 训练不稳定 | DQN、PPO 等深度强化学习方法容易发散，需要仔细调参 |
+| 高样本复杂度 | 通常需要大量环境交互数据，而这些数据可能昂贵或难获取 |
+
+所以，强化学习不是简单地“看到状态就输出动作”，而是要在延迟奖励和不稳定训练中学到长期有效的策略。
+
+## Policy Gradient：三步理解
+
+Policy Gradient 直接学习一个策略网络，让网络根据状态输出动作选择依据。
+
+### Step 1：Neural Network as Actor
+
+第一步是把神经网络看作 Actor，也就是执行者或决策者。
+
+| 部分 | 内容 |
+|---|---|
+| 输入 | 状态（State），如图像像素、传感器数据、游戏状态 |
+| 输出 | 动作（Action）的选择依据 |
+
+动作空间不同，输出形式也不同：
+
+| 动作空间 | 输出形式 |
+|---|---|
+| 离散动作 | 每个动作的概率分布，通常用 softmax |
+| 连续动作 | 动作的均值和标准差，或直接输出确定性动作值 |
+
+带参数 $\theta$ 的 Actor 可以写成：
+
+$$
+\pi_\theta(a \mid s)
+$$
+
+它表示：在状态 $s$ 下，策略网络选择动作 $a$ 的概率。
+
+### Step 2：Goodness of Function
+
+第二步是定义 Actor 的“好坏”。
+
+Actor 和环境交互一次，会得到一条轨迹：
+
+$$
+s_1 \rightarrow a_1 \rightarrow r_1 \rightarrow s_2 \rightarrow a_2 \rightarrow r_2 \rightarrow \cdots \rightarrow a_T \rightarrow r_T
+$$
+
+这条轨迹的总奖励是：
+
+$$
+R_\theta = \sum_{i=1}^{T} r_i
+$$
+
+但同一个 Actor 每次玩游戏得到的 $R_\theta$ 可能不同，因为：
+
+- Actor 本身可能按概率随机选动作。
+- 环境对同一个动作也可能给出不同结果。
+
+所以优化目标不是某一次的奖励，而是期望奖励：
+
+$$
+\bar{R}_\theta = \mathbb{E}[R_\theta]
+$$
+
+目标是找到参数 $\theta$，让 $\bar{R}_\theta$ 最大。
+
+### Step 3：Pick the Best Function
+
+第三步是用优化算法找最好的 Actor 参数。
+
+Policy Gradient 关心的是：
+
+$$
+\nabla \bar{R}_\theta
+$$
+
+这个梯度可以理解为参数更新的“指南针”：
+
+| 含义 | 解释 |
+|---|---|
+| 方向 | 参数 $\theta$ 往哪里调 |
+| 大小 | 每次调整多少 |
+| 目标 | 让期望奖励 $\bar{R}_\theta$ 变大 |
+
+原始 REINFORCE 的一个问题是：如果所有轨迹奖励都是正数，比如 $R(\tau)=1$、$5$、$10$，所有采样到的动作概率都会增加。
+
+结果是：
+
+- 采样到的动作概率都会上升。
+- 没采样到的动作概率会相对下降。
+- 即使某条轨迹只是“没那么好”，它里面的动作也可能被增强。
+
+所以训练时不能只看奖励是不是正数，还要看它相对其他轨迹到底好不好。
+
+## Actor-Critic、PPO、Q-learning 学到的东西
+
+这些算法的共同点是：<strong>都在学习“策略”</strong>，只是形式不同。
+
+| 算法类型 | 学到的主要内容 | 对应形式 |
+|---|---|---|
+| Q-learning | 状态-动作的价值函数 $Q(s,a)$，也就是“做某个动作的长期回报” | 表格或神经网络近似 |
+| Double DQN / DQN | 仍然学习 $Q(s,a)$，但改进 Q-learning 的目标计算方式 | 神经网络 |
+| Actor-Critic | Actor 学策略 $\pi(a \mid s)$；Critic 学状态价值 $V(s)$ 或优势函数 $A(s,a)$ | 两个相互配合的网络 |
+| PPO | 属于 Actor-Critic 类，但用概率比值限制策略更新幅度 | 两个网络 |
+
+简单记：
+
+- <strong>Q 类算法</strong>：先算“做这个动作有多好”，然后选最好的。
+- <strong>Actor 类算法</strong>：直接给出“动作概率分布”。
+- <strong>Critic 类算法</strong>：辅助 Actor 判断动作好坏，减少学习方差。
+
+## 强化学习到底学什么
+
+强化学习模型最终学的是一套决策方式：在不同状态下，选出更可能带来长期最大回报的动作。
+
+如果是 Actor，学到的是：
+
+$$
+s \rightarrow \pi_\theta(a \mid s)
+$$
+
+也就是状态到动作概率分布。
+
+如果是 Q 网络，学到的是：
+
+$$
+(s, a) \rightarrow Q(s, a)
+$$
+
+也就是状态-动作对的长期回报估计。
+
+两种方式形式不同，但最终都用于选动作。
+
+## 强化学习训练结束到推理预测过程
+
+一旦训练完成，就得到了一个“决策模型”。推理阶段不再通过环境奖励更新参数，而是直接用学到的策略做决策。
+
+### Q-learning / DQN 类
+
+推理步骤是：
+
+1. 输入当前状态 $s$。
+2. 网络输出所有动作的 $Q(s,a)$。
+3. 选择最大 $Q$ 对应的动作，或按 $\epsilon$-greedy 做少量随机探索。
+4. 输出该动作作为决策。
+
+也可以写成：
+
+$$
+a = \arg\max_a Q(s,a)
+$$
+
+### Actor-Critic / PPO 类
+
+推理步骤是：
+
+1. 输入当前状态 $s$。
+2. Actor 输出动作概率分布 $\pi(a \mid s)$。
+3. 按概率采样，或直接取最大概率动作。
+4. 输出该动作作为决策。
+
+推理阶段的关键点是：<strong>不需要环境反馈奖励</strong>。模型已经训练好，只需要像分类模型做推断一样，根据当前状态直接给出动作。
+
+## 总结
+
+强化学习的主线是：状态输入、动作输出、环境反馈、继续学习。
+
+Policy Gradient 从 Actor 出发，先定义策略网络，再用轨迹总奖励评价 Actor，最后通过期望奖励的梯度更新参数。
+
+Q-learning、DQN、Actor-Critic、PPO 都是在学习“怎么选动作”，只是有的先学习 $Q(s,a)$，有的直接学习 $\pi(a \mid s)$。训练完成后，推理阶段就是把当前状态输入模型，并输出最终动作。

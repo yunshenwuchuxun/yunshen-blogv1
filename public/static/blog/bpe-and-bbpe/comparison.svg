@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540" role="img" aria-labelledby="title desc">
+	<title id="title">四种分词方式的多维对比</title>
+	<desc id="desc">单词级、字符级、BPE、BBPE 在短序列、小词表、无 OOV、多语种、新符号鲁棒五个维度上的相对表现。</desc>
+	<defs>
+		<linearGradient id="bgcmp" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0" stop-color="#0b1120" />
+			<stop offset="1" stop-color="#1e293b" />
+		</linearGradient>
+	</defs>
+	<rect width="960" height="540" rx="28" fill="url(#bgcmp)" />
+
+	<text x="40" y="48" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700" fill="#f8fafc">四种分词方式的相对表现</text>
+	<text x="40" y="74" font-family="Inter, Arial, sans-serif" font-size="14" fill="#94a3b8">条形越长越好（已统一方向：例如序列越短得分越高、OOV 越少得分越高）</text>
+
+	<g font-family="Inter, Arial, sans-serif" font-size="13">
+		<g transform="translate(720 110)">
+			<rect width="14" height="14" fill="#fb7185" />
+			<text x="22" y="12" fill="#cbd5e1">Word</text>
+			<rect x="80" width="14" height="14" fill="#fbbf24" />
+			<text x="102" y="12" fill="#cbd5e1">Char</text>
+			<rect x="160" width="14" height="14" fill="#22d3ee" />
+			<text x="182" y="12" fill="#cbd5e1">BPE</text>
+			<rect x="232" width="14" height="14" fill="#a78bfa" />
+			<text x="254" y="12" fill="#cbd5e1">BBPE</text>
+		</g>
+	</g>
+
+	<g font-family="Inter, Arial, sans-serif" font-size="14" fill="#cbd5e1">
+		<g transform="translate(40 145)">
+			<text y="42" font-weight="600">短序列</text>
+			<g transform="translate(140 0)">
+				<rect y="6" width="380" height="14" rx="4" fill="#fb7185" />
+				<text x="386" y="18" font-size="12" fill="#94a3b8">5</text>
+				<rect y="26" width="80" height="14" rx="4" fill="#fbbf24" />
+				<text x="86" y="38" font-size="12" fill="#94a3b8">1</text>
+				<rect y="46" width="240" height="14" rx="4" fill="#22d3ee" />
+				<text x="246" y="58" font-size="12" fill="#94a3b8">3</text>
+				<rect y="66" width="200" height="14" rx="4" fill="#a78bfa" />
+				<text x="206" y="78" font-size="12" fill="#94a3b8">2.5</text>
+			</g>
+		</g>
+
+		<g transform="translate(40 245)">
+			<text y="42" font-weight="600">小词表</text>
+			<g transform="translate(140 0)">
+				<rect y="6" width="80" height="14" rx="4" fill="#fb7185" />
+				<text x="86" y="18" font-size="12" fill="#94a3b8">1</text>
+				<rect y="26" width="380" height="14" rx="4" fill="#fbbf24" />
+				<text x="386" y="38" font-size="12" fill="#94a3b8">5</text>
+				<rect y="46" width="280" height="14" rx="4" fill="#22d3ee" />
+				<text x="286" y="58" font-size="12" fill="#94a3b8">3.5</text>
+				<rect y="66" width="280" height="14" rx="4" fill="#a78bfa" />
+				<text x="286" y="78" font-size="12" fill="#94a3b8">3.5</text>
+			</g>
+		</g>
+
+		<g transform="translate(40 345)">
+			<text y="42" font-weight="600">无 OOV</text>
+			<g transform="translate(140 0)">
+				<rect y="6" width="40" height="14" rx="4" fill="#fb7185" />
+				<text x="46" y="18" font-size="12" fill="#94a3b8">0.5</text>
+				<rect y="26" width="320" height="14" rx="4" fill="#fbbf24" />
+				<text x="326" y="38" font-size="12" fill="#94a3b8">4</text>
+				<rect y="46" width="280" height="14" rx="4" fill="#22d3ee" />
+				<text x="286" y="58" font-size="12" fill="#94a3b8">3.5</text>
+				<rect y="66" width="400" height="14" rx="4" fill="#a78bfa" />
+				<text x="406" y="78" font-size="12" fill="#94a3b8">5</text>
+			</g>
+		</g>
+
+		<g transform="translate(40 445)">
+			<text y="42" font-weight="600">多语种 / 新符号</text>
+			<g transform="translate(140 0)">
+				<rect y="6" width="40" height="14" rx="4" fill="#fb7185" />
+				<text x="46" y="18" font-size="12" fill="#94a3b8">0.5</text>
+				<rect y="26" width="200" height="14" rx="4" fill="#fbbf24" />
+				<text x="206" y="38" font-size="12" fill="#94a3b8">2.5</text>
+				<rect y="46" width="240" height="14" rx="4" fill="#22d3ee" />
+				<text x="246" y="58" font-size="12" fill="#94a3b8">3</text>
+				<rect y="66" width="400" height="14" rx="4" fill="#a78bfa" />
+				<text x="406" y="78" font-size="12" fill="#94a3b8">5</text>
+			</g>
+		</g>
+	</g>
+
+	<text x="40" y="528" font-family="Inter, Arial, sans-serif" font-size="12" fill="#64748b">注：本图为相对示意，非具体 benchmark 数值。</text>
+</svg>

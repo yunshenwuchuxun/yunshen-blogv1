@@ -1,0 +1,751 @@
+---
+title: 'pokemon qwen 微调系列（四）：DPO 偏好优化实战：为什么 v1 跑通了但没有变强'
+publishedAt: '2026-05-06'
+summary: '接在 SFT v2 数据修复之后，完整拆解 DPO 算法、偏好数据构造、TRL 训练链路，以及 Pokemon DPO v1 为什么没有超过 SFT v2。'
+draft: false
+image: '/static/blog/pokemon-chat-series/dpo-v1-cover.svg'
+tags: [LLM, DPO, RLHF, Evaluation]
+---
+
+<PaperCard
+  title="本篇关注的核心内容"
+  description="DPO 算法原理、偏好数据构造、TRL 训练实现、v1 指标复盘，以及下一轮 DPO v2 应该怎么做。"
+  links={[
+    { label: "DPO 原论文", url: "https://arxiv.org/abs/2305.18290" },
+    { label: "TRL DPOTrainer 文档", url: "https://huggingface.co/docs/trl/dpo_trainer" },
+  ]}
+/>
+
+这篇是 **[pokemon qwen 微调系列（三）：SFT 评估复盘](/blog/sft-eval-v2-data-fixes)** 的后续。
+
+上一篇的结论是：SFT v1 退化以后，不能急着做 DPO；必须先修 SFT 数据。现在 SFT v2 已经在同一套 30 题评测上超过 base，才进入这一步：尝试用 DPO 做偏好优化。
+
+但这次 DPO v1 的结果也很重要：**技术链路跑通了，指标没有变强。**
+
+这不是坏结果。它说明 DPO 不是“接在 SFT 后面的万能增强按钮”，而是一个很依赖偏好数据强度、训练信号和评测覆盖的精细对齐步骤。
+
+> 主要依据：DPO 原论文提出用一个分类式目标直接优化偏好对，避免显式 reward model 和 PPO 训练；TRL 文档中 `DPOTrainer` 要求每条样本包含 `prompt / chosen / rejected`，并通过 policy 与 reference 的 log probability 差异计算偏好损失。[Rafailov et al., 2023, arXiv:2305.18290] [Hugging Face, 2026-05-06, TRL DPOTrainer]
+
+## TL;DR
+
+| 问题 | 结论 | 证据 |
+|---|---|---|
+| DPO 是什么 | 不显式训练 reward model 的偏好优化方法 | 直接用 `chosen / rejected` 对训练 policy |
+| 为什么接在 SFT v2 后面 | DPO 适合做偏好对齐，不适合补基础知识 | SFT v1 退化时应先修数据 |
+| DPO v1 数据多大 | `146` 对 synthetic / RLAIF preference pairs | `SFT_DPO/data/pokemon_dpo_v1.jsonl` |
+| DPO v1 是否跑通 | 跑通 | smoke `5/5` steps，full training `19/19` steps |
+| DPO v1 是否超过 SFT v2 | 没有 | Accuracy 同为 `63.3%`，hallucination 同为 `36.7%` |
+| 主要问题 | 训练信号几乎没动 | `loss≈0.6931`，reward margin 为 `0.0` |
+| 下一步 | 先做 overfit sanity test，再扩 DPO v2 | `20-40` 对高置信偏好，`3-5` epochs |
+
+<svg viewBox="0 0 1200 300" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="SFT v2 到 DPO v1 的训练闭环">
+  <defs>
+    <marker id="arr-dpo-flow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#1f2937" />
+    </marker>
+  </defs>
+
+  <rect x="28" y="96" width="180" height="92" rx="12" fill="#dbeafe" stroke="#2563eb" />
+  <text x="118" y="128" textAnchor="middle" fontSize="21" fill="#1e3a8a">SFT v2</text>
+  <text x="118" y="156" textAnchor="middle" fontSize="15" fill="#1e3a8a">已修复数据退化</text>
+
+  <rect x="248" y="96" width="190" height="92" rx="12" fill="#dcfce7" stroke="#16a34a" />
+  <text x="343" y="128" textAnchor="middle" fontSize="21" fill="#14532d">偏好数据</text>
+  <text x="343" y="156" textAnchor="middle" fontSize="15" fill="#14532d">chosen / rejected</text>
+
+  <rect x="478" y="96" width="190" height="92" rx="12" fill="#fef3c7" stroke="#d97706" />
+  <text x="573" y="128" textAnchor="middle" fontSize="21" fill="#78350f">DPO 训练</text>
+  <text x="573" y="156" textAnchor="middle" fontSize="15" fill="#78350f">policy vs reference</text>
+
+  <rect x="708" y="96" width="190" height="92" rx="12" fill="#fae8ff" stroke="#a21caf" />
+  <text x="803" y="128" textAnchor="middle" fontSize="21" fill="#701a75">固定评估</text>
+  <text x="803" y="156" textAnchor="middle" fontSize="15" fill="#701a75">30 prompts</text>
+
+  <rect x="938" y="96" width="230" height="92" rx="12" fill="#fee2e2" stroke="#dc2626" />
+  <text x="1053" y="128" textAnchor="middle" fontSize="21" fill="#7f1d1d">失败分析</text>
+  <text x="1053" y="156" textAnchor="middle" fontSize="15" fill="#7f1d1d">signal / data / eval</text>
+
+  <line x1="208" y1="142" x2="244" y2="142" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr-dpo-flow)" />
+  <line x1="438" y1="142" x2="474" y2="142" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr-dpo-flow)" />
+  <line x1="668" y1="142" x2="704" y2="142" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr-dpo-flow)" />
+  <line x1="898" y1="142" x2="934" y2="142" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr-dpo-flow)" />
+
+  <text x="600" y="245" textAnchor="middle" fontSize="18" fill="#374151">
+    DPO 的目标不是继续背知识，而是让模型更偏向“已知更好”的回答。
+  </text>
+</svg>
+
+## 1) DPO 要解决什么问题
+
+SFT 的训练信号很简单：给模型一个 prompt 和标准 answer，让模型最大化标准 answer 的 likelihood。
+
+形式上可以写成：
+
+$$
+\mathcal{L}_{SFT}(\theta) = - \log \pi_{\theta}(y \mid x)
+$$
+
+这里：
+
+- $x$ 是 prompt；
+- $y$ 是训练集中给定的 assistant answer；
+- $\pi_{\theta}$ 是正在训练的语言模型。
+
+SFT 的问题也很直接：它只告诉模型“模仿这个答案”，但不告诉模型“两个答案里哪个更好”。
+
+例如同一个问题：
+
+```text
+Prompt:
+What is the Electric type weak to?
+
+Good answer:
+Electric-type Pokemon are weak to Ground-type moves.
+
+Bad answer:
+This type is weak to Flying, Water, and Grass.
+```
+
+SFT 只能学习某个单独答案的分布；DPO 学的是更强的比较信号：
+
+```text
+在同一个 prompt 下，chosen 应该比 rejected 更可能被模型生成。
+```
+
+也就是说，DPO 的数据不是普通监督样本，而是偏好对：
+
+| 字段 | 含义 |
+|---|---|
+| `prompt` | 用户问题 |
+| `chosen` | 更好的回答 |
+| `rejected` | 更差的回答 |
+
+这也是 `SFT_DPO/data/pokemon_dpo_v1.jsonl` 的基本结构。
+
+## 2) 从 RLHF 到 DPO：为什么它更简单
+
+传统 RLHF 常见流程可以拆成三步：
+
+1. 先做 SFT，得到一个可用初始模型；
+2. 收集偏好数据，训练 reward model；
+3. 用 PPO 之类的强化学习方法优化 policy，同时用 KL 约束防止模型偏离原模型太远。
+
+这个流程有效，但工程复杂度很高：
+
+| 阶段 | 需要训练什么 | 主要风险 |
+|---|---|---|
+| SFT | policy | 数据质量差会直接学坏 |
+| Reward Model | 单独的奖励模型 | reward hacking、偏好泛化不稳 |
+| PPO | policy | 训练不稳定、超参数敏感、成本高 |
+
+DPO 的核心想法是：不单独训练 reward model，也不显式跑 PPO，而是把 RLHF 目标重写成一个可以直接优化的分类式损失。
+
+直观理解：
+
+```text
+如果 chosen 比 rejected 更好，
+那么 policy 相对 reference 应该更偏向 chosen。
+```
+
+这里的 reference 通常就是 DPO 开始前的 SFT 模型。它的作用不是继续训练，而是作为“不要偏离太远”的锚点。
+
+<svg viewBox="0 0 1200 360" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="RLHF 与 DPO 的流程对比">
+  <defs>
+    <marker id="arr-rlhf-dpo" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#1f2937" />
+    </marker>
+  </defs>
+
+  <text x="70" y="58" fontSize="22" fill="#111827" fontWeight="600">RLHF / PPO</text>
+  <rect x="70" y="86" width="170" height="70" rx="10" fill="#dbeafe" stroke="#2563eb" />
+  <text x="155" y="128" textAnchor="middle" fontSize="17" fill="#1e3a8a">SFT policy</text>
+  <rect x="300" y="86" width="180" height="70" rx="10" fill="#dcfce7" stroke="#16a34a" />
+  <text x="390" y="128" textAnchor="middle" fontSize="17" fill="#14532d">Reward Model</text>
+  <rect x="540" y="86" width="160" height="70" rx="10" fill="#fef3c7" stroke="#d97706" />
+  <text x="620" y="128" textAnchor="middle" fontSize="17" fill="#78350f">PPO</text>
+  <rect x="760" y="86" width="220" height="70" rx="10" fill="#fee2e2" stroke="#dc2626" />
+  <text x="870" y="128" textAnchor="middle" fontSize="17" fill="#7f1d1d">Aligned policy</text>
+
+  <line x1="240" y1="121" x2="296" y2="121" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr-rlhf-dpo)" />
+  <line x1="480" y1="121" x2="536" y2="121" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr-rlhf-dpo)" />
+  <line x1="700" y1="121" x2="756" y2="121" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr-rlhf-dpo)" />
+
+  <text x="70" y="228" fontSize="22" fill="#111827" fontWeight="600">DPO</text>
+  <rect x="70" y="256" width="170" height="70" rx="10" fill="#dbeafe" stroke="#2563eb" />
+  <text x="155" y="298" textAnchor="middle" fontSize="17" fill="#1e3a8a">SFT policy</text>
+  <rect x="300" y="256" width="220" height="70" rx="10" fill="#dcfce7" stroke="#16a34a" />
+  <text x="410" y="286" textAnchor="middle" fontSize="17" fill="#14532d">Preference pairs</text>
+  <text x="410" y="310" textAnchor="middle" fontSize="14" fill="#14532d">prompt / chosen / rejected</text>
+  <rect x="580" y="256" width="190" height="70" rx="10" fill="#fae8ff" stroke="#a21caf" />
+  <text x="675" y="298" textAnchor="middle" fontSize="17" fill="#701a75">DPO loss</text>
+  <rect x="830" y="256" width="220" height="70" rx="10" fill="#fee2e2" stroke="#dc2626" />
+  <text x="940" y="298" textAnchor="middle" fontSize="17" fill="#7f1d1d">Aligned policy</text>
+
+  <line x1="240" y1="291" x2="296" y2="291" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr-rlhf-dpo)" />
+  <line x1="520" y1="291" x2="576" y2="291" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr-rlhf-dpo)" />
+  <line x1="770" y1="291" x2="826" y2="291" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr-rlhf-dpo)" />
+</svg>
+
+## 3) DPO 的数学形式
+
+每条 DPO 样本可以记作：
+
+$$
+(x, y_w, y_l)
+$$
+
+其中：
+
+- $x$ 是 prompt；
+- $y_w$ 是 preferred / chosen answer；
+- $y_l$ 是 dispreferred / rejected answer。
+
+DPO 比较的不是单独的 log probability，而是 policy 相对 reference 的偏好差。
+
+先定义 chosen 的相对优势：
+
+$$
+r_{\theta}(x, y_w) =
+\beta \left[
+\log \pi_{\theta}(y_w \mid x)
+-
+\log \pi_{ref}(y_w \mid x)
+\right]
+$$
+
+再定义 rejected 的相对优势：
+
+$$
+r_{\theta}(x, y_l) =
+\beta \left[
+\log \pi_{\theta}(y_l \mid x)
+-
+\log \pi_{ref}(y_l \mid x)
+\right]
+$$
+
+DPO 希望 chosen 的相对优势大于 rejected：
+
+$$
+r_{\theta}(x, y_w) - r_{\theta}(x, y_l) > 0
+$$
+
+最终 loss 可以写成：
+
+$$
+\mathcal{L}_{DPO}(\theta)
+=
+-\log \sigma
+\left(
+\beta
+\left[
+\log \frac{\pi_{\theta}(y_w \mid x)}{\pi_{ref}(y_w \mid x)}
+-
+\log \frac{\pi_{\theta}(y_l \mid x)}{\pi_{ref}(y_l \mid x)}
+\right]
+\right)
+$$
+
+这里最关键的是四个量：
+
+| 项 | 含义 |
+|---|---|
+| $\pi_{\theta}(y_w \mid x)$ | 当前 policy 对 chosen 的概率 |
+| $\pi_{\theta}(y_l \mid x)$ | 当前 policy 对 rejected 的概率 |
+| $\pi_{ref}(y_w \mid x)$ | reference 对 chosen 的概率 |
+| $\pi_{ref}(y_l \mid x)$ | reference 对 rejected 的概率 |
+
+如果 policy 相比 reference 更偏向 chosen，括号里的值会变大，loss 会下降。
+
+如果 policy 对 chosen 和 rejected 没有拉开差距，sigmoid 输入接近 `0`，loss 就接近：
+
+$$
+-\log(0.5) \approx 0.6931
+$$
+
+这正好对应这次 DPO v1 的训练现象：`loss` 长期停在 `0.6931` 附近，reward margin 几乎为 `0.0`。
+
+## 4) beta 是什么
+
+DPO 里的 `beta` 控制偏好信号强度，也可以理解为 policy 偏离 reference 的力度旋钮。
+
+| `beta` 情况 | 直观效果 | 风险 |
+|---|---|---|
+| 太小 | 更新很弱，模型几乎不动 | 指标无变化 |
+| 适中 | chosen / rejected 被稳定拉开 | 理想状态 |
+| 太大 | 偏好信号过强，容易过拟合偏好对 | 事实回归或风格变窄 |
+
+这次配置里：
+
+```yaml
+beta: 0.1
+learning_rate: 5.0e-7
+num_train_epochs: 1
+```
+
+`beta=0.1` 本身是常见保守起点，真正更可疑的是整体训练强度太弱：学习率低、数据少、epoch 少，总步数只有 `19`。
+
+## 5) Pokemon DPO v1 的数据怎么构造
+
+这次 DPO 数据集不是人工标注数据，而是 synthetic / RLAIF 风格的学习数据。
+
+核心文件：
+
+```text
+SFT_DPO/data/pokemon_dpo_v1.jsonl
+SFT_DPO/DPO_DATASET_CARD.md
+SFT_DPO/src/build_dpo_dataset.py
+```
+
+数据规模：
+
+| 指标 | 值 |
+|---|---:|
+| preference pairs | `146` |
+| chosen 含 `$effect_chance` | `0` |
+| rejected 含 `$effect_chance` | `5` |
+
+类别分布：
+
+| Category | Count |
+|---|---:|
+| `factoid` | `18` |
+| `semi_structured` | `33` |
+| `reasoning` | `79` |
+| `long_form` | `16` |
+
+来源分布：
+
+| Source | Count | 含义 |
+|---|---:|---|
+| `canonical_type_chart` | `54` | 基于类型克制表构造 |
+| `eval_sft_rejected` | `29` | SFT 评测失败输出作为 rejected |
+| `eval_winner_pair` | `24` | base / SFT 一方胜出的 pair |
+| `canonical_pokemon_profile` | `20` | 基于 Pokemon 类型和弱点构造 |
+| `eval_base_rejected` | `15` | base 失败输出作为 rejected |
+| synthetic variants | `4` | placeholder、style、ability confusion |
+
+一个真实样本长这样：
+
+```json
+{
+  "prompt": "What is the Electric type weak to?",
+  "chosen": "Electric-type Pokemon are weak to Ground-type moves.",
+  "rejected": "flying, water, grass",
+  "category": "factoid",
+  "source": "eval_sft_rejected"
+}
+```
+
+这个 pair 很适合 DPO，因为 chosen 和 rejected 的差异不是风格差异，而是明确的事实正确性差异。
+
+再看一个不那么强的 pair：
+
+```json
+{
+  "prompt": "Explain what Levitate does in Pokemon battles.",
+  "chosen": "In Pokémon battles, the Levitate ability allows a Pokémon to become immune to Ground-type moves and Terrain types...",
+  "rejected": "Nullifies effects of being grounded.",
+  "category": "factoid",
+  "source": "eval_winner_pair"
+}
+```
+
+这个 pair 方向大体正确，但 chosen 本身也不完美：它把 Terrain 相关表述混进来了，可能让偏好信号变脏。
+
+这就是 synthetic preference data 的主要风险：不是每个 pair 都像“Ground vs Flying/Water/Grass”那么干净。
+
+<svg viewBox="0 0 1200 380" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="DPO v1 数据类别分布">
+  <text x="40" y="42" fontSize="24" fill="#111827" fontWeight="600">DPO v1 category distribution</text>
+  <text x="40" y="72" fontSize="15" fill="#4b5563">146 preference pairs，reasoning 占比最高。</text>
+
+  <rect x="80" y="120" width="632" height="44" rx="8" fill="#dbeafe" stroke="#2563eb" />
+  <text x="96" y="148" fontSize="17" fill="#1e3a8a">reasoning</text>
+  <text x="730" y="148" fontSize="17" fill="#1e3a8a">79</text>
+
+  <rect x="80" y="184" width="264" height="44" rx="8" fill="#dcfce7" stroke="#16a34a" />
+  <text x="96" y="212" fontSize="17" fill="#14532d">semi_structured</text>
+  <text x="362" y="212" fontSize="17" fill="#14532d">33</text>
+
+  <rect x="80" y="248" width="144" height="44" rx="8" fill="#fef3c7" stroke="#d97706" />
+  <text x="96" y="276" fontSize="17" fill="#78350f">factoid</text>
+  <text x="242" y="276" fontSize="17" fill="#78350f">18</text>
+
+  <rect x="80" y="312" width="128" height="44" rx="8" fill="#fae8ff" stroke="#a21caf" />
+  <text x="96" y="340" fontSize="17" fill="#701a75">long_form</text>
+  <text x="226" y="340" fontSize="17" fill="#701a75">16</text>
+
+  <line x1="80" y1="98" x2="80" y2="360" stroke="#9ca3af" strokeWidth="2" />
+  <line x1="80" y1="360" x2="780" y2="360" stroke="#9ca3af" strokeWidth="2" />
+  <text x="810" y="150" fontSize="16" fill="#374151">目标：补强 SFT v2 仍弱的规则应用。</text>
+  <text x="810" y="180" fontSize="16" fill="#374151">风险：小数据 + 弱 pair 可能无法形成梯度信号。</text>
+</svg>
+
+## 6) 训练实现：policy adapter 和 reference adapter
+
+训练入口在：
+
+```text
+SFT_DPO/src/train_dpo.py
+SFT_DPO/src/modal_dpo.py
+SFT_DPO/configs/dpo_qwen25_7b_lora_v1.yaml
+```
+
+核心配置：
+
+| 项 | 值 |
+|---|---|
+| Base model | `Qwen/Qwen2.5-7B-Instruct` |
+| SFT adapter | `/outputs/pokemon-qwen25-7b-instruct-qlora-v2/adapter` |
+| DPO dataset | `SFT_DPO/data/pokemon_dpo_v1.jsonl` |
+| Output | `/outputs/pokemon-qwen25-7b-instruct-dpo-v1` |
+| max seq length | `1024` |
+| learning rate | `5e-7` |
+| epochs | `1` |
+| batch | `1` |
+| grad acc | `8` |
+| beta | `0.1` |
+| LoRA | `r=16, alpha=32, dropout=0.05` |
+| quantization | `4bit NF4 + double quant + bf16` |
+| GPU | `A100` |
+
+这次实现里有一个关键点：policy 和 reference 都从同一个 SFT v2 adapter 初始化，但只有 policy 继续训练。
+
+代码逻辑可以简化成：
+
+```python
+model = PeftModel.from_pretrained(
+    model,
+    sft_adapter_path,
+    is_trainable=True,
+    adapter_name="policy",
+)
+
+model.load_adapter(
+    sft_adapter_path,
+    adapter_name="reference",
+)
+```
+
+然后在 `DPOConfig` 里指定：
+
+```python
+model_adapter_name="policy"
+ref_adapter_name="reference"
+```
+
+这个设计对应 DPO 的数学形式：
+
+| 角色 | 工程对象 | 是否训练 |
+|---|---|---|
+| $\pi_{\theta}$ | `policy` adapter | 是 |
+| $\pi_{ref}$ | `reference` adapter | 否 |
+
+这样可以避免额外加载一整份 reference model，比较适合 LoRA / QLoRA 场景。
+
+## 7) Modal 链路
+
+Modal 入口：
+
+```text
+SFT_DPO/src/modal_dpo.py
+```
+
+关键点有四个：
+
+1. 使用 `python_version="3.11"`；
+2. pin 住 `trl==0.25.0`；
+3. 限制 `transformers>=4.57.0,<5.0.0`；
+4. 训练结束后调用 `outputs_volume.commit()`，确保 adapter 持久化。
+
+依赖片段：
+
+```python
+.uv_pip_install(
+    "torch",
+    "transformers>=4.57.0,<5.0.0",
+    "datasets>=2.20.0",
+    "peft>=0.12.0",
+    "trl==0.25.0",
+    "mergekit",
+    "accelerate>=0.33.0",
+    "bitsandbytes>=0.43.0",
+    "pyyaml>=6.0",
+    "pydantic>=2.6.0",
+)
+```
+
+训练完成后，实际可用于评估的 policy adapter 路径是：
+
+```text
+/outputs/pokemon-qwen25-7b-instruct-dpo-v1/adapter/policy
+```
+
+不是父目录：
+
+```text
+/outputs/pokemon-qwen25-7b-instruct-dpo-v1/adapter
+```
+
+这个路径差异很容易踩坑，因为 PEFT 多 adapter 保存时会把 adapter name 变成子目录。
+
+## 8) DPO v1 的评估结果
+
+DPO v1 完整跑通：
+
+- smoke training：`5/5` steps；
+- full training：`19/19` steps；
+- output persisted 到 `pokemon-qlora-outputs`；
+- 评估使用同一套 30 题 Pokemon eval set；
+- scoring output：`SFT/outputs/eval_scored_dpo_v1.json`。
+
+总体指标：
+
+| Model | Accuracy | Hallucination rate |
+|---|---:|---:|
+| Base | `50.0%` | `50.0%` |
+| SFT v2 | `63.3%` | `36.7%` |
+| DPO v1 | `63.3%` | `36.7%` |
+
+也就是说：
+
+```text
+DPO v1 没有比 SFT v2 更好。
+```
+
+这不是“DPO 算法失败”，而是“这次 DPO 实验没有产生可见收益”。
+
+<svg viewBox="0 0 1200 360" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="Base SFT v2 DPO v1 指标对比">
+  <text x="40" y="42" fontSize="24" fill="#111827" fontWeight="600">30-prompt evaluation</text>
+  <text x="40" y="72" fontSize="15" fill="#4b5563">DPO v1 与 SFT v2 在 aggregate metric 上完全持平。</text>
+
+  <text x="150" y="112" fontSize="18" fill="#111827" fontWeight="600">Accuracy</text>
+  <rect x="150" y="140" width="300" height="42" rx="8" fill="#dbeafe" stroke="#2563eb" />
+  <text x="165" y="167" fontSize="16" fill="#1e3a8a">Base 50.0%</text>
+  <rect x="150" y="196" width="380" height="42" rx="8" fill="#dcfce7" stroke="#16a34a" />
+  <text x="165" y="223" fontSize="16" fill="#14532d">SFT v2 63.3%</text>
+  <rect x="150" y="252" width="380" height="42" rx="8" fill="#fae8ff" stroke="#a21caf" />
+  <text x="165" y="279" fontSize="16" fill="#701a75">DPO v1 63.3%</text>
+
+  <text x="690" y="112" fontSize="18" fill="#111827" fontWeight="600">Hallucination rate</text>
+  <rect x="690" y="140" width="300" height="42" rx="8" fill="#fee2e2" stroke="#dc2626" />
+  <text x="705" y="167" fontSize="16" fill="#7f1d1d">Base 50.0%</text>
+  <rect x="690" y="196" width="220" height="42" rx="8" fill="#dcfce7" stroke="#16a34a" />
+  <text x="705" y="223" fontSize="16" fill="#14532d">SFT v2 36.7%</text>
+  <rect x="690" y="252" width="220" height="42" rx="8" fill="#fae8ff" stroke="#a21caf" />
+  <text x="705" y="279" fontSize="16" fill="#701a75">DPO v1 36.7%</text>
+</svg>
+
+## 9) 为什么 DPO v1 没有变强
+
+训练日志里最关键的信号是：
+
+```text
+loss ≈ 0.6931
+rewards/chosen = 0.0
+rewards/rejected = 0.0
+rewards/margins = 0.0
+rewards/accuracies = 0.0
+```
+
+这说明 policy 没有把 chosen 和 rejected 拉开。
+
+从 DPO loss 看，`0.6931` 不是随机数字。它接近：
+
+$$
+-\log(0.5)
+$$
+
+也就是模型面对 chosen / rejected 的偏好分类时，几乎还在二选一随机状态。
+
+### 9.1 训练设置太保守
+
+这是最可能的直接原因。
+
+当前 DPO v1：
+
+| 项 | 值 |
+|---|---:|
+| dataset size | `146` pairs |
+| learning rate | `5e-7` |
+| epochs | `1` |
+| optimizer steps | `19` |
+| batch | `1` |
+| grad acc | `8` |
+
+对于一个 7B 模型上的 LoRA adapter 来说，这个更新强度非常弱。
+
+保守设置有合理动机：不想破坏 SFT v2 已经修好的事实能力。但结果说明它可能保守过头，连高置信偏好也没有明显学进去。
+
+### 9.2 偏好数据有用，但不够强
+
+DPO 对 pair 质量非常敏感。
+
+强 pair 应该长这样：
+
+| Prompt | Chosen | Rejected |
+|---|---|---|
+| Electric weak to? | Ground | Flying / Water / Grass |
+| Fire vs Rock? | Not very effective | Super-effective |
+| Thunderbolt effect? | Electric damage + may paralyze | `$effect_chance%` |
+
+这类 pair 的优点是：chosen 和 rejected 的差异明确、可验证、非风格化。
+
+弱 pair 则可能只是：
+
+- chosen 更长，rejected 更短；
+- chosen 更像解释，rejected 也不完全错；
+- rejected 只是缺字段，不是事实错误；
+- chosen 自身带有不够干净的额外信息。
+
+如果弱 pair 比例过高，DPO 就很难形成稳定、方向一致的更新。
+
+### 9.3 评测集太小，可能看不到局部收益
+
+这次仍然用 30 题固定评测集。
+
+它适合做工程闭环，但不适合证明 DPO 的全部收益或失败。
+
+可能出现这种情况：
+
+```text
+DPO 改善了某些偏好 pair 附近的输出，
+但这 30 题没有覆盖到；
+或者改善幅度太小，关键词 scorer 看不出来。
+```
+
+所以不能只根据 aggregate metric 否定 DPO。更准确的结论是：
+
+```text
+在当前 146 对 synthetic preference pairs、当前超参数、当前 30 题评测下，
+DPO v1 没有产生可见收益。
+```
+
+## 10) DPO 不应该承担什么任务
+
+这次实验再次确认一个原则：
+
+```text
+SFT 负责把基础行为和领域知识学对；
+DPO 负责在“都能回答”的基础上偏向更好的回答。
+```
+
+DPO 不适合用来做大规模知识注入。
+
+如果模型不知道：
+
+- Electric 弱 Ground；
+- Ground 免疫 Electric；
+- Gyarados 是 Water/Flying；
+- Levitate 是 ability 而不是 move；
+
+那应该回到 SFT 数据、RAG 数据或基础知识源，而不是指望 DPO 靠少量 rejected answer 把知识补齐。
+
+<svg viewBox="0 0 1200 320" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="SFT 与 DPO 的职责边界">
+  <rect x="70" y="80" width="470" height="170" rx="16" fill="#dbeafe" stroke="#2563eb" />
+  <text x="305" y="122" textAnchor="middle" fontSize="24" fill="#1e3a8a" fontWeight="600">SFT</text>
+  <text x="305" y="158" textAnchor="middle" fontSize="17" fill="#1e3a8a">学习领域事实、回答格式、基础规则</text>
+  <text x="305" y="190" textAnchor="middle" fontSize="15" fill="#1e3a8a">prompt → target answer</text>
+  <text x="305" y="222" textAnchor="middle" fontSize="15" fill="#1e3a8a">适合修：知识缺失、模板污染、字段缺失</text>
+
+  <rect x="660" y="80" width="470" height="170" rx="16" fill="#fae8ff" stroke="#a21caf" />
+  <text x="895" y="122" textAnchor="middle" fontSize="24" fill="#701a75" fontWeight="600">DPO</text>
+  <text x="895" y="158" textAnchor="middle" fontSize="17" fill="#701a75">学习偏好排序、拒绝坏答案、稳定风格</text>
+  <text x="895" y="190" textAnchor="middle" fontSize="15" fill="#701a75">prompt + chosen + rejected</text>
+  <text x="895" y="222" textAnchor="middle" fontSize="15" fill="#701a75">适合修：二选一偏好、明显坏输出、回答质量排序</text>
+
+  <text x="600" y="286" textAnchor="middle" fontSize="18" fill="#374151">
+    如果 SFT 还没学对事实，DPO 只会把问题包装得更像“偏好问题”。
+  </text>
+</svg>
+
+## 11) 下一步：先做 overfit sanity test
+
+现在不应该直接扩到几千条 DPO 数据。更好的下一步是先做一个 overfit sanity test。
+
+目标：
+
+```text
+验证当前 DPO 实现和超参数是否能让 adapter 真的移动。
+```
+
+建议设置：
+
+| 项 | 建议 |
+|---|---|
+| pair 数 | `20-40` |
+| pair 类型 | 高置信事实纠错 |
+| learning rate | `1e-6` 到 `5e-6` |
+| epochs | `3-5` |
+| generation | deterministic |
+
+选择 pair 时优先满足：
+
+1. chosen 明确正确；
+2. rejected 明确错误；
+3. 差异不是单纯语气或长度；
+4. rejected 包含事实错误、placeholder、方向混淆或关键字段缺失；
+5. prompt 与 eval failure 有直接关系。
+
+预期结果分三种：
+
+| 结果 | 解释 | 下一步 |
+|---|---|---|
+| loss 仍停在 `0.6931`，margin 仍为 `0` | 实现、adapter trainability 或超参数有问题 | 查 TRL / PEFT adapter 交互 |
+| margin 能拉开，但 30 题不变 | 训练能动，但评测覆盖或数据覆盖不足 | 扩评测、扩高质量 pair |
+| margin 能拉开，目标题输出改善 | DPO 链路有效 | 构建 DPO v2 |
+
+## 12) DPO v2 应该怎么做
+
+DPO v2 不应该追求“大而杂”，应该追求“小而硬”。
+
+建议目标：
+
+```text
+300-800 对高置信 preference pairs
+```
+
+数据分层：
+
+| Layer | 用途 |
+|---|---|
+| factual correction | 修事实错误，例如类型、技能、进化 |
+| rule reasoning | 修类型克制、免疫、双属性倍率 |
+| semi-structured | 修字段缺失、profile 顺序、comparison |
+| style control | 修 flavor text 泄漏、啰嗦、答非所问 |
+
+同时每条数据最好保留：
+
+```text
+category
+source
+error_bucket
+confidence
+```
+
+这样评估时就能回答更细的问题：
+
+- DPO 是否真的改善 type chart reasoning；
+- 是否只改善了 style；
+- 是否牺牲 factoid accuracy；
+- 是否把回答变短但漏了字段；
+- 是否降低 hallucination。
+
+## 13) 当前关键路径
+
+```text
+SFT_DPO/data/pokemon_dpo_v1.jsonl
+SFT_DPO/DPO_DATASET_CARD.md
+SFT_DPO/DPO_V1_ANALYSIS.md
+SFT_DPO/configs/dpo_qwen25_7b_lora_v1.yaml
+SFT_DPO/src/build_dpo_dataset.py
+SFT_DPO/src/train_dpo.py
+SFT_DPO/src/modal_dpo.py
+SFT/outputs/eval_scored_dpo_v1.json
+```
+
+## 14) 一句话总结
+
+DPO v1 的价值不是“让 Pokemon Qwen 立刻变强”，而是证明了从 SFT v2 adapter、偏好数据、TRL DPOTrainer、Modal A100 训练到固定评估的链路已经打通；真正的问题转向了更核心的部分：**偏好数据是否足够硬，训练信号是否足够强，评测是否足够敏感。**
+
+下一步不该盲目扩大训练，而应该先用 `20-40` 条高置信 pair 做 overfit sanity test。只有当 loss、reward margin 和目标输出都能动起来，DPO v2 才值得扩大到 `300-800` 条高质量偏好数据。

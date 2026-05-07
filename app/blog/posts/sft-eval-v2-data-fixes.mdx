@@ -1,0 +1,510 @@
+---
+title: 'pokemon qwen 微调系列（三）：SFT 评估复盘：从 v1 退化到 v2 修复'
+publishedAt: '2026-04-28'
+summary: '用固定 30 题评测集定位 SFT v1 退化，再通过数据重建、质量门禁和同集复评验证 SFT v2 如何超过 base。'
+draft: false
+image: '/static/blog/pokemon-chat-series/sft-eval-v2-cover.svg'
+tags: [LLM, SFT, Evaluation]
+---
+
+<PaperCard
+  title="本篇关注的核心内容"
+  description="固定评估、错误分桶、数据重建、质量门禁，以及 SFT v2 的同集复评结果。"
+/>
+
+这篇只讲训后评估、数据重建和 SFT v2 复盘，不讲新的训练框架。目标是把“模型训完了”这件事，变成**可判断、可定位、可修复**的工程闭环。
+
+上一篇里，`E:/Pokemon-data/SFT` 的 QLoRA 训练链路已经跑通；但训练跑通不等于模型已经学对。真正推动这一轮迭代的，不是 `train_loss`，而是训后评估给出的反直觉结论：**SFT v1 比 base 更差。**
+
+> 系列导航：上一篇见 **[pokemon qwen 微调系列（二）：SFT 训练实战](/blog/sft-training-qlora-modal)**。Runtime 系统实现可从 **[pokemon agent runtime 系列（一）：系统设计全景图](/blog/pokemon-chat-overview)** 开始读。
+
+## TL;DR
+
+| 问题 | 结论 | 证据 |
+|---|---|---|
+| 训练跑完是否代表模型变好 | 不代表，需要单独做 `base vs SFT` 评估 | `eval_loss` 不能直接证明事实和规则正确 |
+| SFT v1 是否有效 | 没有，整体低于 base | Accuracy: base `50.0%`，SFT v1 `40.0%` |
+| 退化来自哪里 | 不是随机噪声，而是少数可修错误桶 | 模板污染、类型方向混淆、flavor text 过拟合、字段化失败 |
+| v2 做了什么 | 重新搜索、重建、过滤 SFT 数据 | `SFT_v2/data/datasets/sft_v2/*`，共 `10000` 条样本 |
+| v2 是否修复 | 是，超过 base，幻觉率下降 | Accuracy `63.3%`，hallucination `36.7%` |
+| 下一轮该补什么 | 继续补规则应用 | `Levitate` / immunity / dual-type reasoning |
+
+<svg viewBox="0 0 1200 280" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="SFT 评估与第二轮优化闭环">
+  <defs>
+    <marker id="arr-eval-v2" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#1f2937" />
+    </marker>
+  </defs>
+
+  <rect x="28" y="92" width="180" height="90" rx="12" fill="#dbeafe" stroke="#2563eb" />
+  <text x="118" y="124" textAnchor="middle" fontSize="21" fill="#1e3a8a">训练完成</text>
+  <text x="118" y="152" textAnchor="middle" fontSize="15" fill="#1e3a8a">adapter + loss</text>
+
+  <rect x="248" y="92" width="180" height="90" rx="12" fill="#dcfce7" stroke="#16a34a" />
+  <text x="338" y="124" textAnchor="middle" fontSize="21" fill="#14532d">固定评估</text>
+  <text x="338" y="152" textAnchor="middle" fontSize="15" fill="#14532d">30 prompts</text>
+
+  <rect x="468" y="92" width="180" height="90" rx="12" fill="#fef3c7" stroke="#d97706" />
+  <text x="558" y="124" textAnchor="middle" fontSize="21" fill="#78350f">错误分桶</text>
+  <text x="558" y="152" textAnchor="middle" fontSize="15" fill="#78350f">data bugs</text>
+
+  <rect x="688" y="92" width="180" height="90" rx="12" fill="#fae8ff" stroke="#a21caf" />
+  <text x="778" y="124" textAnchor="middle" fontSize="21" fill="#701a75">数据重建</text>
+  <text x="778" y="152" textAnchor="middle" fontSize="15" fill="#701a75">quality gates</text>
+
+  <rect x="908" y="92" width="260" height="90" rx="12" fill="#fee2e2" stroke="#dc2626" />
+  <text x="1038" y="124" textAnchor="middle" fontSize="21" fill="#7f1d1d">同集复评</text>
+  <text x="1038" y="152" textAnchor="middle" fontSize="15" fill="#7f1d1d">v2 result + next patch</text>
+
+  <line x1="208" y1="137" x2="244" y2="137" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr-eval-v2)" />
+  <line x1="428" y1="137" x2="464" y2="137" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr-eval-v2)" />
+  <line x1="648" y1="137" x2="684" y2="137" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr-eval-v2)" />
+  <line x1="868" y1="137" x2="904" y2="137" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr-eval-v2)" />
+</svg>
+
+## 1) 训练跑完以后，为什么还要单独评估
+
+训练脚本顺利结束、`eval_loss` 下降，只说明模型更贴近训练分布；它不能直接回答另一个问题：模型有没有把领域事实、输出格式和规则应用学对。
+
+所以这次我没有直接进入下一种 post-training 方法，而是先固定一套小评测集，做 `base vs SFT` 对比。核心文件如下：
+
+- 固定评测集：`SFT/eval/pokemon_eval_30.jsonl`
+- v1 原始输出：`output/eval_run.json`
+- v1 评分结果：`output/eval_scored.json`
+- v2 原始输出：`output/eval_run_v2.json`
+- v2 评分结果：`output/eval_scored_v2.json`
+
+这套评估只有 `30` 题，不是最终 benchmark。它的价值在于三点：
+
+1. 题量小，人工可复核；
+2. 题目固定，`base / v1 / v2` 可以用同一把尺子；
+3. 每题有 `scoring_rule`，失败后能继续定位原因。
+
+具体流程分成五步。
+
+### 1.1 固定题目和判分规则
+
+评测集不是训练完以后临时想题，而是先固定成 `pokemon_eval_30.jsonl`。每条样本至少包含：
+
+```text
+id
+category
+prompt
+reference_answer
+scoring_rule
+```
+
+这里最重要的是 `scoring_rule`。它不是一段标准答案，而是这道题的通过条件。例如：
+
+```text
+Correct if the answer identifies Ground as the weakness and does not add false weaknesses.
+```
+
+这能避免一种常见误判：模型说到了正确点，但又额外编了错误信息。对这类回答，我不会只因为它“沾到关键词”就算对。
+
+### 1.2 同一批 prompt 分别喂给 base 和 SFT
+
+生成阶段只做一件事：让 `base` 和当前 SFT adapter 回答同一批 `prompt`，然后把原始输出落盘。
+
+v1 对应：
+
+```text
+output/eval_run.json
+```
+
+v2 对应：
+
+```text
+output/eval_run_v2.json
+```
+
+这个阶段不急着算分，只保留原始证据。每条记录会变成类似结构：
+
+```text
+prompt
+reference_answer
+scoring_rule
+base_output
+sft_output
+```
+
+也就是说，先把“模型实际说了什么”固定下来，再进入判分。这样后面如果发现评分口径有问题，也能回到同一份 raw output 复查，而不是重新生成一批不可比的答案。
+
+### 1.3 用确定性脚本补充 correctness、hallucination 和 winner
+
+这里不是让另一个 AI judge 来打分，而是用一个确定性 Python scorer 补字段。脚本在第一轮项目里：
+
+```text
+E:/Pokemon-data/SFT/src/score_eval.py
+```
+
+它把每题拆成三组规则：
+
+| 规则 | 作用 |
+|---|---|
+| `REQUIRED_MARKERS` | 答案必须包含的关键标记 |
+| `OPTIONAL_ACCEPT` | 可接受的等价表达组合 |
+| `FALSE_MARKERS` | 一旦出现就判错的错误标记 |
+
+例如 Electric 弱点题要求出现 `ground`；Charizard 类型题要求同时出现 `fire` 和 `flying`；如果 Electric 弱点题里出现 `flying / water / grass` 这类错误弱点，就会触发 false marker。
+
+判分阶段会对 `base_output` 和 `sft_output` 分别补三个核心判断。
+
+| 字段 | 含义 |
+|---|---|
+| `base_correct` / `sft_correct` | 是否通过该题的 required / optional markers，并且没有 false markers |
+| `base_hallucination` / `sft_hallucination` | 是否没有通过规则，或命中 false markers / `$effect_chance` |
+| `winner` | 本题是 `base` 更好、`sft` 更好、`tie`，还是 `neither` |
+
+脚本里的核心逻辑可以简化成：
+
+```text
+correct = contains_required_or_optional_markers and not contains_false_markers
+hallucination = not correct or contains_false_markers or contains "$effect_chance"
+```
+
+`winner` 也由布尔结果确定：
+
+- `sft_correct=True` 且 `base_correct=False` -> `sft`；
+- `base_correct=True` 且 `sft_correct=False` -> `base`；
+- 两边都 correct -> `tie`；
+- 两边都不 correct -> `neither`。
+
+所以这套评估的优点是可复现、可 diff、不会受 AI judge 随机性影响；缺点是规则偏关键词匹配，对长答案的表达质量判断比较粗，需要人工复核典型失败样例。
+
+最终评分文件会补齐这些字段：
+
+```text
+base_correct
+sft_correct
+base_hallucination
+sft_hallucination
+winner
+notes
+```
+
+### 1.4 汇总总体指标和分类指标
+
+有了逐题结构化结果以后，才汇总成总表。`output/eval_scored_v2.json` 里最上层会有：
+
+```text
+summary.total
+summary.scored
+summary.base_accuracy
+summary.sft_accuracy
+summary.base_hallucination_rate
+summary.sft_hallucination_rate
+winner_counts
+by_category
+```
+
+这一步会同时看三类结果：
+
+1. 总体 accuracy：模型答对多少题；
+2. hallucination rate：模型编错事实的比例；
+3. winner counts：逐题对比谁更好。
+
+只看 accuracy 不够，因为一个模型可能“答对更多”，但错误时更爱编；只看 hallucination 也不够，因为它可能很保守但没解决问题。`winner_counts` 则补充了逐题相对质量，比如 v2 里：
+
+```text
+base: 3
+sft: 7
+tie: 12
+neither: 8
+```
+
+分类指标同样重要。`by_category` 会把 `factoid / semi_structured / long_form / reasoning` 分开算，这也是后面能定位 `semi_structured` 退化、`reasoning` 仍需补强的原因。
+
+### 1.5 这套评估的边界
+
+这套评估适合做迭代闭环，但不能过度解读。
+
+它能回答：
+
+- v1/v2 相比 base 是否有净收益；
+- 哪类任务退化最严重；
+- 失败样例集中在哪些错误桶；
+- 数据修复后，同一把尺子下是否真的改善。
+
+它不能回答：
+
+- 模型在所有 Pokemon 问题上的真实泛化上限；
+- 开放长答案的全部主观质量；
+- 多轮对话、工具调用或线上流量中的完整表现。
+
+所以我对它的定位一直是：**一把稳定、可重复、足够敏感的工程尺子**。它不是最终权威分数，而是用来驱动下一轮数据修复的调试工具。
+
+## 2) 这 30 题到底在测什么
+
+评测集按任务形态拆成四类：
+
+| 类别 | 数量 | 主要考察内容 |
+|---|---:|---|
+| `factoid` | 10 | 属性、技能、进化、能力定义等短事实 |
+| `semi_structured` | 8 | profile、列表、比较、字段化回答 |
+| `long_form` | 6 | 几句话解释概念或角色 |
+| `reasoning` | 6 | 类型克制、免疫、双属性、能力交互 |
+
+Pokemon 问答表面上像知识库检索，实际至少混着三类能力：
+
+```text
+事实：Pikachu is Electric.
+格式：Type / Weaknesses / Abilities / Key traits
+规则应用：Gyarados is Water/Flying, so Electric is 4x effective.
+```
+
+如果只测短事实，模型很容易“看起来没坏”。但真正容易出问题的，往往是后两类：要求字段化输出时漏字段，要求规则应用时把攻击方、防守方和双属性倍率混在一起。
+
+这也是为什么评估要先出原始答案，再按逐题规则判分。比如：
+
+```text
+What is the Electric type weak to?
+-> Correct if the answer identifies Ground as the weakness and does not add false weaknesses.
+
+Fire strong against Rock?
+-> Correct if it answers no and explains Fire is resisted by Rock.
+
+Would an Electric-type move be good against Gyarados? Why?
+-> Correct if it concludes yes and identifies Gyarados as highly vulnerable to Electric.
+```
+
+这里的关键不是“让脚本跑出一个分数”本身，而是每题的通过条件要提前写清楚。否则模型一旦答对一半又补了假信息，很容易被总印象掩盖。
+
+## 3) v1 的关键结论：SFT 把模型训退化了
+
+第一轮 SFT v1 的评分结果如下：
+
+| 指标 | Base | SFT v1 |
+|---|---:|---:|
+| Accuracy | 50.0% | 40.0% |
+| Hallucination rate | 50.0% | 60.0% |
+
+按类别拆开看，退化更明显：
+
+| 类别 | Base accuracy | SFT v1 accuracy |
+|---|---:|---:|
+| `factoid` | 60.0% | 60.0% |
+| `semi_structured` | 37.5% | 12.5% |
+| `reasoning` | 50.0% | 33.3% |
+| `long_form` | 50.0% | 50.0% |
+
+这个结果已经足够说明：SFT v1 没有带来净收益。它让回答更短、更像模板，但事实准确率和幻觉率反而更差，尤其是 `semi_structured` 和 `reasoning`。
+
+所以当时最重要的判断不是“调一下学习率再试一轮”，而是：
+
+```text
+先别 DPO，先查数据。
+```
+
+如果 SFT 已经把基础事实和规则训偏了，继续在这个分布上做偏好塑形，只会让问题更难看见。
+
+## 4) 错误分桶：退化不是随机噪声
+
+v1 最有价值的不是 `40.0%` 这个分数，而是它把失败样例压缩成了少数几个可修的错误桶。
+
+### 4.1 `$effect_chance%` 模板污染
+
+症状是技能效果回答里出现未解析的 PokeAPI 占位符：
+
+```text
+Thunderbolt -> Has a $effect_chance% chance to paralyze the target.
+```
+
+这不是模型“推理错了”，而是训练数据里可能已经存在坏模板。v2 的修法直接落在数据生成层：
+
+- 在 `E:/Pokemon-data/SFT_v2/src/pokemon_data/parsers/pokeapi.py` 里用 `_resolve_effect_chance` 解析 `effect_chance`；
+- 有数值时替换 `$effect_chance%`；
+- 没有数值时丢弃仍含占位符的 effect text；
+- 在质量过滤阶段拒绝含 `$effect_chance` 的样本。
+
+### 4.2 类型克制和防守弱点方向混淆
+
+v1 在属性问题上出现过这类错误：
+
+```text
+Electric weak to? -> flying, water, grass
+Fire strong against Rock? -> Yes, Fire is strong against Rock.
+```
+
+这里的问题不是 Pokemon 规则太复杂，而是数据生成时没有严格区分三件事：
+
+1. 攻击方打谁有效；
+2. 防守方怕什么；
+3. 双属性叠加后倍率怎么变。
+
+v2 因此在 `E:/Pokemon-data/SFT_v2/src/pokemon_data/datasets/sft.py` 里改成基于 canonical type chart 生成样本，并显式生成 attacking effectiveness、defensive profile、weakness summary，而不是从自然语言描述里猜。
+
+### 4.3 flavor text 过拟合
+
+v1 在开放问题上很容易复述 Pokedex flavor text。比如要求 `summary / profile / comparison` 时，它有时不是回答问题本身，而是输出 lore 片段。
+
+v2 没有把 flavor text 全删掉，而是重新限定它的边界：
+
+- 明确询问 Pokedex 描述时可以使用；
+- profile、summary、comparison 优先使用结构化字段；
+- 降低 flavor/lore 样本占比；
+- 对比较题避免只复制某一个 Pokemon 的描述。
+
+### 4.4 `semi_structured` 字段化能力退化
+
+`semi_structured` 是 v1 最大退化点：
+
+```text
+base: 37.5%
+sft_v1: 12.5%
+```
+
+典型症状是漏字段、只回答一半、把类型和弱点写混，或者用短碎片代替完整 profile。v2 专门补了字段化模板：
+
+```text
+Type: ...
+Weaknesses: ...
+Abilities: ...
+Key traits: ...
+```
+
+这类改动不花哨，但很关键：模型必须先学会这一类问题应该怎么答，再谈更复杂的风格和推理。
+
+## 5) v2 的核心工作：重新搜索、重建和过滤数据
+
+第二轮我没有在原流程上继续堆 patch，而是把数据生成代码、测试和产物隔离到 `E:/Pokemon-data/SFT_v2`：
+
+```text
+SFT_v2/
+├── src/pokemon_data/
+├── tests/
+└── data/datasets/sft_v2/
+```
+
+v2 的数据文件包括：
+
+```text
+SFT_v2/data/datasets/sft_v2/pokemon_sft_hq_v2.chat.train.jsonl
+SFT_v2/data/datasets/sft_v2/pokemon_sft_hq_v2.chat.val.jsonl
+SFT_v2/data/datasets/sft_v2/pokemon_sft_hq_v2.chat.test.jsonl
+SFT_v2/data/datasets/sft_v2/pokemon_sft_hq_v2.chat.DATASET_CARD.md
+```
+
+数据规模仍然是 `10000` 条，但重点不是“越多越好”，而是让样本更可验证、更贴近失败类别。
+
+| Kind | Count | Share |
+|---|---:|---:|
+| `factoid` | 2700 | 27.0% |
+| `semi_structured` | 2420 | 24.2% |
+| `reasoning` | 2311 | 23.1% |
+| `long_form` | 1469 | 14.7% |
+| `summary` | 600 | 6.0% |
+| `structured` | 300 | 3.0% |
+| `multi_turn` | 200 | 2.0% |
+
+这个分布最重要的地方是：v2 不是平均增强，而是把权重主动挪向 v1 失败最明显的 `semi_structured` 和 `reasoning`。
+
+## 6) 质量门禁：把坏样本挡在训练前
+
+v2 的质量门禁主要分三层。
+
+第一层是解析阶段，把明显的源数据占位符处理掉：
+
+- `E:/Pokemon-data/SFT_v2/src/pokemon_data/parsers/pokeapi.py`
+- `_resolve_effect_chance`
+
+第二层是样本生成阶段，让关键事实来自可计算规则：
+
+- `E:/Pokemon-data/SFT_v2/src/pokemon_data/datasets/sft.py`
+- canonical type chart
+- `_attack_multiplier`
+- `_defensive_profile`
+- `_weakness_summary`
+- conclusion-first reasoning templates
+
+第三层是质量过滤阶段，把坏样本挡在训练前：
+
+- `E:/Pokemon-data/SFT_v2/src/pokemon_data/datasets/quality.py`
+- 拒绝 unresolved template
+- exact / near duplicate 去重
+- 按 `semi_structured`、`reasoning`、`factoid` 等类别做优先级和比例控制
+
+回归测试也被补上了：
+
+```bash
+conda run -n py3_11 pytest E:/Pokemon-data/SFT_v2/tests
+```
+
+测试结果：
+
+```text
+28 passed
+```
+
+数据抽查结果：
+
+```text
+$effect_chance occurrences: 0
+```
+
+很多训练退化不是因为训练技巧不够先进，而是因为一类坏模板、一组错误规则、一种风格混写进入了训练集。v2 的核心就是先把这些入口关上。
+
+## 7) v2 训练没有魔法，收益主要来自数据
+
+v2 的训练配置没有换成新路线，仍然是 `Qwen/Qwen2.5-7B-Instruct` + QLoRA。关键参数如下：
+
+| 参数 | 值 |
+|---|---|
+| Base model | `Qwen/Qwen2.5-7B-Instruct` |
+| Method | QLoRA |
+| Quantization | `4-bit NF4 + double quant` |
+| Epochs | `2` |
+| Max sequence length | `1024` |
+| Batch size | `1` |
+| Gradient accumulation | `16` |
+| Learning rate | `2e-4` |
+| LoRA | `r=16, alpha=32, dropout=0.05` |
+| GPU | `A100` |
+| Seed | `42` |
+
+训练产物里能看到：
+
+```text
+train_runtime: 7875s
+train_loss: 0.5715
+final eval_loss: 0.5253
+```
+
+这里最重要的观察不是 loss 本身，而是：v2 的收益主要来自更干净、更对题的数据，而不是训练技巧换代。
+
+## 8) 同一套题复评：v2 超过 base
+
+v2 继续使用同一套 30 题评测集，并用同一个 scoring 口径复评。结果如下：
+
+| 指标 | Base | SFT v1 | SFT v2 |
+|---|---:|---:|---:|
+| Accuracy | 50.0% | 40.0% | 63.3% |
+| Hallucination rate | 50.0% | 60.0% | 36.7% |
+| `semi_structured` accuracy | 37.5% | 12.5% | 50.0% |
+| `reasoning` accuracy | 50.0% | 33.3% | 50.0% |
+| `long_form` accuracy | 50.0% | 50.0% | 100.0% |
+
+Winner counts 也支持这个结论：
+
+| Winner | SFT v1 | SFT v2 |
+|---|---:|---:|
+| Base | 9 | 3 |
+| SFT | 6 | 7 |
+| Tie | 6 | 12 |
+| Neither | 9 | 8 |
+
+这组结果最重要的不是某个单项特别夸张，而是几个信号同时成立：
+
+- 总体 accuracy 高于 base；
+- hallucination rate 低于 base；
+- `semi_structured` 从最大退化点回到 `50.0%`；
+- `long_form` 到 `100.0%`；
+- `reasoning` 至少不再低于 base。
+
+也就是说，v2 不是只修掉了几个 case，而是把整体方向从“训退化”拉回了“有净收益”。
+
+## 总结
+
+这次 `E:/Pokemon-data/SFT_v2` 的关键收获，不是某个单独指标涨了多少，而是把 **评估 -> 错误分桶 -> 数据修复 -> 质量门禁 -> 同集复评** 这条闭环跑通了。
+
+当 SFT 结果变差时，优先检查数据生成、任务分布和质量门禁，往往比更早切换到 DPO 更有效；v2 从低于 base 的 `40.0%` 回到 `63.3%`，就是这个判断最直接的证据。

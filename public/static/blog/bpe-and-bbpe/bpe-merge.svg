@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="560" viewBox="0 0 960 560" role="img" aria-labelledby="title desc">
+	<title id="title">BPE 合并过程示意</title>
+	<desc id="desc">以 low / lower / newest / widest 为例，展示 BPE 如何从字符序列出发，按相邻字符对频次反复合并出子词。</desc>
+	<defs>
+		<linearGradient id="bg2" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0" stop-color="#0b1120" />
+			<stop offset="1" stop-color="#1e293b" />
+		</linearGradient>
+	</defs>
+	<rect width="960" height="560" rx="28" fill="url(#bg2)" />
+
+	<text x="40" y="58" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="700" fill="#f8fafc">BPE 合并最频繁的相邻字符对</text>
+	<text x="40" y="90" font-family="Inter, Arial, sans-serif" font-size="16" fill="#94a3b8">语料：low ×5 · lower ×2 · newest ×6 · widest ×3</text>
+
+	<g font-family="JetBrains Mono, Consolas, monospace" font-size="18">
+		<text x="40" y="150" fill="#cbd5e1" font-weight="600">Step 0 · 字符拆分</text>
+		<text x="40" y="180" fill="#e2e8f0">n e w e s t  · w i d e s t  · l o w e r  · l o w</text>
+
+		<text x="40" y="240" fill="#cbd5e1" font-weight="600">Step 1 · 合并 (e, s) → es　频次 9</text>
+		<text x="40" y="270" fill="#e2e8f0">n e w <tspan fill="#fbbf24">es</tspan> t  · w i d <tspan fill="#fbbf24">es</tspan> t  · l o w e r  · l o w</text>
+
+		<text x="40" y="330" fill="#cbd5e1" font-weight="600">Step 2 · 合并 (es, t) → est　频次 9</text>
+		<text x="40" y="360" fill="#e2e8f0">n e w <tspan fill="#22d3ee">est</tspan>  · w i d <tspan fill="#22d3ee">est</tspan>  · l o w e r  · l o w</text>
+
+		<text x="40" y="420" fill="#cbd5e1" font-weight="600">Step 3 · 合并 (l, o) → lo　频次 7</text>
+		<text x="40" y="450" fill="#e2e8f0">n e w est  · w i d est  · <tspan fill="#a78bfa">lo</tspan> w e r  · <tspan fill="#a78bfa">lo</tspan> w</text>
+
+		<text x="40" y="510" fill="#cbd5e1" font-weight="600">…直到达到目标词表大小</text>
+	</g>
+
+	<g transform="translate(640 130)" font-family="Inter, Arial, sans-serif" font-size="14" fill="#cbd5e1">
+		<rect width="280" height="380" rx="14" fill="rgba(15,23,42,0.55)" stroke="rgba(148,163,184,0.3)" />
+		<text x="20" y="36" font-size="18" font-weight="700" fill="#f8fafc">最终词表组成</text>
+		<g transform="translate(20 70)">
+			<circle cx="8" cy="-4" r="6" fill="#fb7185" />
+			<text x="22" y="0">高频整词　low / est</text>
+		</g>
+		<g transform="translate(20 110)">
+			<circle cx="8" cy="-4" r="6" fill="#22d3ee" />
+			<text x="22" y="0">高频子串　lo / es / est</text>
+		</g>
+		<g transform="translate(20 150)">
+			<circle cx="8" cy="-4" r="6" fill="#a78bfa" />
+			<text x="22" y="0">兜底字符　l o w e r ...</text>
+		</g>
+
+		<text x="20" y="220" font-size="18" font-weight="700" fill="#f8fafc">推理（编码）</text>
+		<text x="20" y="252" fill="#94a3b8">按训练时记录的</text>
+		<text x="20" y="272" fill="#94a3b8">合并顺序逐条尝试</text>
+		<text x="20" y="312" font-family="JetBrains Mono, Consolas, monospace" fill="#bae6fd">lowest</text>
+		<text x="20" y="334" font-family="JetBrains Mono, Consolas, monospace" fill="#bae6fd">→ l o w e s t</text>
+		<text x="20" y="356" font-family="JetBrains Mono, Consolas, monospace" fill="#bae6fd">→ low est</text>
+	</g>
+</svg>

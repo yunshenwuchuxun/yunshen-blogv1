@@ -8,7 +8,7 @@
 
   <rect width="1200" height="630" rx="32" fill="url(#bg)"/>
 
-  <text x="90" y="118" fill="#BFDBFE" font-size="28" font-family="Arial, sans-serif">pokemon-chat-esc 系列（三）</text>
+  <text x="90" y="118" fill="#BFDBFE" font-size="28" font-family="Arial, sans-serif">pokemon agent runtime 系列（三）</text>
   <text x="90" y="208" fill="white" font-size="56" font-weight="700" font-family="Arial, sans-serif">本地直答、缓存与 RAG 主链</text>
   <text x="90" y="264" fill="#DBEAFE" font-size="24" font-family="Arial, sans-serif">Request → short-circuit layers → retrieval augmentation → streaming response</text>
 

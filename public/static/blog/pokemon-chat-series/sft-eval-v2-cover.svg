@@ -1,0 +1,104 @@
+<svg width="1600" height="900" viewBox="0 0 1600 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1600" y2="900" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8FAFC"/>
+      <stop offset="1" stop-color="#EEF2FF"/>
+    </linearGradient>
+    <linearGradient id="card1" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#DBEAFE"/>
+      <stop offset="1" stop-color="#BFDBFE"/>
+    </linearGradient>
+    <linearGradient id="card2" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#DCFCE7"/>
+      <stop offset="1" stop-color="#BBF7D0"/>
+    </linearGradient>
+    <linearGradient id="card3" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#FCE7F3"/>
+      <stop offset="1" stop-color="#FBCFE8"/>
+    </linearGradient>
+    <linearGradient id="card4" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#FEE2E2"/>
+      <stop offset="1" stop-color="#FECACA"/>
+    </linearGradient>
+    <filter id="shadow" x="0" y="0" width="1600" height="900" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#0F172A" flood-opacity="0.08"/>
+    </filter>
+  </defs>
+
+  <rect width="1600" height="900" fill="url(#bg)"/>
+
+  <circle cx="1360" cy="120" r="180" fill="#E0E7FF" opacity="0.55"/>
+  <circle cx="180" cy="760" r="220" fill="#DBEAFE" opacity="0.45"/>
+
+  <text x="120" y="170" fill="#2563EB" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="700">
+    pokemon qwen 微调系列（三）
+  </text>
+
+  <text x="120" y="255" fill="#0F172A" font-family="Inter, Arial, sans-serif" font-size="68" font-weight="800">
+    SFT 评估复盘
+  </text>
+
+  <text x="120" y="332" fill="#334155" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="500">
+    从 v1 退化定位，到 v2 修回超过 base
+  </text>
+
+  <g filter="url(#shadow)">
+    <rect x="118" y="412" rx="28" ry="28" width="1364" height="310" fill="white"/>
+  </g>
+
+  <rect x="170" y="470" width="250" height="150" rx="24" fill="url(#card1)"/>
+  <text x="295" y="525" text-anchor="middle" fill="#1E3A8A" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="800">
+    固定评测
+  </text>
+  <text x="295" y="565" text-anchor="middle" fill="#1E40AF" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="500">
+    30 prompts
+  </text>
+  <text x="295" y="602" text-anchor="middle" fill="#1E40AF" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="500">
+    base vs SFT
+  </text>
+
+  <rect x="485" y="470" width="250" height="150" rx="24" fill="url(#card2)"/>
+  <text x="610" y="525" text-anchor="middle" fill="#166534" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="800">
+    错误分桶
+  </text>
+  <text x="610" y="565" text-anchor="middle" fill="#166534" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="500">
+    template / type
+  </text>
+  <text x="610" y="602" text-anchor="middle" fill="#166534" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="500">
+    / style
+  </text>
+
+  <rect x="800" y="470" width="250" height="150" rx="24" fill="url(#card3)"/>
+  <text x="925" y="525" text-anchor="middle" fill="#9D174D" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="800">
+    数据修复
+  </text>
+  <text x="925" y="565" text-anchor="middle" fill="#9D174D" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="500">
+    quality gates
+  </text>
+  <text x="925" y="602" text-anchor="middle" fill="#9D174D" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="500">
+    reasoning patch
+  </text>
+
+  <rect x="1115" y="470" width="250" height="150" rx="24" fill="url(#card4)"/>
+  <text x="1240" y="525" text-anchor="middle" fill="#991B1B" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="800">
+    同集复评
+  </text>
+  <text x="1240" y="565" text-anchor="middle" fill="#991B1B" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="500">
+    Accuracy
+  </text>
+  <text x="1240" y="602" text-anchor="middle" fill="#991B1B" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700">
+    40.0% → 63.3%
+  </text>
+
+  <path d="M420 545H475" stroke="#475569" stroke-width="8" stroke-linecap="round"/>
+  <path d="M735 545H790" stroke="#475569" stroke-width="8" stroke-linecap="round"/>
+  <path d="M1050 545H1105" stroke="#475569" stroke-width="8" stroke-linecap="round"/>
+
+  <path d="M468 530L488 545L468 560" stroke="#475569" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M783 530L803 545L783 560" stroke="#475569" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M1098 530L1118 545L1098 560" stroke="#475569" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <text x="120" y="800" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="500">
+    30-prompt eval / data fixes / hallucination down / reasoning next
+  </text>
+</svg>

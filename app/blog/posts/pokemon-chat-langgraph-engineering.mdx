@@ -1,5 +1,5 @@
 ---
-title: 'pokemon agent 系列（九）：LangGraph 工程化实战'
+title: 'pokemon agent runtime 系列（七）：LangGraph 工程化实战'
 publishedAt: '2026-04-23T22:30:00'
 summary: '基于 pokemon agent 真实代码，系统拆解 LangGraph 的 tools 路由、runtime 执行、结构化 JSON 输出、memory 分层与上下文工程方法。'
 image: '/static/blog/pokemon-chat-series/langgraph-engineering-cover.svg'
@@ -8,12 +8,12 @@ tags: [AI, Agent, LangGraph, Engineering]
 ---
 
 <PaperCard
-	title="pokemon agent · Blog 9"
+	title="pokemon agent runtime · Runtime 7"
 	description="这篇文章是系列进阶篇：不再只讲“有 supervisor + workers”，而是专门讲清楚一个 LangGraph 项目在工程层面最关键的五件事：工具路由、运行时、结构化输出、记忆分层与上下文工程。"
 	links={[]}
 />
 
-> 系列导航：本文是 `pokemon agent` 系列最后一篇。本文负责回答：**一套 LangGraph 系统如何从“能跑”走到“可解释、可控、可维护”。**
+> 系列导航：上一篇见 **[pokemon agent runtime 系列（六）：Docker Compose 架构与服务分层](/blog/pokemon-chat-docker-architecture)**。本文是 `pokemon agent runtime` 系列最后一篇，负责回答：**一套 LangGraph 系统如何从“能跑”走到“可解释、可控、可维护”。**
 
 很多人第一次做 LangGraph，会在“跑通流程图”后停下来，觉得任务已经完成。  
 但真正决定系统质量的，往往不是 `StateGraph(...)` 这行代码，而是下面这些工程问题：
@@ -295,19 +295,102 @@ model_response = wrapped_structured_invoke(messages)
 
 ## 模块四：Memory 分层（状态记忆、线程记忆、缓存记忆、长期记忆）
 
-在这个项目里，memory 不是单点功能，而是分层设计：
+在这个项目里，memory 不是单点功能，而是分层设计。不同层解决的问题不同，生命周期也不同。
 
-1. **图内短期状态（AgentState）**  
-`src/graph/state.py` 的 `messages / next / allowed_workers / parallel_*`，负责一次图执行内共享状态。
+### 1. 图内短期状态：`AgentState`
 
-2. **会话线程状态（checkpointer + thread_id）**  
-`SupervisorAgent` 支持 `MemorySaver` 或 `SqliteSaver`，配合 `configurable.thread_id` 维护会话连续性。
+`src/graph/state.py` 的 `AgentState` 负责一次 LangGraph 执行过程中的共享状态。
 
-3. **语义缓存（Semantic Cache）**  
-`src/knowledge/cache/cache.py` 用 embedding 相似度复用回答，并通过 `model_provider/model_name/system_prompt_sha` 做命名空间隔离，防止错配复用。
+```python
+class AgentState(TypedDict, total=False):
+    messages: Required[Annotated[Sequence[BaseMessage], operator.add]]
+    next: Required[str]
+    allowed_workers: NotRequired[list[str]]
+    db_id: NotRequired[str]
+    forward_directly: NotRequired[bool]
+    parallel_workers: NotRequired[list[str]]
+    parallel_count: NotRequired[int]
+    parallel_done: NotRequired[int]
+```
 
-4. **长期记忆（可选 middleware）**  
-`src/agents/chat_agent.py` 中 `LongTermMemoryMiddleware` 可按 feature flag 注入，在模型前检索历史偏好，在模型后异步回写。
+这里的 `messages` 不只是聊天历史，也会承载 worker 产生的中间结果；`next` 决定下一步走向哪个节点；`allowed_workers` 把前端传来的能力约束带进图里；`parallel_*` 字段则用于记录并行派发的 worker 数量和完成状态。
+
+这一层 memory 的作用范围最短：**只服务于一次图执行**。它解决的是“当前这次任务走到哪里了、下一步该去哪”的问题。
+
+### 2. 会话线程状态：`checkpointer + thread_id`
+
+`SupervisorAgent` 在编译 workflow 时可以挂载 checkpointer，并在执行时传入 `thread_id`。
+
+```python
+config = {"configurable": {"thread_id": meta.get("thread_id", "default")}}
+
+async for event in self.graph.astream_events(input_state, config, version="v1"):
+    ...
+```
+
+`thread_id` 的意义是给 LangGraph 一个会话线程标识。只要后续请求继续使用同一个 `thread_id`，checkpointer 就能把这条线程上的状态连续起来。
+
+工程上通常会有两种选择：
+
+```python
+checkpointer = MemorySaver()
+# or
+checkpointer = SqliteSaver.from_conn_string("checkpoints.sqlite")
+
+workflow.compile(checkpointer=checkpointer, store=store)
+```
+
+`MemorySaver` 更适合本地开发或临时会话；`SqliteSaver` 更适合需要进程重启后仍能恢复的场景。这一层解决的是：**同一个会话线程中，跨请求如何保持连续性**。
+
+### 3. 语义缓存：`Semantic Cache`
+
+`src/knowledge/cache/cache.py` 的语义缓存不是保存“用户记忆”，而是复用相似问题的回答。
+
+典型流程可以理解成：
+
+```python
+query_embedding = embedding_model.embed_query(query)
+cache_hit = cache.search(
+    query_embedding,
+    model_provider=model_provider,
+    model_name=model_name,
+    system_prompt_sha=system_prompt_sha,
+)
+
+if cache_hit and cache_hit.score >= threshold:
+    return cache_hit.answer
+```
+
+这里最关键的不是 embedding 相似度本身，而是命名空间隔离：
+
+```python
+namespace = f"{model_provider}:{model_name}:{system_prompt_sha}"
+```
+
+如果模型、provider 或 system prompt 变了，即使用户问题很像，也不应该直接复用旧答案。否则就可能出现“相似问题命中缓存，但回答风格或约束来自另一套配置”的错配问题。
+
+所以这一层 memory 的本质是：**跨会话复用计算结果，但必须防止跨模型、跨 prompt 的错误复用**。
+
+### 4. 长期记忆：可选 middleware
+
+`src/agents/chat_agent.py` 中的 `LongTermMemoryMiddleware` 是可选能力，通常按 feature flag 注入。
+
+它和 checkpointer 不同：checkpointer 维护的是会话线程状态，长期记忆维护的是用户偏好、历史事实或可复用背景。
+
+可以把它理解成两个阶段：
+
+```python
+# before model
+memories = memory_store.search(user_id=user_id, query=query)
+messages = inject_memories(messages, memories)
+
+# after agent
+memory_store.save_async(user_id=user_id, messages=messages, answer=answer)
+```
+
+模型调用前，它检索相关长期记忆并注入上下文；模型调用后，它再异步回写新的可记忆信息。
+
+这一层的关键是“可选”和“异步”：不是每次对话都必须启用长期记忆，也不应该让长期记忆写入阻塞主回答链路。它解决的是：**跨会话、跨任务的长期偏好和背景复用**。
 
 ### Memory 分层图
 

@@ -6,7 +6,7 @@
     </linearGradient>
   </defs>
   <rect width="1200" height="630" rx="32" fill="url(#bg)"/>
-  <text x="90" y="130" fill="#BBF7D0" font-size="28" font-family="Arial, sans-serif">pokemon-chat-esc 系列（五）</text>
+  <text x="90" y="130" fill="#BBF7D0" font-size="28" font-family="Arial, sans-serif">pokemon agent runtime 系列（五）</text>
   <text x="90" y="220" fill="white" font-size="56" font-weight="700" font-family="Arial, sans-serif">配置热切换与运行时覆盖</text>
   <text x="90" y="278" fill="#DCFCE7" font-size="28" font-family="Arial, sans-serif">.env → ui_config.json → feature_enabled() → runtime reset</text>
   <rect x="120" y="360" width="960" height="110" rx="24" fill="#0B1220" stroke="#86EFAC"/>

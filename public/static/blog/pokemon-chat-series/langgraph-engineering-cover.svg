@@ -16,7 +16,7 @@
 
   <rect width="1200" height="630" rx="32" fill="url(#bg)" />
 
-  <text x="86" y="116" fill="#bfdbfe" font-size="28" font-family="Arial, sans-serif">pokemon-chat-esc 系列（七）</text>
+  <text x="86" y="116" fill="#bfdbfe" font-size="28" font-family="Arial, sans-serif">pokemon agent runtime 系列（七）</text>
   <text x="86" y="206" fill="#f8fafc" font-size="56" font-weight="700" font-family="Arial, sans-serif">LangGraph 工程化实战</text>
   <text x="86" y="264" fill="#cbd5e1" font-size="28" font-family="Arial, sans-serif">Tools · Runtime · JSON · Memory · Context</text>
 

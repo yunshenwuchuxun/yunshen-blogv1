@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+	<title id="title">RoPE 旋转位置编码封面</title>
+	<desc id="desc">展示 token 向量在不同位置按角度旋转，并在注意力中形成相对位置关系。</desc>
+	<defs>
+		<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0" stop-color="#0f172a" />
+			<stop offset="0.48" stop-color="#1e1b4b" />
+			<stop offset="1" stop-color="#312e81" />
+		</linearGradient>
+		<linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0" stop-color="#38bdf8" />
+			<stop offset="1" stop-color="#a78bfa" />
+		</linearGradient>
+		<filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+			<feGaussianBlur stdDeviation="10" result="blur" />
+			<feMerge>
+				<feMergeNode in="blur" />
+				<feMergeNode in="SourceGraphic" />
+			</feMerge>
+		</filter>
+	</defs>
+	<rect width="1200" height="630" fill="url(#bg)" />
+	<circle cx="950" cy="120" r="230" fill="#38bdf8" opacity="0.08" />
+	<circle cx="220" cy="540" r="260" fill="#a78bfa" opacity="0.08" />
+	<g transform="translate(720 320)" opacity="0.95">
+		<circle r="180" fill="none" stroke="#64748b" stroke-width="2" stroke-dasharray="8 12" />
+		<circle r="120" fill="none" stroke="#64748b" stroke-width="2" stroke-dasharray="8 12" />
+		<line x1="-210" y1="0" x2="210" y2="0" stroke="#94a3b8" stroke-width="2" opacity="0.5" />
+		<line x1="0" y1="-210" x2="0" y2="210" stroke="#94a3b8" stroke-width="2" opacity="0.5" />
+		<path d="M 0 0 L 150 -72" stroke="#38bdf8" stroke-width="8" stroke-linecap="round" filter="url(#glow)" />
+		<path d="M 0 0 L 82 154" stroke="#a78bfa" stroke-width="8" stroke-linecap="round" filter="url(#glow)" />
+		<path d="M 130 -62 A 150 150 0 0 1 72 135" fill="none" stroke="url(#accent)" stroke-width="5" stroke-linecap="round" />
+		<circle cx="150" cy="-72" r="10" fill="#38bdf8" />
+		<circle cx="82" cy="154" r="10" fill="#a78bfa" />
+	</g>
+	<g fill="#e5e7eb">
+		<text x="96" y="180" font-family="Inter, Arial, sans-serif" font-size="78" font-weight="800" letter-spacing="-2">RoPE</text>
+		<text x="96" y="245" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="600" fill="#cbd5e1">Rotary Position Embedding</text>
+		<text x="96" y="320" font-family="Inter, Arial, sans-serif" font-size="30" fill="#94a3b8">把绝对位置编码成旋转相位</text>
+		<text x="96" y="366" font-family="Inter, Arial, sans-serif" font-size="30" fill="#94a3b8">让注意力点积自然只依赖相对距离</text>
+	</g>
+	<g transform="translate(96 450)">
+		<rect width="440" height="72" rx="18" fill="rgba(15,23,42,0.55)" stroke="rgba(148,163,184,0.35)" />
+		<text x="28" y="46" font-family="JetBrains Mono, Consolas, monospace" font-size="24" fill="#bae6fd">q_m^T k_n → R_{n-m}</text>
+	</g>
+</svg>

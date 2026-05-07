@@ -1,0 +1,135 @@
+---
+title: 'BPE 与 BBPE 详解：从字符 / 单词词表的弊端到字节级子词'
+publishedAt: '2026-05-03'
+summary: '从单词级和字符级词表的弊端出发，推导 BPE 如何用合并频次构造子词，再到 BBPE 把粒度下沉到字节，从结构上消除 OOV。'
+draft: false
+image: '/static/blog/bpe-and-bbpe/cover.svg'
+tags: [NLP, Tokenizer, BPE, BBPE, Tech Blog]
+---
+
+分词决定了三件事：词表大小、序列长度、对未见词的处理。从单词级到字符级，再到 BPE / BBPE，每一步都是在这三者之间换平衡。
+
+## 单词级词表的弊端
+
+按空格 / 标点切词，把每个词放进词表，问题集中在以下几点：
+
+- <strong>词表爆炸</strong>：英文常见词十几万，多语种几乎不可控。
+- <strong>OOV 严重</strong>：训练未见词在推理时只能映射成 `<unk>`，模型对其完全失感。
+- <strong>形态学冗余</strong>：`run / runs / running / ran` 是四个独立条目，embedding 各学一份。
+- <strong>新词无法外推</strong>：技术名词、缩写、错别字一旦没进训练词表就永远是 `<unk>`。
+
+单词级把<strong>语义粒度</strong>抬得很高，但<strong>覆盖率</strong>和<strong>参数效率</strong>都垮掉。
+
+## 字符级词表的弊端
+
+走到另一个极端，把字符当 token，词表立刻收敛到几十几百，OOV 几乎消失。但代价同样明显：
+
+- <strong>序列长度爆炸</strong>：注意力是 $O(n^2)$，序列变长直接乘到平方上。
+- <strong>语义粒度过低</strong>：单个字母几乎不携带语义，模型要在更深的层把字符再「拼」回单词。
+- <strong>多语种仍不彻底</strong>：Unicode 含 14 万以上字符（CJK、emoji、罕见符号），以 Unicode 字符为最小单元时，"小词表"的优势会被中日韩冲掉。
+
+字符级把<strong>覆盖率</strong>拉满，<strong>序列长度</strong>和<strong>语义粒度</strong>变成新瓶颈。
+
+## 为什么需要子词
+
+单词级与字符级正好对立：
+
+| 维度 | 单词级 | 字符级 |
+|---|---|---|
+| 词表大小 | 极大（10⁵–10⁶） | 极小（10²） |
+| 序列长度 | 短 | 长 |
+| OOV | 严重 | 几乎无 |
+| 语义粒度 | 高 | 低 |
+
+理想方案应当兼顾两端：常见词作为完整 token（短序列、强语义），罕见词或新词回退到子串组合（无 OOV、可外推）。BPE 就是这个折中方案最简实现。
+
+## BPE：合并最频繁的字符对
+
+BPE（Byte Pair Encoding）原是 Philip Gage 1994 年的<strong>压缩算法</strong>，思路是反复合并语料中最频繁的相邻字节对。Sennrich, Haddow, Birch 在 ACL 2016 把它搬到 NMT 当作子词分词器。
+
+### 训练算法
+
+1. 把每个词拆成字符序列，末尾加词尾标记（如 `</w>`）。
+2. 统计相邻字符对的全局频次。
+3. 合并频次最高的一对，加入词表，记录这条<strong>有序合并规则</strong>。
+4. 用规则重写语料，回到第 2 步，直到达到目标词表大小。
+
+推理时把新词按字符切开，按训练时记录的合并顺序逐条应用即可。
+
+![BPE 合并过程](/static/blog/bpe-and-bbpe/bpe-merge.svg)
+
+### 一个最小例子
+
+语料：`low ×5 / lower ×2 / newest ×6 / widest ×3`。
+
+初始拆分（带词尾，省略 `</w>` 后）：
+
+```
+n e w e s t   w i d e s t   l o w e r   l o w
+```
+
+频次最高的相邻对是 `e s`（9 次），合并；接着 `es t` → `est`；再 `l o` → `lo`；以此类推。最终词表是「整词 + 高频子串 + 字符」的混合体，新词 `lowest` 会按规则被切成 `low / est`。
+
+### BPE 留下的问题
+
+BPE 的最小单元仍是<strong>字符</strong>。一旦语料里出现训练未见的 Unicode 字符（罕见符号、emoji、其他语种），仍然会触发 OOV。多语种联合训练时，初始字符集要么列得很大，要么留下盲区。
+
+## BBPE：把粒度下沉到字节
+
+BBPE（Byte-level BPE）把最小单元从 Unicode 字符换成<strong>字节</strong>。GPT-2（Radford et al., 2019）和 RoBERTa 都使用这种实现，Wang et al. 在 AAAI 2020 系统化讨论了它在 NMT 中的效果。
+
+### 关键观察：UTF-8 把一切都变成字节
+
+任何文本经 UTF-8 编码后都是字节流：ASCII 1 字节，拉丁扩展 2 字节，中日韩 3 字节，emoji 4 字节。字节取值固定 `0x00`–`0xFF`，<strong>初始词表恒为 256，与语种无关</strong>。
+
+### 算法本身没变
+
+BBPE 训练流程与 BPE 完全一致，只是把字符序列换成字节序列：每个词以 UTF-8 字节串作为初始拆分，再按相邻字节对的频次反复合并。
+
+![BBPE 字节级编码示意](/static/blog/bpe-and-bbpe/bbpe-bytes.svg)
+
+### 收益与代价
+
+- <strong>收益</strong>：初始词表恒定 256；跨语种共享；结构上无 OOV——任何 Unicode 符号都已经表示成已知字节。
+- <strong>代价</strong>：非 ASCII 文本初始序列更长（一个汉字 3 字节），需要靠训练时的合并把高频字节串压成单 token。ASCII 主导的语料（英文、代码）几乎无代价。
+
+## BPE 与 BBPE 的对比
+
+把整条演进链汇总成一张表：
+
+| 维度 | 单词级 | 字符级 | BPE | BBPE |
+|---|---|---|---|---|
+| 最小单元 | 单词 | Unicode 字符 | 字符 | 字节 |
+| 初始词表 | 10⁵–10⁶ | 数十–10⁵+ | 与字符集相关 | <strong>固定 256</strong> |
+| 训练后词表 | 同上 | 同上 | 30k–50k | 30k–50k |
+| OOV 风险 | 高 | 低 | 低（依赖初始字符集） | <strong>无</strong> |
+| 序列长度 | 短 | 很长 | 中 | 中（非 ASCII 略长） |
+| 多语种友好 | 差 | 中 | 中 | <strong>强</strong> |
+| 典型代表 | Word2Vec、早期 NMT | 字符级 RNN | 原版 BERT、Transformer NMT | GPT-2/3、RoBERTa、LLaMA |
+
+把同一组维度画成相对得分，可以更直观地看出每种方案的偏置：
+
+![四种分词方式的多维对比](/static/blog/bpe-and-bbpe/comparison.svg)
+
+几条压缩结论：
+
+- <strong>词表 vs 序列</strong>：单词级押短序列、字符级押小词表，BPE / BBPE 把两者都压在工程可接受区间。
+- <strong>OOV 处理</strong>：只有 BBPE 是<strong>结构性</strong>无 OOV——其他方案都依赖训练阶段的字符覆盖。
+- <strong>多语种 / 新符号</strong>：BBPE 字节级最小单元天然不挑语种、不挑符号，是多语种大模型的默认选择。
+
+## 总结
+
+- 单词级语义粒度高，但词表爆炸、OOV 严重、形态学冗余。
+- 字符级解决 OOV，但序列爆炸、语义被稀释、长程依赖更难。
+- BPE 用合并最频繁字符对的贪心策略，在词表与序列之间取得平衡。
+- BBPE 把最小单元下沉到字节，初始词表恒 256，结构上消除 OOV，天然适配多语种。
+
+理解这条「单词 → 字符 → 字节」的演进，本质上是理解分词器在<strong>覆盖率—粒度—序列长度</strong>三角中的取舍。
+
+## 参考资料
+
+- Philip Gage, 1994, A New Algorithm for Data Compression. The C Users Journal.
+- Sennrich, Haddow, Birch, 2016, [Neural Machine Translation of Rare Words with Subword Units](https://arxiv.org/abs/1508.07909). ACL 2016.
+- Radford et al., 2019, [Language Models are Unsupervised Multitask Learners](https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf). GPT-2 technical report.
+- Wang, Cho, Gu, 2020, [Neural Machine Translation with Byte-Level Subwords](https://arxiv.org/abs/1909.03341). AAAI 2020.
+- Liu et al., 2019, [RoBERTa: A Robustly Optimized BERT Pretraining Approach](https://arxiv.org/abs/1907.11692).

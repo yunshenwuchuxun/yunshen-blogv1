@@ -6,7 +6,7 @@
     </linearGradient>
   </defs>
   <rect width="1200" height="630" rx="32" fill="url(#bg)"/>
-  <text x="90" y="130" fill="#BFDBFE" font-size="28" font-family="Arial, sans-serif">pokemon-chat-esc 系列（六）</text>
+  <text x="90" y="130" fill="#BFDBFE" font-size="28" font-family="Arial, sans-serif">pokemon agent runtime 系列（六）</text>
   <text x="90" y="220" fill="white" font-size="54" font-weight="700" font-family="Arial, sans-serif">Docker Compose 架构与服务分层</text>
   <text x="90" y="278" fill="#DBEAFE" font-size="28" font-family="Arial, sans-serif">web + api · infra · mcp · asr</text>
   <rect x="100" y="350" width="250" height="110" rx="22" fill="#0B1220" stroke="#60A5FA"/>

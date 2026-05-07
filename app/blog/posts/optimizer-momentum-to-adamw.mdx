@@ -1,0 +1,246 @@
+---
+title: '优化器演进笔记：从动量梯度下降到 AdamW'
+publishedAt: '2026-05-03'
+summary: '系统梳理深度学习优化器的演进路径：动量梯度下降抑制震荡、RMSProp 自适应步长、Adam 融合二者、AdamW 解耦权重衰减。'
+draft: false
+image: '/static/blog/optimizer-momentum-to-adamw/cover.svg'
+tags: [Deep Learning, Optimizer, Adam, AdamW, Tech Blog]
+---
+
+深度学习的优化器并不是一开始就长成 AdamW 这个样子的。从最朴素的 SGD 出发，工程实践不断暴露出震荡、步长难调、稀疏特征更新慢等问题；动量、RMSProp、Adam、AdamW 是一条清晰的演进链，每一步都在解决前一步留下的具体痛点。
+
+这篇笔记把这条演进链的核心数学推导一次性串起来：动量为什么能抑制震荡、RMSProp 为什么要除以梯度平方的滑动平均、Adam 为什么需要偏置修正、以及 AdamW 为什么必须把 weight decay 从梯度里解耦出来。
+
+## 为什么需要在 SGD 上不断加东西
+
+最朴素的随机梯度下降形如：
+
+$$
+\theta_t = \theta_{t-1} - \eta g_t
+$$
+
+其中 $g_t$ 是第 $t$ 步在当前 batch 上对 $\theta$ 的梯度，$\eta$ 是固定学习率。这种更新方式有三个常见问题：
+
+- <strong>震荡</strong>：在不同方向上曲率差异较大时，梯度会在窄方向上来回弹，更新效率很低。
+- <strong>步长难调</strong>：所有参数共享同一个 $\eta$，但不同维度上梯度量级差异很大，难以选到一个对所有参数都合适的值。
+- <strong>稀疏特征更新慢</strong>：很少出现的特征对应的梯度几乎为 0，参数长期得不到调整。
+
+后续的所有优化器，本质上都在用<strong>滑动平均</strong>这一个工具去缓解这些问题：动量法对梯度自身做滑动平均，RMSProp 对梯度平方做滑动平均，Adam 把两者合在一起，AdamW 则在 Adam 的基础上调整了 weight decay 的位置。
+
+## 整体演进路径
+
+| 优化器 | 核心思想 | 主要解决的问题 |
+|---|---|---|
+| SGD | $\theta_t = \theta_{t-1} - \eta g_t$ | 基线 |
+| Momentum | 对梯度做一阶滑动平均 | 抑制震荡、加速更新 |
+| RMSProp | 对梯度平方做滑动平均，按维度缩放步长 | 自适应学习率 |
+| Adam | 同时维护一阶 / 二阶滑动平均，加偏置修正 | 兼顾方向与步长 |
+| AdamW | 把 weight decay 从梯度更新中解耦 | 让正则化在自适应优化器里依然成立 |
+
+## 动量梯度下降
+
+动量梯度下降在 SGD 的基础上引入一阶滑动平均，把"过去几步的梯度"以指数权重保留下来：
+
+$$
+V_t = \beta V_{t-1} + (1 - \beta) g_t
+$$
+
+$$
+\theta_t = \theta_{t-1} - \eta V_t
+$$
+
+其中 $g_t$ 是当前步的梯度，$\beta$ 通常取 $0.9$。直观含义有两层：
+
+- <strong>抑制震荡</strong>：在窄方向上梯度方向反复变化，正负梯度被滑动平均"对冲"掉，更新幅度自然变小。
+- <strong>加速更新</strong>：在长期一致的方向上，梯度被持续累加，相当于给步长做了放大，能更快走出平坦区。
+
+写成多参数版本只是把 $V_t$ 和 $g_t$ 换成向量。每个参数维度独立维护自己的滑动平均，但仍然共用同一个 $\eta$。
+
+## RMSProp：让步长按维度自适应
+
+RMSProp 解决的是"不同维度梯度量级差异大"的问题。它对梯度<strong>平方</strong>做滑动平均：
+
+$$
+S_t = \beta S_{t-1} + (1 - \beta) g_t^2
+$$
+
+然后用它去缩放步长：
+
+$$
+\theta_t = \theta_{t-1} - \eta \frac{g_t}{\sqrt{S_t} + \epsilon}
+$$
+
+这里 $\epsilon$ 是一个很小的常数（如 $10^{-8}$），用来避免除零。可以这样理解：
+
+- 长期梯度大的维度，$\sqrt{S_t}$ 大，相当于自动降低这维的有效学习率。
+- 长期梯度小的维度，$\sqrt{S_t}$ 小，相当于自动放大这维的有效学习率。
+
+结果是<strong>每个参数维度都拿到一个自适应的步长</strong>，同一个全局 $\eta$ 不再是瓶颈。
+
+## Adam：动量 + RMSProp
+
+Adam 把上面两条线合在一起：用一阶动量控制更新方向，用二阶动量控制步长。
+
+第一步，维护一阶滑动平均：
+
+$$
+V_t = \beta_1 V_{t-1} + (1 - \beta_1) g_t
+$$
+
+第二步，维护二阶滑动平均：
+
+$$
+S_t = \beta_2 S_{t-1} + (1 - \beta_2) g_t^2
+$$
+
+第三步，用二者做参数更新：
+
+$$
+\theta_t = \theta_{t-1} - \eta \frac{V_t}{\sqrt{S_t} + \epsilon}
+$$
+
+### 为什么需要偏置修正
+
+$V_0$ 和 $S_0$ 通常初始化为 0，因此训练早期 $V_t$、$S_t$ 都会偏小，对应的更新步长也会偏小。带偏置修正的完整 Adam 是：
+
+$$
+\hat{V}_t = \frac{V_t}{1 - \beta_1^t}
+$$
+
+$$
+\hat{S}_t = \frac{S_t}{1 - \beta_2^t}
+$$
+
+$$
+\theta_t = \theta_{t-1} - \eta \frac{\hat{V}_t}{\sqrt{\hat{S}_t} + \epsilon}
+$$
+
+除以 $1 - \beta^t$ 相当于对指数加权平均做归一化：当 $t$ 很小时，$1 - \beta^t$ 接近 0，把被低估的滑动平均放大回去；当 $t$ 很大时，$\beta^t \to 0$，修正项趋近于 1，几乎不起作用。
+
+## AdamW：把 weight decay 从梯度里拿出来
+
+权重衰减（weight decay）在 SGD 中和 L2 正则等价；但在 Adam 中，把 L2 正则项加进梯度后，二阶动量的"自适应缩放"会把 weight decay 也跟着扭曲。AdamW 的解决思路是：<strong>把 weight decay 从梯度更新中解耦出来，单独施加</strong>。
+
+### Adam + L2 正则为什么不等价于 weight decay
+
+考虑迭代末期，假设原始损失对参数当前取值 $\theta_{t-1}$ 的梯度已经接近 0：
+
+$$
+\frac{\partial L}{\partial \theta}\bigg|_{\theta_{t-1}} \approx 0
+$$
+
+加上 L2 正则后，总损失为 $L_{\text{total}} = L + \frac{\lambda}{2}\theta^2$，于是：
+
+$$
+g_t = \frac{\partial L_{\text{total}}}{\partial \theta}\bigg|_{\theta_{t-1}} = \frac{\partial L}{\partial \theta}\bigg|_{\theta_{t-1}} + \lambda \theta_{t-1} \approx \lambda \theta_{t-1}
+$$
+
+把它代入 Adam 的一阶 / 二阶动量（同样取末期近似）：
+
+$$
+V_t \approx \lambda \theta_{t-1}
+$$
+
+$$
+S_t \approx \lambda^2 \theta_{t-1}^2
+$$
+
+代入更新公式（忽略偏置修正）：
+
+$$
+\theta_t = \theta_{t-1} - \eta \frac{\lambda \theta_{t-1}}{\sqrt{\lambda^2 \theta_{t-1}^2} + \epsilon}
+= \theta_{t-1} - \eta \frac{\lambda \theta_{t-1}}{|\lambda \theta_{t-1}| + \epsilon}
+\approx \theta_{t-1} - \eta \operatorname{sign}(\theta_{t-1})
+$$
+
+也就是说，在这种情况下，所谓的 weight decay 已经不再是"按比例缩小权重"，而是"减去一个与符号相关的近似固定量"。
+
+### SGD 中真正的 weight decay
+
+在 SGD 中，weight decay 写成更新形式是：
+
+$$
+\theta_t = (1 - \eta \lambda) \theta_{t-1} - \eta g_t
+$$
+
+每个参数都先统一乘上 $1 - \eta \lambda$，再减去梯度更新——衰减强度对所有参数完全一致。
+
+### Adam + L2 时的扭曲
+
+把 L2 写进梯度的 Adam，更新近似为：
+
+$$
+\theta_t = \theta_{t-1} - \eta \frac{g_t + \lambda \theta_{t-1}}{\sqrt{S_t} + \epsilon}
+$$
+
+其中 L2 部分相当于：
+
+$$
+- \eta \frac{\lambda \theta_{t-1}}{\sqrt{S_t} + \epsilon}
+$$
+
+也就是不同参数实际的衰减强度变成了：
+
+$$
+\frac{\lambda}{\sqrt{S_t} + \epsilon}
+$$
+
+<strong>$S_t$ 大的维度衰减小，$S_t$ 小的维度衰减反而大</strong>——这和"统一按比例衰减权重"完全不是一回事，正则化的作用被自适应缩放扭曲。
+
+### AdamW 的解耦做法
+
+AdamW 不再把 $\lambda \theta$ 塞进梯度，而是单独对参数做衰减。更新形式为：
+
+$$
+\theta_t = \theta_{t-1} - \eta \frac{\hat{V}_t}{\sqrt{\hat{S}_t} + \epsilon} - \eta \lambda \theta_{t-1}
+$$
+
+也可以等价地写成：
+
+$$
+\theta_t = (1 - \eta \lambda) \theta_{t-1} - \eta \frac{\hat{V}_t}{\sqrt{\hat{S}_t} + \epsilon}
+$$
+
+这就是 AdamW 中的 <strong>decoupled weight decay</strong>：weight decay 又恢复成 SGD 中那种清楚的"统一按比例缩小"形式，不会被自适应学习率扭曲。
+
+## 在 PyTorch 中切换到 AdamW
+
+对于绝大多数现代深度学习任务（特别是 Transformer 类模型），实际工程上推荐直接使用 AdamW。下面是一个最小可运行的优化器构造示例：
+
+```python
+import torch
+
+optimizer = torch.optim.AdamW(
+    model.parameters(),
+    lr=3e-4,
+    betas=(0.9, 0.999),
+    eps=1e-8,
+    weight_decay=0.01,
+)
+```
+
+关键参数对应到上面的公式：
+
+- `lr`：全局学习率 $\eta$，配合 warmup + cosine schedule 使用更稳。
+- `betas`：一阶 / 二阶滑动平均的衰减系数，对应 $\beta_1, \beta_2$。
+- `eps`：分母里的 $\epsilon$，防止除零。
+- `weight_decay`：解耦的权重衰减系数 $\lambda$，仅作用在权重项上。
+
+注意：在 AdamW 下，<strong>不要再额外把 L2 损失加进 loss</strong>，否则会等价于回到 Adam + L2 的扭曲版本。
+
+## 总结
+
+- SGD 是基线，更新方向直接由当前 batch 梯度决定，但容易震荡且对学习率敏感。
+- 动量法对梯度做一阶滑动平均，抑制震荡、加速更新，但仍然全局共享 $\eta$。
+- RMSProp 对梯度平方做滑动平均，把步长按维度自适应，让单个 $\eta$ 不再是瓶颈。
+- Adam 同时维护一阶和二阶滑动平均，并通过偏置修正消除初始化带来的低估。
+- AdamW 在 Adam 的基础上把 weight decay 从梯度更新中解耦出来，让正则化在自适应优化器中依然成立。
+
+实际工程里，Transformer 训练几乎默认使用 AdamW；卷积网络在精心调参的 SGD + Momentum 下仍能拿到很有竞争力的效果。选择哪种优化器，本质上取决于任务对调参耐心的容忍度。
+
+## 参考资料
+
+- Sutskever et al., 2013, [On the importance of initialization and momentum in deep learning](https://proceedings.mlr.press/v28/sutskever13.html)
+- Tieleman & Hinton, 2012, Lecture 6.5—RMSProp: Divide the gradient by a running average of its recent magnitude
+- Kingma & Ba, 2015, [Adam: A Method for Stochastic Optimization](https://arxiv.org/abs/1412.6980)
+- Loshchilov & Hutter, 2019, [Decoupled Weight Decay Regularization](https://arxiv.org/abs/1711.05101)

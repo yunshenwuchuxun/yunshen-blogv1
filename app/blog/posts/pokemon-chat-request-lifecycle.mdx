@@ -1,5 +1,5 @@
 ---
-title: 'pokemon agent 系列（四）：一次提问的完整调用链'
+title: 'pokemon agent runtime 系列（二）：一次提问的完整调用链'
 publishedAt: '2026-04-20T10:05:00'
 summary: '从前端组装 meta/history，到 FastAPI 分流、本地直答、RAG 检索增强、LangGraph Agent 调度，再到 NDJSON 流式回前端，系统拆解一次用户提问的完整生命周期。'
 image: '/static/blog/pokemon-chat-series/call-chain-cover.svg'
@@ -8,14 +8,14 @@ tags: [AI, Agent, RAG, CallChain]
 ---
 
 <PaperCard
-	title="pokemon agent · Blog 4"
+	title="pokemon agent runtime · Runtime 2"
 	description="一篇面向工程实现的调用链路拆解：前端如何发问、后端如何分流、普通模式与 Agent 模式如何走不同执行路径，以及为什么“知识库关闭但还能回答”。"
 	links={[
-		{ label: 'Blog 5：本地直答、缓存与 RAG 主链', url: '/blog/pokemon-chat-rag-mainline' },
+		{ label: 'Runtime 3：本地直答、缓存与 RAG 主链', url: '/blog/pokemon-chat-rag-mainline' },
 	]}
 />
 
-> 系列导航：下一篇见 **[Blog 5：本地直答、缓存与 RAG 主链](/blog/pokemon-chat-rag-mainline)**。本文负责回答：**用户问一句之后，系统到底经历了什么。**
+> 系列导航：上一篇见 **[pokemon agent runtime 系列（一）：系统设计全景图](/blog/pokemon-chat-overview)**；下一篇见 **[pokemon agent runtime 系列（三）：本地直答、缓存与 RAG 主链](/blog/pokemon-chat-rag-mainline)**。本文负责回答：**用户问一句之后，系统到底经历了什么。**
 
 很多聊天系统文章都会停留在一句抽象描述：<strong>前端发请求，后端调模型，再把结果流式返回</strong>。这句话没有错，但它不足以解释真实系统里最关键的工程问题：请求到底在哪一层分流？为什么有的问题不会进入知识库？为什么同样是一个输入，在普通模式和 Agent 模式下会走完全不同的路径？为什么页面上关掉知识库之后，有些问题仍然能答对？
 

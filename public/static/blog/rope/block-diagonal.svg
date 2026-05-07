@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="520" viewBox="0 0 960 520" role="img" aria-labelledby="title desc">
+	<title id="title">高维 RoPE 分块旋转矩阵</title>
+	<desc id="desc">高维向量被拆成多个二维维度对，每一对使用不同频率独立旋转。</desc>
+	<rect width="960" height="520" rx="28" fill="#0b1120" />
+	<text x="48" y="72" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="700" fill="#f8fafc">高维向量：两维一组，各自旋转</text>
+	<text x="48" y="118" font-family="Inter, Arial, sans-serif" font-size="22" fill="#cbd5e1">每个注意力头的 hidden dimension 被切成多个二维平面。</text>
+	<g transform="translate(90 185)">
+		<rect x="0" y="0" width="110" height="70" rx="14" fill="#1e3a8a" />
+		<rect x="124" y="0" width="110" height="70" rx="14" fill="#581c87" />
+		<rect x="248" y="0" width="110" height="70" rx="14" fill="#064e3b" />
+		<text x="25" y="44" font-family="JetBrains Mono, Consolas, monospace" font-size="22" fill="#dbeafe">x0,x1</text>
+		<text x="149" y="44" font-family="JetBrains Mono, Consolas, monospace" font-size="22" fill="#f3e8ff">x2,x3</text>
+		<text x="273" y="44" font-family="JetBrains Mono, Consolas, monospace" font-size="22" fill="#d1fae5">x4,x5</text>
+	</g>
+	<g transform="translate(500 170)">
+		<rect x="0" y="0" width="92" height="92" fill="#1e3a8a" stroke="#60a5fa" stroke-width="2" />
+		<rect x="92" y="92" width="92" height="92" fill="#581c87" stroke="#c084fc" stroke-width="2" />
+		<rect x="184" y="184" width="92" height="92" fill="#064e3b" stroke="#34d399" stroke-width="2" />
+		<g stroke="#334155" stroke-width="1">
+			<line x1="92" y1="0" x2="92" y2="276" />
+			<line x1="184" y1="0" x2="184" y2="276" />
+			<line x1="0" y1="92" x2="276" y2="92" />
+			<line x1="0" y1="184" x2="276" y2="184" />
+		</g>
+		<text x="20" y="54" font-family="Inter, Arial, sans-serif" font-size="20" fill="#dbeafe">R₁</text>
+		<text x="112" y="146" font-family="Inter, Arial, sans-serif" font-size="20" fill="#f3e8ff">R₂</text>
+		<text x="204" y="238" font-family="Inter, Arial, sans-serif" font-size="20" fill="#d1fae5">R₃</text>
+	</g>
+	<text x="92" y="356" font-family="Inter, Arial, sans-serif" font-size="22" fill="#cbd5e1">频率从高到低分布：近距离变化由快频率捕捉，长距离趋势由慢频率保留。</text>
+	<text x="92" y="405" font-family="JetBrains Mono, Consolas, monospace" font-size="24" fill="#e2e8f0">θ_i = 10000^(-2i/d)</text>
+</svg>

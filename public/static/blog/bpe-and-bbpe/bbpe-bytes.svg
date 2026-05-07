@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="480" viewBox="0 0 960 480" role="img" aria-labelledby="title desc">
+	<title id="title">BBPE 字节级编码示意</title>
+	<desc id="desc">字符 \u201c猫\u201d 经 UTF-8 编码后是三个字节，BBPE 把它们作为初始 token，再通过合并压成更短的子词。</desc>
+	<defs>
+		<linearGradient id="bg3" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0" stop-color="#0b1120" />
+			<stop offset="1" stop-color="#1e293b" />
+		</linearGradient>
+	</defs>
+	<rect width="960" height="480" rx="28" fill="url(#bg3)" />
+
+	<text x="40" y="58" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="700" fill="#f8fafc">BBPE：把最小单元从字符下沉到字节</text>
+	<text x="40" y="90" font-family="Inter, Arial, sans-serif" font-size="16" fill="#94a3b8">初始词表恒为 256 个字节，跨语种共享，结构上无 OOV</text>
+
+	<g transform="translate(60 150)">
+		<rect width="180" height="100" rx="14" fill="#1e293b" stroke="#fbbf24" stroke-width="2" />
+		<text x="90" y="58" font-family="Inter, Arial, sans-serif" font-size="48" font-weight="700" fill="#fbbf24" text-anchor="middle">猫</text>
+		<text x="90" y="90" font-family="Inter, Arial, sans-serif" font-size="14" fill="#94a3b8" text-anchor="middle">Unicode 字符</text>
+	</g>
+
+	<g font-family="JetBrains Mono, Consolas, monospace" font-size="20">
+		<path d="M 250 200 L 320 200" stroke="#94a3b8" stroke-width="2" marker-end="url(#arr)" />
+		<text x="285" y="186" font-family="Inter, Arial, sans-serif" font-size="14" fill="#cbd5e1" text-anchor="middle">UTF-8</text>
+
+		<g transform="translate(340 150)">
+			<rect width="120" height="100" rx="14" fill="#0f172a" stroke="#38bdf8" stroke-width="2" />
+			<text x="60" y="44" fill="#bae6fd" text-anchor="middle">0xE7</text>
+			<text x="60" y="84" font-family="Inter, Arial, sans-serif" font-size="12" fill="#64748b" text-anchor="middle">byte 1</text>
+		</g>
+		<g transform="translate(480 150)">
+			<rect width="120" height="100" rx="14" fill="#0f172a" stroke="#38bdf8" stroke-width="2" />
+			<text x="60" y="44" fill="#bae6fd" text-anchor="middle">0x8C</text>
+			<text x="60" y="84" font-family="Inter, Arial, sans-serif" font-size="12" fill="#64748b" text-anchor="middle">byte 2</text>
+		</g>
+		<g transform="translate(620 150)">
+			<rect width="120" height="100" rx="14" fill="#0f172a" stroke="#38bdf8" stroke-width="2" />
+			<text x="60" y="44" fill="#bae6fd" text-anchor="middle">0xAB</text>
+			<text x="60" y="84" font-family="Inter, Arial, sans-serif" font-size="12" fill="#64748b" text-anchor="middle">byte 3</text>
+		</g>
+	</g>
+
+	<defs>
+		<marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+			<path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8" />
+		</marker>
+	</defs>
+
+	<g transform="translate(60 320)" font-family="Inter, Arial, sans-serif" font-size="16">
+		<rect width="400" height="120" rx="14" fill="rgba(15,23,42,0.55)" stroke="rgba(148,163,184,0.3)" />
+		<text x="20" y="34" font-weight="700" fill="#fb7185" font-size="18">字符级 BPE</text>
+		<text x="20" y="62" fill="#cbd5e1">若训练语料未出现「猫」</text>
+		<text x="20" y="86" fill="#cbd5e1">→ 整字 OOV，回退到</text>
+		<text x="20" y="106" fill="#cbd5e1">　&lt;unk&gt; 或拆不开</text>
+	</g>
+
+	<g transform="translate(500 320)" font-family="Inter, Arial, sans-serif" font-size="16">
+		<rect width="400" height="120" rx="14" fill="rgba(15,23,42,0.55)" stroke="rgba(52,211,153,0.4)" />
+		<text x="20" y="34" font-weight="700" fill="#34d399" font-size="18">BBPE</text>
+		<text x="20" y="62" fill="#cbd5e1">三个字节始终在词表里</text>
+		<text x="20" y="86" fill="#cbd5e1">→ 训练高频时被合并</text>
+		<text x="20" y="106" fill="#cbd5e1">　成单 token，结构无 OOV</text>
+	</g>
+</svg>

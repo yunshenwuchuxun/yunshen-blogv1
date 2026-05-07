@@ -1,5 +1,5 @@
 ---
-title: 'pokemon agent 系列（七）：配置热切换与运行时覆盖'
+title: 'pokemon agent runtime 系列（五）：配置热切换与运行时覆盖'
 publishedAt: '2026-04-20T10:02:00'
 summary: '从 .env、ui_config.json、feature flag、/config PATCH、runtime reset 到 health/ready 探针，系统拆解 pokemon agent 的运行时配置热切换机制。'
 image: '/static/blog/pokemon-chat-series/config-runtime-cover.svg'
@@ -8,14 +8,14 @@ tags: [AI, Config, DevOps, Runtime]
 ---
 
 <PaperCard
-	title="pokemon agent · Blog 7"
+	title="pokemon agent runtime · Runtime 5"
 	description="这篇文章聚焦配置与运行时行为，不讲模型能力本身，而是讲清楚：为什么前端设置页点一下开关，后端行为就会变；以及这种热切换设计到底靠哪些机制支撑。"
 	links={[
-		{ label: 'Blog 8：Docker Compose 架构与服务分层', url: '/blog/pokemon-chat-docker-architecture' },
+		{ label: 'Runtime 6：Docker Compose 架构与服务分层', url: '/blog/pokemon-chat-docker-architecture' },
 	]}
 />
 
-> 系列导航：下一篇见 **[Blog 8：Docker Compose 架构与服务分层](/blog/pokemon-chat-docker-architecture)**。本文负责回答：**为什么页面上的开关，能直接改变后端运行时行为。**
+> 系列导航：上一篇见 **[pokemon agent runtime 系列（四）：LangGraph Agent 编排](/blog/pokemon-chat-agent-orchestration)**；下一篇见 **[pokemon agent runtime 系列（六）：Docker Compose 架构与服务分层](/blog/pokemon-chat-docker-architecture)**。本文负责回答：**为什么页面上的开关，能直接改变后端运行时行为。**
 
 很多 AI 应用在配置设计上都有一个很常见的问题：配置虽然很多，但真正生效的只有启动时读取的那一份。你改了 `.env`，要重启；你想切换一个 feature flag，也要重启；你在前端设置页点了一个按钮，最多只是把 UI 颜色变一下，根本不会影响后端实际执行逻辑。
 

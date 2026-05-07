@@ -6,7 +6,7 @@
     </linearGradient>
   </defs>
   <rect width="1200" height="630" rx="32" fill="url(#bg)"/>
-  <text x="90" y="130" fill="#A5F3FC" font-size="28" font-family="Arial, sans-serif">pokemon-chat-esc 系列（二）</text>
+  <text x="90" y="130" fill="#A5F3FC" font-size="28" font-family="Arial, sans-serif">pokemon agent runtime 系列（二）</text>
   <text x="90" y="220" fill="white" font-size="58" font-weight="700" font-family="Arial, sans-serif">一次提问的完整调用链</text>
   <text x="90" y="278" fill="#CCFBF1" font-size="28" font-family="Arial, sans-serif">From UI Input to Streaming Response</text>
   <rect x="94" y="360" width="180" height="86" rx="18" fill="#0B1220" stroke="#67E8F9"/>

@@ -1,5 +1,5 @@
 ---
-title: 'pokemon agent 系列（八）：Docker Compose 架构与服务分层'
+title: 'pokemon agent runtime 系列（六）：Docker Compose 架构与服务分层'
 publishedAt: '2026-04-20T10:01:00'
 summary: '以 pokemon agent 为例，拆解一个多依赖 AI 系统如何用 Docker Compose 组织主干服务、能力服务与 profiles，并划分清晰的服务边界。'
 image: '/static/blog/pokemon-chat-series/docker-architecture-cover.svg'
@@ -8,14 +8,14 @@ tags: [AI, Docker, DevOps, Infrastructure]
 ---
 
 <PaperCard
-	title="pokemon agent · Blog 8"
+	title="pokemon agent runtime · Runtime 6"
 	description="这篇文章聚焦部署与基础设施层，解释这个项目为什么不能只被看作‘跑几个容器’，而应该被理解成：如何给一个多能力 AI 系统划分主干服务和能力依赖。"
 	links={[
-		{ label: 'Blog 9：LangGraph 工程化实战', url: '/blog/pokemon-chat-langgraph-engineering' },
+		{ label: 'Runtime 7：LangGraph 工程化实战', url: '/blog/pokemon-chat-langgraph-engineering' },
 	]}
 />
 
-> 系列导航：下一篇见 **[Blog 9：LangGraph 工程化实战](/blog/pokemon-chat-langgraph-engineering)**。本文负责回答：**这些能力在 Docker Compose 里到底是怎样被组织起来的。**
+> 系列导航：上一篇见 **[pokemon agent runtime 系列（五）：配置热切换与运行时覆盖](/blog/pokemon-chat-config-hot-reload)**；下一篇见 **[pokemon agent runtime 系列（七）：LangGraph 工程化实战](/blog/pokemon-chat-langgraph-engineering)**。本文负责回答：**这些能力在 Docker Compose 里到底是怎样被组织起来的。**
 
 很多人看到一个带 Docker Compose 的 AI 项目时，第一反应通常是：“哦，就是把后端、前端和几个数据库容器一起起起来。” 这种理解不能说错，但它太容易忽略一个更关键的问题：这些服务为什么这样分？哪些是产品主干，哪些是能力依赖，哪些应该默认启动，哪些应该按需打开？
 
@@ -289,7 +289,7 @@ environment:
 
 这也是为什么 Compose 里的 environment override 本质上不是“重复配置”，而是**把开发时视角转换成容器内网络视角**。
 
-## healthcheck：为什么服务编排不能只靠“起起来了”
+## healthcheck：服务编排不能只看容器是否启动
 
 Compose 文件里，`api`、`neo4j`、`mysql`、`milvus` 等服务都定义了 healthcheck。这一点非常关键，因为多服务系统最怕的就是“容器已经启动，但服务实际上还没 ready”。
 

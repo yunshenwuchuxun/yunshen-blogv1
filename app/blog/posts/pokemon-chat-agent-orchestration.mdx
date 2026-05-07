@@ -1,5 +1,5 @@
 ---
-title: 'pokemon agent 系列（六）：LangGraph Agent 编排'
+title: 'pokemon agent runtime 系列（四）：LangGraph Agent 编排'
 publishedAt: '2026-04-20T10:03:00'
 summary: '拆解 pokemon agent 的 Agent 模式：前端如何切到 supervisor_agent，LangGraph 如何用状态和工作流编排 supervisor、workers 与 finalizer。'
 image: '/static/blog/pokemon-chat-series/agent-orchestration-cover.svg'
@@ -8,14 +8,14 @@ tags: [AI, Agent, LangGraph, Orchestration]
 ---
 
 <PaperCard
-	title="pokemon agent · Blog 6"
+	title="pokemon agent runtime · Runtime 4"
 	description="这篇文章用 pokemon agent 作为例子，解释 Agent 模式如何从一个抽象概念，落到可读、可调试、可约束的 LangGraph 执行图上。"
 	links={[
-		{ label: 'Blog 7：配置热切换与运行时覆盖', url: '/blog/pokemon-chat-config-hot-reload' },
+		{ label: 'Runtime 5：配置热切换与运行时覆盖', url: '/blog/pokemon-chat-config-hot-reload' },
 	]}
 />
 
-> 系列导航：下一篇见 **[Blog 7：配置热切换与运行时覆盖](/blog/pokemon-chat-config-hot-reload)**。本文回答一个问题：**当普通模式不够时，系统如何把执行控制权交给 supervisor、workers 和 finalizer？**
+> 系列导航：上一篇见 **[pokemon agent runtime 系列（三）：本地直答、缓存与 RAG 主链](/blog/pokemon-chat-rag-mainline)**；下一篇见 **[pokemon agent runtime 系列（五）：配置热切换与运行时覆盖](/blog/pokemon-chat-config-hot-reload)**。本文回答一个问题：**当普通模式不够时，系统如何把执行控制权交给 supervisor、workers 和 finalizer？**
 
 很多人第一次接触 Agent，会把它理解成“让模型自己决定一切”。这个说法太粗糙了。工程里的 Agent 更应该是一套可控制的运行时：入口明确、状态明确、节点明确、路由明确、终点明确。
 

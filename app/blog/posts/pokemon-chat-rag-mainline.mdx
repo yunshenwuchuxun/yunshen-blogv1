@@ -1,5 +1,5 @@
 ---
-title: 'pokemon agent 系列（五）：本地直答、缓存与 RAG 主链'
+title: 'pokemon agent runtime 系列（三）：本地直答、缓存与 RAG 主链'
 publishedAt: '2026-04-20T10:04:00'
 summary: '围绕普通聊天模式，拆解本地事实直答、语义缓存、多源 Retriever、查询改写与最终生成链路，解释 pokemon agent 的 RAG 主链如何工作。'
 image: '/static/blog/pokemon-chat-series/rag-mainline-cover.svg'
@@ -8,14 +8,14 @@ tags: [AI, RAG, Retrieval, Engineering]
 ---
 
 <PaperCard
-	title="pokemon agent · Blog 5"
+	title="pokemon agent runtime · Runtime 3"
 	description="这篇文章聚焦普通聊天模式，不讲 LangGraph 调度，而是专门拆解本地直答、缓存、Retriever、多源检索增强和最终生成链路。"
 	links={[
-		{ label: 'Blog 6：LangGraph Agent 编排', url: '/blog/pokemon-chat-agent-orchestration' },
+		{ label: 'Runtime 4：LangGraph Agent 编排', url: '/blog/pokemon-chat-agent-orchestration' },
 	]}
 />
 
-> 系列导航：下一篇见 **[Blog 6：LangGraph Agent 编排](/blog/pokemon-chat-agent-orchestration)**。本文负责回答：**普通模式下，本地直答、缓存和 RAG 主链到底是怎么串起来的。**
+> 系列导航：上一篇见 **[pokemon agent runtime 系列（二）：一次提问的完整调用链](/blog/pokemon-chat-request-lifecycle)**；下一篇见 **[pokemon agent runtime 系列（四）：LangGraph Agent 编排](/blog/pokemon-chat-agent-orchestration)**。本文负责回答：**普通模式下，本地直答、缓存和 RAG 主链到底是怎么串起来的。**
 
 很多人一提到 AI Agent 或 RAG，就会下意识把焦点放在“多轮调度”“工具调用”“LangGraph”“supervisor”这些听起来更像智能体的部分。但如果你真的在做一个面向真实用户的问答系统，你很快会发现：很多请求根本不需要进入 Agent。真正决定系统体验的，往往不是“最复杂的那条路径”，而是<strong>普通模式下那条最常被命中的主链到底是否足够稳、足够快、足够可控</strong>。
 

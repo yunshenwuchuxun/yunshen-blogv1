@@ -1,5 +1,5 @@
 ---
-title: 'pokemon agent 系列（三）：系统设计全景图'
+title: 'pokemon agent runtime 系列（一）：系统设计全景图'
 publishedAt: '2026-04-20T10:06:00'
 summary: '系列入口篇：整体拆解 pokemon agent 的前端控制层、后端路由层、RAG 检索层、Agent 编排层、基础设施层与运行时配置层。'
 image: '/static/blog/pokemon-chat-series/overview-cover.svg'
@@ -8,14 +8,14 @@ tags: [AI, Agent, RAG, SystemDesign]
 ---
 
 <PaperCard
-	title="pokemon agent · Blog 3"
+	title="pokemon agent runtime · Runtime 1"
 	description="这是整个系列的入口文章。它不会一开始钻进某一个模块的实现细节，而是先回答：这个项目整体长什么样、分成哪些层、支持哪些能力、为什么它值得拆成一个系列来写。"
 	links={[
-		{ label: 'Blog 4：一次提问的完整调用链', url: '/blog/pokemon-chat-request-lifecycle' },
+		{ label: 'Runtime 2：一次提问的完整调用链', url: '/blog/pokemon-chat-request-lifecycle' },
 	]}
 />
 
-> 系列导航：下一篇见 **[Blog 4：一次提问的完整调用链](/blog/pokemon-chat-request-lifecycle)**。本文负责回答：**这个项目整体长什么样，为什么它不是一个普通聊天机器人。**
+> 系列导航：下一篇见 **[pokemon agent runtime 系列（二）：一次提问的完整调用链](/blog/pokemon-chat-request-lifecycle)**。本文负责回答：**这个项目整体长什么样，为什么它不是一个普通聊天机器人。**
 
 很多项目在对外介绍时，都会用一句非常顺口的话概括自己：<strong>“这是一个 AI 聊天机器人项目。”</strong> 这句话通常没有错，但它也通常没有什么解释力。因为“聊天机器人”只能描述表层交互，却无法说明系统的真正复杂度：用户发出的一次问题，到底会经历哪些分流？系统是如何把本地知识、向量检索、图谱查询、联网搜索、工具调用与模型生成拼在一起的？为什么一个 UI 上的开关，能在几乎不重启服务的情况下直接影响后端行为？为什么同一个产品界面，背后同时可以跑普通模式和 Agent 模式？
 
