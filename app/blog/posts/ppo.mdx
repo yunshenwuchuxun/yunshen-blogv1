@@ -1,0 +1,1069 @@
+---
+title: 'PPO 从 Policy Gradient 到 Clipped Objective：为什么它能稳定训练'
+publishedAt: '2026-05-11'
+summary: '系统拆解 Proximal Policy Optimization：从 Policy Gradient、折扣回报、baseline 与 advantage 开始，理解 on-policy 数据复用、TRPO 约束思想、PPO clipping 目标以及完整算法流程。'
+draft: false
+image: '/static/blog/ppo/ppo-cover.svg'
+tags: [RL, PPO, Policy Gradient, Deep Learning]
+---
+
+<PaperCard
+	title="PPO: Proximal Policy Optimization Algorithms"
+	description="John Schulman, Filip Wolski, Prafulla Dhariwal, Alec Radford, Oleg Klimov — arXiv 2017"
+	links={[
+		{ label: 'PPO 原论文', url: 'https://arxiv.org/abs/1707.06347' },
+		{ label: 'TRPO 原论文', url: 'https://arxiv.org/abs/1502.05477' },
+		{ label: 'GAE 原论文', url: 'https://arxiv.org/abs/1506.02438' },
+		{ label: 'OpenAI Spinning Up PPO', url: 'https://spinningup.openai.com/en/latest/algorithms/ppo.html' },
+	]}
+/>
+
+PPO（Proximal Policy Optimization）经常被一句话概括成：<strong>给 Policy Gradient 加了 clipping 的稳定版强化学习算法</strong>。
+
+这句话没有错，但太短了。真正理解 PPO，需要沿着一条更完整的线索走：
+
+```text
+Policy Gradient
+→ 回报折扣与 baseline
+→ advantage 估计
+→ on-policy 数据利用率低
+→ importance ratio 尝试复用旧数据
+→ policy 更新过大导致崩溃
+→ TRPO 用 KL 约束更新幅度
+→ PPO 用 clipping 做一阶近似
+```
+
+这篇文章就按这条路径展开。最后你应该能回答四个问题：
+
+1. Policy Gradient 到底在优化什么？
+2. 为什么 baseline、折扣因子和 advantage 是必须理解的基础？
+3. PPO 为什么不是严格的 off-policy，却又能比 Vanilla Policy Gradient 更有效地复用数据？
+4. clipped objective 为什么能限制 policy 更新幅度？
+
+> 可信度说明：本文关于 PPO / TRPO / GAE 目标函数与算法流程的表述主要来自原论文与 OpenAI Spinning Up 教程，结论可信度为 <strong>High</strong>。实现细节如 advantage normalization、value clipping、entropy bonus 在不同代码库中会有差异，本文只讨论最常见版本。[Schulman et al., 2017, arXiv:1707.06347] [Schulman et al., 2015, arXiv:1502.05477] [Schulman et al., 2015, arXiv:1506.02438] [OpenAI, Spinning Up PPO]
+
+## 1. PPO 解决的核心问题
+
+强化学习里，agent 不是从静态数据集里学习“标准答案”，而是通过和环境交互得到奖励。
+
+一个典型交互过程如下：
+
+<svg viewBox="0 0 1200 360" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="强化学习交互闭环">
+	<defs>
+		<marker id="arr-rl-loop" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+			<path d="M0,0 L0,6 L9,3 z" fill="#1f2937" />
+		</marker>
+	</defs>
+
+	<rect x="70" y="110" width="230" height="110" rx="16" fill="#dbeafe" stroke="#2563eb" />
+	<text x="185" y="152" textAnchor="middle" fontSize="24" fill="#1e3a8a" fontWeight="600">Policy</text>
+	<text x="185" y="186" textAnchor="middle" fontSize="18" fill="#1e3a8a">πθ(a | s)</text>
+
+	<rect x="485" y="110" width="230" height="110" rx="16" fill="#dcfce7" stroke="#16a34a" />
+	<text x="600" y="152" textAnchor="middle" fontSize="24" fill="#14532d" fontWeight="600">Environment</text>
+	<text x="600" y="186" textAnchor="middle" fontSize="18" fill="#14532d">P(s', r | s, a)</text>
+
+	<rect x="900" y="110" width="220" height="110" rx="16" fill="#fef3c7" stroke="#d97706" />
+	<text x="1010" y="152" textAnchor="middle" fontSize="24" fill="#78350f" fontWeight="600">Trajectory</text>
+	<text x="1010" y="186" textAnchor="middle" fontSize="18" fill="#78350f">τ = s, a, r...</text>
+
+	<line x1="300" y1="165" x2="481" y2="165" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr-rl-loop)" />
+	<text x="390" y="145" textAnchor="middle" fontSize="18" fill="#374151">action</text>
+
+	<line x1="715" y1="165" x2="896" y2="165" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr-rl-loop)" />
+	<text x="805" y="145" textAnchor="middle" fontSize="18" fill="#374151">next state + reward</text>
+
+	<path d="M1010 220 C930 300 280 300 185 224" fill="none" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr-rl-loop)" />
+	<text x="600" y="316" textAnchor="middle" fontSize="18" fill="#374151">use sampled trajectories to update θ</text>
+</svg>
+
+PPO 的目标不是“让每一步都拿到最高即时奖励”，而是最大化长期期望回报：
+
+$$
+J(\theta) = \mathbb{E}_{\tau \sim \pi_\theta}\left[\sum_{t=0}^{T} \gamma^t r_t\right]
+$$
+
+这里：
+
+- $\pi_\theta(a \mid s)$ 是参数为 $\theta$ 的策略；
+- $\tau$ 是按照当前 policy 采样得到的轨迹；
+- $r_t$ 是第 $t$ 步奖励；
+- $\gamma \in [0, 1]$ 是折扣因子。
+
+PPO 要解决的问题是：<strong>怎样让 policy 朝着更高回报方向更新，同时不要一步走太远，把已经学到的行为破坏掉</strong>。
+
+## 2. Policy Gradient：直接优化策略
+
+在监督学习里，我们通常有固定标签，可以直接最小化交叉熵。但强化学习没有“每个 state 下唯一正确 action”。一个 action 好不好，往往要看后面很多步的累计奖励。
+
+Policy Gradient 的基本想法是：
+
+```text
+如果某个 action 最终带来了高回报，就提高它在对应 state 下的概率；
+如果某个 action 最终带来了低回报，就降低它的概率。
+```
+
+### 从轨迹概率推导 REINFORCE
+
+先把一条轨迹写成：
+
+$$
+\tau = (s_0, a_0, r_0, s_1, a_1, r_1, \cdots, s_T)
+$$
+
+在给定 policy $\pi_\theta$ 时，这条轨迹出现的概率是：
+
+$$
+p_\theta(\tau)
+= p(s_0)\prod_{t=0}^{T-1}\pi_\theta(a_t \mid s_t)P(s_{t+1} \mid s_t, a_t)
+$$
+
+目标函数可以写成对轨迹回报的期望：
+
+$$
+J(\theta)
+= \mathbb{E}_{\tau \sim p_\theta(\tau)}[R(\tau)]
+= \int p_\theta(\tau)R(\tau)d\tau
+$$
+
+其中完整轨迹回报为：
+
+$$
+R(\tau) = \sum_{t=0}^{T}\gamma^t r_t
+$$
+
+现在对 $\theta$ 求梯度：
+
+$$
+\nabla_\theta J(\theta)
+= \nabla_\theta \int p_\theta(\tau)R(\tau)d\tau
+= \int \nabla_\theta p_\theta(\tau)R(\tau)d\tau
+$$
+
+使用 log-derivative trick：
+
+$$
+\nabla_\theta p_\theta(\tau)
+= p_\theta(\tau)\nabla_\theta \log p_\theta(\tau)
+$$
+
+于是得到：
+
+$$
+\nabla_\theta J(\theta)
+= \int p_\theta(\tau)\nabla_\theta \log p_\theta(\tau)R(\tau)d\tau
+= \mathbb{E}_{\tau \sim \pi_\theta}\left[
+\nabla_\theta \log p_\theta(\tau)R(\tau)
+\right]
+$$
+
+接着展开轨迹 log probability：
+
+$$
+\log p_\theta(\tau)
+= \log p(s_0)
++ \sum_{t=0}^{T-1}\log \pi_\theta(a_t \mid s_t)
++ \sum_{t=0}^{T-1}\log P(s_{t+1} \mid s_t, a_t)
+$$
+
+环境转移 $P(s_{t+1} \mid s_t, a_t)$ 和初始状态分布 $p(s_0)$ 不由 policy 参数 $\theta$ 控制，所以它们的梯度为 0：
+
+$$
+\nabla_\theta \log p_\theta(\tau)
+= \sum_{t=0}^{T-1}\nabla_\theta \log \pi_\theta(a_t \mid s_t)
+$$
+
+代回去得到最基础的 REINFORCE 形式：
+
+$$
+\nabla_\theta J(\theta)
+= \mathbb{E}_{\tau \sim \pi_\theta}\left[
+\sum_{t=0}^{T-1}\nabla_\theta \log \pi_\theta(a_t \mid s_t)R(\tau)
+\right]
+$$
+
+### 从完整回报到 reward-to-go
+
+上面的式子用的是完整轨迹回报 $R(\tau)$。但第 $t$ 步动作 $a_t$ 不可能影响它之前已经发生的奖励 $r_0, \cdots, r_{t-1}$。因此可以把完整回报替换为从第 $t$ 步开始的 reward-to-go：
+
+$$
+G_t = \sum_{k=t}^{T}\gamma^{k-t}r_k
+$$
+
+直观上，这是一个“因果性修正”：
+
+```text
+用 a_t 之后的结果评价 a_t，
+不要用 a_t 之前已经发生的奖励评价 a_t。
+```
+
+于是最经典的 REINFORCE 梯度可以写成：
+
+$$
+\nabla_\theta J(\theta)
+= \mathbb{E}_{\tau \sim \pi_\theta}\left[
+\sum_t \nabla_\theta \log \pi_\theta(a_t \mid s_t)G_t
+\right]
+$$
+
+这就是你经常看到的 Policy Gradient 形式。
+
+这条公式的直觉很直接：
+
+| 项 | 含义 | 作用 |
+|---|---|---|
+| $\log \pi_\theta(a_t \mid s_t)$ | 当前策略选择动作的 log probability | 告诉模型要调哪个动作的概率 |
+| $\nabla_\theta \log \pi_\theta(a_t \mid s_t)$ | 让该动作概率升高或降低的方向 | 提供可优化梯度 |
+| $G_t$ | 这个动作之后带来的长期回报 | 决定更新强度和方向 |
+
+如果 $G_t$ 很大，就沿着提高 $a_t$ 概率的方向更新；如果 $G_t$ 很小甚至为负，就降低这个 action 的概率。
+
+<svg viewBox="0 0 1200 420" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="Policy Gradient 更新直觉">
+	<defs>
+		<marker id="arr-pg" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+			<path d="M0,0 L0,6 L9,3 z" fill="#1f2937" />
+		</marker>
+	</defs>
+
+	<rect x="60" y="80" width="230" height="110" rx="16" fill="#dbeafe" stroke="#2563eb" />
+	<text x="175" y="122" textAnchor="middle" fontSize="22" fill="#1e3a8a" fontWeight="600">state s</text>
+	<text x="175" y="154" textAnchor="middle" fontSize="17" fill="#1e3a8a">observe environment</text>
+
+	<rect x="365" y="80" width="230" height="110" rx="16" fill="#ede9fe" stroke="#7c3aed" />
+	<text x="480" y="122" textAnchor="middle" fontSize="22" fill="#4c1d95" fontWeight="600">sample action a</text>
+	<text x="480" y="154" textAnchor="middle" fontSize="17" fill="#4c1d95">from πθ(a | s)</text>
+
+	<rect x="670" y="80" width="230" height="110" rx="16" fill="#dcfce7" stroke="#16a34a" />
+	<text x="785" y="122" textAnchor="middle" fontSize="22" fill="#14532d" fontWeight="600">collect return</text>
+	<text x="785" y="154" textAnchor="middle" fontSize="17" fill="#14532d">G = discounted sum</text>
+
+	<rect x="975" y="80" width="165" height="110" rx="16" fill="#fef3c7" stroke="#d97706" />
+	<text x="1058" y="122" textAnchor="middle" fontSize="22" fill="#78350f" fontWeight="600">update θ</text>
+	<text x="1058" y="154" textAnchor="middle" fontSize="17" fill="#78350f">scale by G</text>
+
+	<line x1="290" y1="135" x2="361" y2="135" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr-pg)" />
+	<line x1="595" y1="135" x2="666" y2="135" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr-pg)" />
+	<line x1="900" y1="135" x2="971" y2="135" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr-pg)" />
+
+	<rect x="110" y="265" width="430" height="80" rx="14" fill="#ecfdf5" stroke="#10b981" />
+	<text x="325" y="298" textAnchor="middle" fontSize="20" fill="#065f46" fontWeight="600">high return</text>
+	<text x="325" y="326" textAnchor="middle" fontSize="17" fill="#065f46">increase log probability of sampled action</text>
+
+	<rect x="660" y="265" width="430" height="80" rx="14" fill="#fee2e2" stroke="#dc2626" />
+	<text x="875" y="298" textAnchor="middle" fontSize="20" fill="#7f1d1d" fontWeight="600">low return</text>
+	<text x="875" y="326" textAnchor="middle" fontSize="17" fill="#7f1d1d">decrease log probability of sampled action</text>
+</svg>
+
+但 Vanilla Policy Gradient 有两个明显问题：
+
+1. <strong>方差很大</strong>：同一个策略采样出的轨迹可能差异很大，梯度噪声高。
+2. <strong>数据利用率低</strong>：数据由当前 policy 采样，policy 一更新，旧数据就变得“不那么当前”。
+
+PPO 后面的设计，本质上就是围绕这两个问题展开。
+
+## 3. 折扣因子：为什么未来奖励要打折
+
+折扣因子 $\gamma$ 控制 agent 在多大程度上关心未来。
+
+$$
+G_t = r_t + \gamma r_{t+1} + \gamma^2 r_{t+2} + \cdots
+$$
+
+直观上：
+
+| $\gamma$ | 行为倾向 | 适用直觉 |
+|---|---|---|
+| 接近 0 | 更看重即时奖励 | 短期反馈足够可靠 |
+| 接近 1 | 更看重长期收益 | 长期规划重要 |
+
+如果 $\gamma = 0$，agent 只关心当前一步奖励；如果 $\gamma$ 接近 1，远期奖励也会被认真考虑。
+
+<svg viewBox="0 0 1200 380" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="折扣因子影响未来奖励权重">
+	<line x1="130" y1="285" x2="1080" y2="285" stroke="#64748b" strokeWidth="3" />
+	<line x1="130" y1="285" x2="130" y2="70" stroke="#64748b" strokeWidth="3" />
+	<text x="610" y="336" textAnchor="middle" fontSize="20" fill="#374151">future timestep</text>
+	<text x="68" y="78" textAnchor="middle" fontSize="18" fill="#374151" transform="rotate(-90 68 78)">reward weight</text>
+
+	<path d="M130 100 C250 125 330 155 430 190 C540 230 690 258 1080 276" fill="none" stroke="#2563eb" strokeWidth="7" strokeLinecap="round" />
+	<path d="M130 100 C330 108 520 124 700 150 C850 172 970 206 1080 242" fill="none" stroke="#16a34a" strokeWidth="7" strokeLinecap="round" />
+
+	<rect x="760" y="80" width="300" height="96" rx="14" fill="#f8fafc" stroke="#cbd5e1" />
+	<line x1="790" y1="112" x2="850" y2="112" stroke="#2563eb" strokeWidth="7" strokeLinecap="round" />
+	<text x="870" y="119" fontSize="18" fill="#1e3a8a">smaller γ: fast decay</text>
+	<line x1="790" y1="146" x2="850" y2="146" stroke="#16a34a" strokeWidth="7" strokeLinecap="round" />
+	<text x="870" y="153" fontSize="18" fill="#14532d">larger γ: slow decay</text>
+</svg>
+
+折扣因子有两个作用：
+
+1. <strong>定义任务偏好</strong>：到底是短期收益重要，还是长期收益重要。
+2. <strong>降低估计难度</strong>：远期奖励不确定性更高，折扣可以减少远期噪声对当前更新的影响。
+
+但只加折扣还不够。因为即使使用折扣回报，Policy Gradient 的估计方差仍然很大。
+
+## 4. Baseline：不改变期望，只降低方差
+
+Policy Gradient 可以减去一个只依赖 state、不依赖 action 的 baseline：
+
+$$
+\nabla_\theta J(\theta)
+= \mathbb{E}\left[
+\nabla_\theta \log \pi_\theta(a_t \mid s_t)(G_t - b(s_t))
+\right]
+$$
+
+最常用的 baseline 是状态价值函数：
+
+$$
+V^\pi(s_t) = \mathbb{E}_{a_t, s_{t+1}, \cdots \sim \pi}\left[G_t \mid s_t\right]
+$$
+
+于是我们得到 advantage：
+
+$$
+A_t = G_t - V^\pi(s_t)
+$$
+
+它回答的问题不是“这个 action 的回报有多高”，而是：
+
+```text
+这个 action 比当前 state 下的平均水平好多少？
+```
+
+这是一个非常关键的转换。
+
+| 使用信号 | 问的问题 | 问题 |
+|---|---|---|
+| return $G_t$ | 这个轨迹回报高不高？ | 不同 state 的天然难度不同，噪声大 |
+| advantage $A_t$ | 这个 action 是否比预期更好？ | 更适合判断该不该提高动作概率 |
+
+<svg viewBox="0 0 1200 430" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="Baseline 和 advantage 的关系">
+	<rect x="80" y="70" width="300" height="260" rx="18" fill="#eff6ff" stroke="#2563eb" />
+	<text x="230" y="112" textAnchor="middle" fontSize="24" fill="#1e3a8a" fontWeight="600">Raw return</text>
+	<text x="230" y="155" textAnchor="middle" fontSize="22" fill="#1e3a8a">Gₜ = 18</text>
+	<text x="230" y="198" textAnchor="middle" fontSize="17" fill="#1e3a8a">looks good, but compared to what?</text>
+
+	<rect x="450" y="70" width="300" height="260" rx="18" fill="#f8fafc" stroke="#64748b" />
+	<text x="600" y="112" textAnchor="middle" fontSize="24" fill="#334155" fontWeight="600">Baseline</text>
+	<text x="600" y="155" textAnchor="middle" fontSize="22" fill="#334155">V(sₜ) = 15</text>
+	<text x="600" y="198" textAnchor="middle" fontSize="17" fill="#334155">expected return at this state</text>
+
+	<rect x="820" y="70" width="300" height="260" rx="18" fill="#ecfdf5" stroke="#10b981" />
+	<text x="970" y="112" textAnchor="middle" fontSize="24" fill="#065f46" fontWeight="600">Advantage</text>
+	<text x="970" y="155" textAnchor="middle" fontSize="22" fill="#065f46">Aₜ = 3</text>
+	<text x="970" y="198" textAnchor="middle" fontSize="17" fill="#065f46">better than expected</text>
+
+	<text x="415" y="205" textAnchor="middle" fontSize="36" fill="#374151">−</text>
+	<text x="785" y="205" textAnchor="middle" fontSize="36" fill="#374151">=</text>
+
+	<text x="600" y="375" textAnchor="middle" fontSize="20" fill="#374151">Baseline does not change the expected policy gradient; it mainly reduces variance.</text>
+</svg>
+
+### Baseline 为什么不改变梯度期望
+
+baseline 的关键条件是：$b(s_t)$ 只能依赖 state，不能依赖 action。
+
+对固定的 state $s$，baseline 对 policy gradient 的贡献是：
+
+$$
+\mathbb{E}_{a \sim \pi_\theta(\cdot \mid s)}\left[
+\nabla_\theta \log \pi_\theta(a \mid s)b(s)
+\right]
+$$
+
+因为 $b(s)$ 与 action 无关，可以提出期望外：
+
+$$
+= b(s)\sum_a \pi_\theta(a \mid s)\nabla_\theta \log \pi_\theta(a \mid s)
+$$
+
+利用 $\nabla_\theta \log \pi_\theta(a \mid s)=\frac{\nabla_\theta \pi_\theta(a \mid s)}{\pi_\theta(a \mid s)}$：
+
+$$
+= b(s)\sum_a \nabla_\theta \pi_\theta(a \mid s)
+= b(s)\nabla_\theta \sum_a \pi_\theta(a \mid s)
+$$
+
+而所有 action 的概率和恒等于 1：
+
+$$
+\sum_a \pi_\theta(a \mid s) = 1
+$$
+
+所以：
+
+$$
+b(s)\nabla_\theta \sum_a \pi_\theta(a \mid s)
+= b(s)\nabla_\theta 1
+= 0
+$$
+
+连续动作空间中把求和换成积分，结论相同。因此：
+
+$$
+\mathbb{E}_{a \sim \pi_\theta}\left[
+\nabla_\theta \log \pi_\theta(a \mid s)b(s)
+\right] = 0
+$$
+
+这说明 baseline 不改变 policy gradient 的期望，只改变估计方差。它把“绝对回报”改成“相对平均表现”：
+
+$$
+\nabla_\theta J(\theta)
+= \mathbb{E}\left[
+\nabla_\theta \log \pi_\theta(a_t \mid s_t)A_t
+\right]
+$$
+
+其中：
+
+$$
+A_t = G_t - V^\pi(s_t)
+$$
+
+这也是 PPO 通常使用 actor-critic 框架的原因：
+
+- <strong>actor</strong>：策略 $\pi_\theta(a \mid s)$，决定怎么行动；
+- <strong>critic</strong>：价值函数 $V_\phi(s)$，估计当前 state 的平均未来回报。
+
+## 5. 从 return 到 GAE：更平滑地估计 advantage
+
+实际训练 PPO 时，很少直接用完整 Monte Carlo return 计算 advantage。更常见的是使用 GAE（Generalized Advantage Estimation）。
+
+### 从 Bellman 误差到 TD residual
+
+价值函数满足 Bellman 形式：
+
+$$
+V^\pi(s_t)
+= \mathbb{E}_{a_t \sim \pi, s_{t+1} \sim P}\left[
+ r_t + \gamma V^\pi(s_{t+1})
+\right]
+$$
+
+如果我们用当前 critic $V(s)$ 近似真实的 $V^\pi(s)$，那么单步估计的“实际结果”是：
+
+$$
+r_t + \gamma V(s_{t+1})
+$$
+
+当前 state 的“原本预期”是：
+
+$$
+V(s_t)
+$$
+
+两者相减，就得到 TD residual：
+
+$$
+\delta_t = r_t + \gamma V(s_{t+1}) - V(s_t)
+$$
+
+它可以理解成：
+
+```text
+这一步的实际奖励 + 下一个状态价值，是否超过了当前状态的价值预期？
+```
+
+如果 $\delta_t > 0$，说明这一步比 critic 预期更好；如果 $\delta_t < 0$，说明更差。
+
+### 从多步 advantage 到 GAE
+
+单步 TD residual 方差低，但只看一步，偏差可能较大。Monte Carlo advantage 可以写成：
+
+$$
+\hat{A}_t^{MC} = G_t - V(s_t)
+$$
+
+把 $G_t$ 展开：
+
+$$
+\hat{A}_t^{MC}
+= r_t + \gamma r_{t+1} + \gamma^2 r_{t+2} + \cdots - V(s_t)
+$$
+
+再把相邻的 value 项加减进去：
+
+$$
+\hat{A}_t^{MC}
+= \delta_t + \gamma\delta_{t+1} + \gamma^2\delta_{t+2} + \cdots
+$$
+
+也就是说，Monte Carlo advantage 可以看成所有未来 TD residual 的折扣和。
+
+GAE 在这个基础上再加入 $\lambda$，让更远处的 TD residual 衰减得更快：
+
+$$
+\hat{A}_t^{GAE(\gamma, \lambda)}
+= \sum_{l=0}^{\infty}(\gamma\lambda)^l \delta_{t+l}
+$$
+
+当 $\lambda=1$ 时，它接近 Monte Carlo advantage；当 $\lambda=0$ 时，只保留单步 TD residual：
+
+$$
+\hat{A}_t^{GAE(\gamma, 0)} = \delta_t
+$$
+
+其中 $\lambda$ 控制 bias-variance tradeoff：
+
+| $\lambda$ | 更接近 | 特点 |
+|---|---|---|
+| 0 | one-step TD | 方差低，偏差可能更高 |
+| 1 | Monte Carlo return | 偏差低，方差更高 |
+| 0 到 1 | 多步折中 | PPO 常用选择 |
+
+GAE 的意义不是改变 PPO 的核心目标，而是提供更稳定的 advantage 估计。[Schulman et al., 2015, arXiv:1506.02438]
+
+## 6. On-policy：为什么旧数据会过期
+
+Policy Gradient 的期望写作：
+
+$$
+\mathbb{E}_{\tau \sim \pi_\theta}[\cdots]
+$$
+
+这意味着数据应该来自当前 policy。如果我们用旧 policy $\pi_{\theta_{old}}$ 采样的数据去更新新 policy $\pi_\theta$，分布就变了。
+
+例如：
+
+```text
+old policy 很少尝试 action A；
+new policy 却已经很喜欢 action A。
+```
+
+那旧数据里 action A 的样本就很少，用它来估计新 policy 的真实表现会有偏差。
+
+这就是 on-policy 的核心限制：
+
+| 类型 | 数据来源 | 优点 | 缺点 |
+|---|---|---|---|
+| on-policy | 当前 policy 新采样 | 估计更直接、更稳定 | 样本利用率低 |
+| off-policy | 可使用旧 policy 或 replay buffer 数据 | 样本利用率高 | 需要校正分布偏移，训练更复杂 |
+
+PPO 经常被放在 on-policy 算法里，因为它仍然依赖当前或刚刚过去的 policy 采样数据；但它又不是“一条轨迹只更新一次”的朴素 on-policy。
+
+更准确的说法是：<strong>PPO 是 on-policy 算法，但会在一个受限制的范围内，用 importance ratio 对刚采样的数据做多轮 minibatch 更新</strong>。
+
+## 7. 从 on-policy 到“有限 off-policy”：importance ratio
+
+如果数据来自旧策略 $\pi_{\theta_{old}}$，我们不能直接把它当作新策略 $\pi_\theta$ 的样本。先从普通 importance sampling 恒等式开始：
+
+$$
+\mathbb{E}_{x \sim p}[f(x)]
+= \int p(x)f(x)dx
+= \int q(x)\frac{p(x)}{q(x)}f(x)dx
+= \mathbb{E}_{x \sim q}\left[\frac{p(x)}{q(x)}f(x)\right]
+$$
+
+对应到 policy update：
+
+- 目标分布 $p$ 是新策略 $\pi_\theta$；
+- 采样分布 $q$ 是旧策略 $\pi_{\theta_{old}}$；
+- 被修正的量是动作概率。
+
+因此定义 importance sampling ratio：
+
+$$
+r_t(\theta) = \frac{\pi_\theta(a_t \mid s_t)}{\pi_{\theta_{old}}(a_t \mid s_t)}
+$$
+
+把原来的 advantage policy gradient 写成旧数据上的 surrogate objective：
+
+$$
+L^{PG}(\theta)
+= \mathbb{E}_t\left[r_t(\theta)\hat{A}_t\right]
+$$
+
+这里的 $\mathbb{E}_t$ 表示对旧 policy 收集到的 timestep 样本求平均。它不是完整无偏地解决所有 off-policy 问题，而是在新旧策略足够接近时给出一个可用近似。
+
+这个 ratio 的含义是：
+
+| $r_t(\theta)$ | 含义 |
+|---|---|
+| $r_t = 1$ | 新旧 policy 对这个 action 的概率一样 |
+| $r_t > 1$ | 新 policy 更倾向这个 action |
+| $r_t < 1$ | 新 policy 更不倾向这个 action |
+
+如果 $\hat{A}_t > 0$，说明这个 action 比预期好，我们希望提高它的概率；如果 $\hat{A}_t < 0$，说明它比预期差，我们希望降低它的概率。
+
+<svg viewBox="0 0 1200 440" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="Importance ratio 解释新旧策略概率变化">
+	<rect x="70" y="80" width="280" height="110" rx="16" fill="#dbeafe" stroke="#2563eb" />
+	<text x="210" y="122" textAnchor="middle" fontSize="23" fill="#1e3a8a" fontWeight="600">old policy</text>
+	<text x="210" y="155" textAnchor="middle" fontSize="18" fill="#1e3a8a">π old(a | s)</text>
+
+	<rect x="460" y="80" width="280" height="110" rx="16" fill="#ede9fe" stroke="#7c3aed" />
+	<text x="600" y="122" textAnchor="middle" fontSize="23" fill="#4c1d95" fontWeight="600">new policy</text>
+	<text x="600" y="155" textAnchor="middle" fontSize="18" fill="#4c1d95">π θ(a | s)</text>
+
+	<rect x="850" y="80" width="280" height="110" rx="16" fill="#fef3c7" stroke="#d97706" />
+	<text x="990" y="122" textAnchor="middle" fontSize="23" fill="#78350f" fontWeight="600">ratio</text>
+	<text x="990" y="155" textAnchor="middle" fontSize="18" fill="#78350f">r(θ) = new / old</text>
+
+	<line x1="350" y1="135" x2="456" y2="135" stroke="#1f2937" strokeWidth="3" />
+	<line x1="740" y1="135" x2="846" y2="135" stroke="#1f2937" strokeWidth="3" />
+
+	<rect x="120" y="275" width="290" height="86" rx="14" fill="#ecfdf5" stroke="#10b981" />
+	<text x="265" y="309" textAnchor="middle" fontSize="20" fill="#065f46" fontWeight="600">A &gt; 0</text>
+	<text x="265" y="337" textAnchor="middle" fontSize="17" fill="#065f46">larger ratio increases objective</text>
+
+	<rect x="455" y="275" width="290" height="86" rx="14" fill="#fee2e2" stroke="#dc2626" />
+	<text x="600" y="309" textAnchor="middle" fontSize="20" fill="#7f1d1d" fontWeight="600">A &lt; 0</text>
+	<text x="600" y="337" textAnchor="middle" fontSize="17" fill="#7f1d1d">smaller ratio increases objective</text>
+
+	<rect x="790" y="275" width="290" height="86" rx="14" fill="#f8fafc" stroke="#64748b" />
+	<text x="935" y="309" textAnchor="middle" fontSize="20" fill="#334155" fontWeight="600">problem</text>
+	<text x="935" y="337" textAnchor="middle" fontSize="17" fill="#334155">ratio can move too far</text>
+</svg>
+
+这一步看起来像是从 on-policy 走向 off-policy：旧 policy 采样的数据，也能拿来更新新 policy。
+
+但注意边界：
+
+- 如果新旧 policy 差异很小，ratio 修正通常比较可靠；
+- 如果新旧 policy 差异很大，ratio 可能极端，方差会变大，更新会不稳定。
+
+所以 PPO 不是要变成完全 off-policy，而是要回答：<strong>怎样在复用旧数据的同时，避免新旧策略差得太远？</strong>
+
+## 8. 加约束：TRPO 的 trust region 思想
+
+TRPO 的核心动机是：policy 更新不能太大。因为在强化学习里，一个看似小的参数变化，可能让动作分布发生很大变化，导致性能突然崩溃。
+
+### 从 surrogate objective 到 KL 约束
+
+前面得到的 surrogate objective 是：
+
+$$
+L^{PG}(\theta)
+= \mathbb{E}_t\left[r_t(\theta)\hat{A}_t\right]
+$$
+
+如果只最大化它，会出现一个问题：只要 $\hat{A}_t > 0$，优化器就会不断增大 $r_t(\theta)$；只要 $\hat{A}_t < 0$，优化器就会不断压低 $r_t(\theta)$。这可能让新策略离旧策略很远。
+
+TRPO 的做法是：继续最大化 surrogate objective，但显式约束新旧 policy 的平均 KL 距离：
+
+$$
+\max_\theta \; \mathbb{E}_t\left[
+\frac{\pi_\theta(a_t \mid s_t)}{\pi_{\theta_{old}}(a_t \mid s_t)}\hat{A}_t
+\right]
+$$
+
+$$
+\text{subject to}\quad
+\mathbb{E}_t\left[D_{KL}\left(
+\pi_{\theta_{old}}(\cdot \mid s_t)\;||\;\pi_\theta(\cdot \mid s_t)
+\right)\right] \leq \delta
+$$
+
+KL 项展开为：
+
+$$
+D_{KL}(p||q) = \sum_a p(a)\log\frac{p(a)}{q(a)}
+$$
+
+因此这里的约束衡量的是：在同一个 state 下，旧 policy 的动作分布和新 policy 的动作分布相差多大。
+
+也就是说：
+
+```text
+你可以提高目标函数，
+但新 policy 不能离旧 policy 太远。
+```
+
+<svg viewBox="0 0 1200 430" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="TRPO trust region 约束">
+	<circle cx="590" cy="220" r="155" fill="#dbeafe" stroke="#2563eb" strokeWidth="3" strokeDasharray="8 8" />
+	<circle cx="590" cy="220" r="18" fill="#1d4ed8" />
+	<text x="590" y="202" textAnchor="middle" fontSize="19" fill="#1e3a8a" fontWeight="600">old policy</text>
+	<text x="590" y="405" textAnchor="middle" fontSize="20" fill="#1e3a8a">trust region: average KL ≤ δ</text>
+
+	<circle cx="690" cy="155" r="15" fill="#16a34a" />
+	<text x="760" y="162" textAnchor="middle" fontSize="18" fill="#14532d">safe update</text>
+	<line x1="608" y1="214" x2="676" y2="163" stroke="#16a34a" strokeWidth="4" />
+
+	<circle cx="890" cy="82" r="15" fill="#dc2626" />
+	<text x="975" y="89" textAnchor="middle" fontSize="18" fill="#7f1d1d">too far</text>
+	<line x1="704" y1="148" x2="876" y2="89" stroke="#dc2626" strokeWidth="4" strokeDasharray="7 7" />
+
+	<rect x="70" y="110" width="310" height="190" rx="18" fill="#f8fafc" stroke="#cbd5e1" />
+	<text x="225" y="150" textAnchor="middle" fontSize="23" fill="#334155" fontWeight="600">TRPO</text>
+	<text x="225" y="190" textAnchor="middle" fontSize="18" fill="#334155">maximize surrogate objective</text>
+	<text x="225" y="224" textAnchor="middle" fontSize="18" fill="#334155">under a KL constraint</text>
+	<text x="225" y="258" textAnchor="middle" fontSize="18" fill="#334155">stable but more complex</text>
+</svg>
+
+TRPO 很优雅，但实现上通常需要二阶近似、共轭梯度、line search 等步骤，工程复杂度高。[Schulman et al., 2015, arXiv:1502.05477]
+
+PPO 的目标就是保留 trust region 的直觉，但用更简单的一阶优化方法实现。
+
+## 9. PPO Clipped Objective：用裁剪限制更新动机
+
+PPO 最常见的版本是 PPO-Clip。它不直接写 KL 约束，而是从未约束的 surrogate objective 出发：
+
+$$
+L^{PG}(\theta)=\mathbb{E}_t[r_t(\theta)\hat{A}_t]
+$$
+
+问题是这个目标没有阻止 ratio 走得太远。于是 PPO 先构造一个被裁剪的 ratio：
+
+$$
+\bar{r}_t(\theta)
+= \operatorname{clip}(r_t(\theta), 1 - \epsilon, 1 + \epsilon)
+$$
+
+也就是：
+
+$$
+\bar{r}_t(\theta)=
+\begin{cases}
+1-\epsilon, & r_t(\theta) < 1-\epsilon \\
+r_t(\theta), & 1-\epsilon \leq r_t(\theta) \leq 1+\epsilon \\
+1+\epsilon, & r_t(\theta) > 1+\epsilon
+\end{cases}
+$$
+
+如果只把 $r_t$ 替换成 $\bar{r}_t$，还不够保守。PPO 使用原目标和裁剪目标的较小值：
+
+$$
+L^{CLIP}(\theta) =
+\mathbb{E}_t\left[
+\min\left(
+ r_t(\theta)\hat{A}_t,
+ \bar{r}_t(\theta)\hat{A}_t
+\right)
+\right]
+$$
+
+代入 $\bar{r}_t$，就是常见写法：
+
+$$
+L^{CLIP}(\theta) =
+\mathbb{E}_t\left[
+\min\left(
+ r_t(\theta)\hat{A}_t,
+ \operatorname{clip}(r_t(\theta), 1 - \epsilon, 1 + \epsilon)\hat{A}_t
+\right)
+\right]
+$$
+
+这里 $\epsilon$ 通常是一个小数，例如 0.1 或 0.2。
+
+这条公式的关键是：<strong>当 ratio 已经变化太多时，不再给目标函数继续变好的奖励</strong>。
+
+分情况推导会更清楚。
+
+### 当 advantage 为正
+
+如果 $\hat{A}_t > 0$，说明这个 action 比预期好，我们希望增加它的概率，也就是让 $r_t(\theta)$ 变大。
+
+此时目标内的两项是：
+
+$$
+r_t(\theta)\hat{A}_t
+$$
+
+和：
+
+$$
+\operatorname{clip}(r_t(\theta), 1-\epsilon, 1+\epsilon)\hat{A}_t
+$$
+
+因为 $\hat{A}_t > 0$，乘以正数不会改变大小关系。当 $r_t(\theta) > 1 + \epsilon$ 时：
+
+$$
+\operatorname{clip}(r_t(\theta), 1-\epsilon, 1+\epsilon)=1+\epsilon
+$$
+
+所以：
+
+$$
+\min(r_t(\theta)\hat{A}_t, (1+\epsilon)\hat{A}_t)
+= (1+\epsilon)\hat{A}_t
+$$
+
+也就是说，超过上界以后，目标函数不再因为 ratio 继续变大而增加。PPO 允许提高好 action 的概率，但不奖励无限提高。
+
+### 当 advantage 为负
+
+如果 $\hat{A}_t < 0$，说明这个 action 比预期差，我们希望降低它的概率，也就是让 $r_t(\theta)$ 变小。
+
+此时因为 $\hat{A}_t$ 是负数，乘法会反转大小关系。当 $r_t(\theta) < 1-\epsilon$ 时：
+
+$$
+\operatorname{clip}(r_t(\theta), 1-\epsilon, 1+\epsilon)=1-\epsilon
+$$
+
+由于 $\hat{A}_t < 0$，有：
+
+$$
+r_t(\theta)\hat{A}_t > (1-\epsilon)\hat{A}_t
+$$
+
+PPO 取二者较小值：
+
+$$
+\min(r_t(\theta)\hat{A}_t, (1-\epsilon)\hat{A}_t)
+= (1-\epsilon)\hat{A}_t
+$$
+
+也就是说，低于下界以后，目标函数不再鼓励继续压低该动作概率。PPO 允许降低坏 action 的概率，但不奖励把它压到过低。
+
+<svg viewBox="0 0 1200 500" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="PPO clipping 对正负 advantage 的影响">
+	<line x1="100" y1="390" x2="1100" y2="390" stroke="#64748b" strokeWidth="3" />
+	<line x1="600" y1="390" x2="600" y2="80" stroke="#64748b" strokeWidth="3" />
+	<text x="600" y="430" textAnchor="middle" fontSize="18" fill="#374151">r(θ) = 1</text>
+	<text x="420" y="430" textAnchor="middle" fontSize="18" fill="#2563eb">1 - ε</text>
+	<text x="780" y="430" textAnchor="middle" fontSize="18" fill="#2563eb">1 + ε</text>
+
+	<line x1="420" y1="80" x2="420" y2="390" stroke="#2563eb" strokeWidth="2" strokeDasharray="8 8" />
+	<line x1="780" y1="80" x2="780" y2="390" stroke="#2563eb" strokeWidth="2" strokeDasharray="8 8" />
+	<rect x="420" y="80" width="360" height="310" fill="#38bdf8" opacity="0.08" />
+
+	<path d="M180 350 L780 140 L1020 140" fill="none" stroke="#16a34a" strokeWidth="7" strokeLinecap="round" />
+	<text x="930" y="128" textAnchor="middle" fontSize="18" fill="#14532d" fontWeight="600">A &gt; 0: cap benefit above 1 + ε</text>
+
+	<path d="M180 170 L420 170 L1020 350" fill="none" stroke="#dc2626" strokeWidth="7" strokeLinecap="round" />
+	<text x="292" y="156" textAnchor="middle" fontSize="18" fill="#7f1d1d" fontWeight="600">A &lt; 0: cap benefit below 1 - ε</text>
+
+	<rect x="110" y="35" width="980" height="36" rx="10" fill="#f8fafc" stroke="#cbd5e1" />
+	<text x="600" y="59" textAnchor="middle" fontSize="18" fill="#334155">Clipping removes the incentive to move the new policy too far from the old policy.</text>
+</svg>
+
+这就是 PPO 的“proximal”：更新可以发生，但要保持在旧 policy 附近。
+
+PPO 不是硬性保证 KL 一定小于某个阈值，而是通过 clipped surrogate objective 降低过大更新的动机。很多实现还会监控 approximate KL，如果 KL 太大就提前停止当前 epoch。[Schulman et al., 2017, arXiv:1707.06347] [OpenAI, Spinning Up PPO]
+
+## 10. PPO 的完整 loss
+
+实际 PPO 通常不是只优化 policy loss，还会加上 value loss 和 entropy bonus：
+
+$$
+L(\theta, \phi) =
+L^{CLIP}(\theta)
+- c_1 L^{VF}(\phi)
++ c_2 H(\pi_\theta)
+$$
+
+其中：
+
+| 项 | 作用 |
+|---|---|
+| $L^{CLIP}$ | 更新 actor，让更好的动作更可能出现 |
+| $L^{VF}$ | 训练 critic，让 $V_\phi(s)$ 更准确 |
+| $H(\pi_\theta)$ | entropy bonus，鼓励探索，避免策略过早坍缩 |
+
+value loss 常见写法是：
+
+$$
+L^{VF}(\phi) = \mathbb{E}_t\left[(V_\phi(s_t) - \hat{R}_t)^2\right]
+$$
+
+其中 $\hat{R}_t$ 可以理解为用于训练 critic 的回报目标。
+
+PPO 因此是一个 actor-critic 方法：
+
+<svg viewBox="0 0 1200 420" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="PPO actor critic 结构">
+	<defs>
+		<marker id="arr-ac" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+			<path d="M0,0 L0,6 L9,3 z" fill="#1f2937" />
+		</marker>
+	</defs>
+
+	<rect x="70" y="145" width="220" height="110" rx="16" fill="#f8fafc" stroke="#64748b" />
+	<text x="180" y="188" textAnchor="middle" fontSize="24" fill="#334155" fontWeight="600">state s</text>
+	<text x="180" y="220" textAnchor="middle" fontSize="17" fill="#334155">observation</text>
+
+	<rect x="430" y="55" width="280" height="110" rx="16" fill="#dbeafe" stroke="#2563eb" />
+	<text x="570" y="98" textAnchor="middle" fontSize="24" fill="#1e3a8a" fontWeight="600">Actor</text>
+	<text x="570" y="130" textAnchor="middle" fontSize="17" fill="#1e3a8a">πθ(a | s)</text>
+
+	<rect x="430" y="255" width="280" height="110" rx="16" fill="#dcfce7" stroke="#16a34a" />
+	<text x="570" y="298" textAnchor="middle" fontSize="24" fill="#14532d" fontWeight="600">Critic</text>
+	<text x="570" y="330" textAnchor="middle" fontSize="17" fill="#14532d">Vφ(s)</text>
+
+	<rect x="860" y="145" width="270" height="110" rx="16" fill="#fef3c7" stroke="#d97706" />
+	<text x="995" y="188" textAnchor="middle" fontSize="24" fill="#78350f" fontWeight="600">PPO update</text>
+	<text x="995" y="220" textAnchor="middle" fontSize="17" fill="#78350f">clip + value + entropy</text>
+
+	<line x1="290" y1="182" x2="426" y2="110" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr-ac)" />
+	<line x1="290" y1="218" x2="426" y2="310" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr-ac)" />
+	<line x1="710" y1="110" x2="856" y2="178" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr-ac)" />
+	<line x1="710" y1="310" x2="856" y2="222" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr-ac)" />
+</svg>
+
+## 11. PPO 算法流程
+
+PPO 的训练循环可以分成两层：
+
+1. 外层：用当前 policy 和环境交互，收集一批 trajectories；
+2. 内层：在这批数据上做多轮 minibatch SGD，但用 clipping 限制 policy 漂移。
+
+完整流程如下：
+
+<svg viewBox="0 0 1200 560" className="my-6 w-full rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-neutral-900" role="img" aria-label="PPO 算法流程图">
+	<defs>
+		<marker id="arr-ppo-flow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+			<path d="M0,0 L0,6 L9,3 z" fill="#1f2937" />
+		</marker>
+	</defs>
+
+	<rect x="70" y="80" width="230" height="90" rx="16" fill="#dbeafe" stroke="#2563eb" />
+	<text x="185" y="116" textAnchor="middle" fontSize="21" fill="#1e3a8a" fontWeight="600">1. collect rollout</text>
+	<text x="185" y="146" textAnchor="middle" fontSize="16" fill="#1e3a8a">using π old</text>
+
+	<rect x="370" y="80" width="230" height="90" rx="16" fill="#dcfce7" stroke="#16a34a" />
+	<text x="485" y="116" textAnchor="middle" fontSize="21" fill="#14532d" fontWeight="600">2. estimate values</text>
+	<text x="485" y="146" textAnchor="middle" fontSize="16" fill="#14532d">V(s), returns</text>
+
+	<rect x="670" y="80" width="230" height="90" rx="16" fill="#fef3c7" stroke="#d97706" />
+	<text x="785" y="116" textAnchor="middle" fontSize="21" fill="#78350f" fontWeight="600">3. compute GAE</text>
+	<text x="785" y="146" textAnchor="middle" fontSize="16" fill="#78350f">Â_t</text>
+
+	<rect x="970" y="80" width="160" height="90" rx="16" fill="#ede9fe" stroke="#7c3aed" />
+	<text x="1050" y="116" textAnchor="middle" fontSize="21" fill="#4c1d95" fontWeight="600">4. freeze</text>
+	<text x="1050" y="146" textAnchor="middle" fontSize="16" fill="#4c1d95">log π old</text>
+
+	<rect x="180" y="310" width="240" height="100" rx="16" fill="#fae8ff" stroke="#a21caf" />
+	<text x="300" y="350" textAnchor="middle" fontSize="21" fill="#701a75" fontWeight="600">5. minibatch SGD</text>
+	<text x="300" y="380" textAnchor="middle" fontSize="16" fill="#701a75">several epochs</text>
+
+	<rect x="500" y="310" width="240" height="100" rx="16" fill="#fee2e2" stroke="#dc2626" />
+	<text x="620" y="350" textAnchor="middle" fontSize="21" fill="#7f1d1d" fontWeight="600">6. clipped loss</text>
+	<text x="620" y="380" textAnchor="middle" fontSize="16" fill="#7f1d1d">policy + value + entropy</text>
+
+	<rect x="820" y="310" width="240" height="100" rx="16" fill="#e0f2fe" stroke="#0284c7" />
+	<text x="940" y="350" textAnchor="middle" fontSize="21" fill="#075985" fontWeight="600">7. update policy</text>
+	<text x="940" y="380" textAnchor="middle" fontSize="16" fill="#075985">θ old ← θ</text>
+
+	<line x1="300" y1="125" x2="366" y2="125" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr-ppo-flow)" />
+	<line x1="600" y1="125" x2="666" y2="125" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr-ppo-flow)" />
+	<line x1="900" y1="125" x2="966" y2="125" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr-ppo-flow)" />
+	<path d="M1050 170 C1050 240 300 240 300 306" fill="none" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr-ppo-flow)" />
+	<line x1="420" y1="360" x2="496" y2="360" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr-ppo-flow)" />
+	<line x1="740" y1="360" x2="816" y2="360" stroke="#1f2937" strokeWidth="3" markerEnd="url(#arr-ppo-flow)" />
+	<path d="M940 410 C940 500 185 500 185 174" fill="none" stroke="#1f2937" strokeWidth="3" strokeDasharray="8 8" markerEnd="url(#arr-ppo-flow)" />
+</svg>
+
+伪代码可以写成：
+
+```text
+initialize policy πθ and value function Vφ
+
+repeat:
+    θ_old ← θ
+
+    collect trajectories using πθ_old
+    compute rewards-to-go or return targets
+    compute advantages Â using Vφ, γ, λ
+    store old log probabilities log πθ_old(a_t | s_t)
+
+    for epoch in 1..K:
+        for minibatch in collected data:
+            r_t(θ) = exp(log πθ(a_t | s_t) - log πθ_old(a_t | s_t))
+
+            policy_loss = -mean(min(
+                r_t(θ) * Â_t,
+                clip(r_t(θ), 1 - ε, 1 + ε) * Â_t
+            ))
+
+            value_loss = mean((Vφ(s_t) - return_target_t)^2)
+            entropy_bonus = mean(entropy(πθ(. | s_t)))
+
+            loss = policy_loss + c1 * value_loss - c2 * entropy_bonus
+            update θ, φ with gradient descent
+
+    optionally stop early if approximate KL is too large
+```
+
+这里有几个容易混淆的点：
+
+| 设计 | 目的 |
+|---|---|
+| 保存 old log prob | 计算新旧策略 ratio |
+| 多轮 minibatch 更新 | 提高同一批 rollout 的数据利用率 |
+| clipping | 避免多轮更新把 policy 推太远 |
+| advantage normalization | 让梯度尺度更稳定，常见但不是 PPO 目标的核心 |
+| approximate KL early stop | 额外安全阀，不是所有实现都完全一样 |
+
+## 12. PPO 为什么稳定
+
+PPO 的稳定性来自几个机制叠加，而不是单一技巧：
+
+| 机制 | 解决什么问题 |
+|---|---|
+| 折扣因子 $\gamma$ | 定义长期回报，并减少远期不确定性的影响 |
+| baseline / critic | 降低 Policy Gradient 方差 |
+| GAE | 在 bias 和 variance 之间折中估计 advantage |
+| importance ratio | 允许用旧 policy 数据评估新 policy 更新 |
+| clipped objective | 限制新旧 policy ratio 变化带来的过大收益 |
+| minibatch + 多 epoch | 提高样本利用率 |
+| entropy bonus | 保持探索，避免过早确定化 |
+
+更直观地说：
+
+```text
+Vanilla Policy Gradient: 方向对，但噪声大，数据利用率低。
+TRPO: 更新稳，但优化过程复杂。
+PPO: 用 clipping 模拟 trust region 的效果，保留一阶优化的简单性。
+```
+
+这也是 PPO 被大量使用的原因：它不是理论上最完美的 policy optimization 方法，但在“稳定性、实现难度、样本效率、工程可调性”之间做了很好的折中。
+
+## 13. 常见误区
+
+### 误区一：PPO 是 off-policy 算法
+
+不准确。
+
+PPO 通常仍被归类为 on-policy。它的数据来自当前或刚刚过去的 policy，不像 DQN / SAC 那样长期使用 replay buffer 里的旧数据。
+
+更准确的说法是：<strong>PPO 使用 importance ratio 和 clipping，在有限范围内复用刚采样的数据</strong>。
+
+### 误区二：clipping 等价于 KL 约束
+
+不完全等价。
+
+TRPO 直接约束平均 KL；PPO-Clip 是通过裁剪 ratio，让目标函数不再奖励过大策略变化。它通常能起到类似 trust region 的经验效果，但不是严格的 KL 约束。
+
+### 误区三：baseline 会改变最优策略
+
+不会。
+
+只要 baseline 不依赖 action，它不会改变 Policy Gradient 的期望，只会减少方差。它改变的是训练稳定性，不是优化目标的最优解。
+
+### 误区四：advantage 越大越好
+
+不一定。
+
+advantage 是估计量。估计噪声太大时，更新方向会不稳定。实践中常见做法是对 advantage 做 normalization，让训练尺度更平稳。
+
+## 14. 一句话总结
+
+PPO 可以理解成：
+
+> 在 Policy Gradient 的基础上，用 critic / GAE 降低方差，用 importance ratio 复用刚采样的数据，再用 clipping 限制新旧策略差异，从而实现一种简单、稳定、可工程化的 policy optimization 方法。
+
+如果只记一个公式，就是：
+
+$$
+L^{CLIP}(\theta) =
+\mathbb{E}_t\left[
+\min\left(
+ r_t(\theta)\hat{A}_t,
+ \operatorname{clip}(r_t(\theta), 1 - \epsilon, 1 + \epsilon)\hat{A}_t
+\right)
+\right]
+$$
+
+如果只记一个直觉，就是：
+
+```text
+好的 action 可以更可能出现，坏的 action 可以更少出现；
+但无论变好还是变坏，都不要让 policy 一步跨得太远。
+```
+
+## References
+
+1. [Schulman et al., 2017] John Schulman, Filip Wolski, Prafulla Dhariwal, Alec Radford, Oleg Klimov. “Proximal Policy Optimization Algorithms.” arXiv:1707.06347.
+2. [Schulman et al., 2015] John Schulman, Sergey Levine, Pieter Abbeel, Michael Jordan, Philipp Moritz. “Trust Region Policy Optimization.” arXiv:1502.05477.
+3. [Schulman et al., 2015] John Schulman, Philipp Moritz, Sergey Levine, Michael Jordan, Pieter Abbeel. “High-Dimensional Continuous Control Using Generalized Advantage Estimation.” arXiv:1506.02438.
+4. [Sutton et al., 2000] Richard S. Sutton, David McAllester, Satinder Singh, Yishay Mansour. “Policy Gradient Methods for Reinforcement Learning with Function Approximation.” NeurIPS.
+5. [OpenAI] OpenAI Spinning Up. “Proximal Policy Optimization.”
