@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" fill="none" role="img" aria-labelledby="etitle edesc">
+	<title id="etitle">Transformer 组件从原始设计到现代范式的演进</title>
+	<desc id="edesc">归一化、激活/前馈、位置编码三大组件从原始 Transformer 到 LLaMA 范式的对照演进。</desc>
+	<rect width="1200" height="520" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="472" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="78" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="700">一张图看懂：原始设计 → 现代 LLaMA 范式</text>
+	<text x="56" y="112" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="18">所有改动都服务于两个目标：更强的表达能力，与更稳定/高效的训练。</text>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<!-- 表头 -->
+		<text x="120" y="172" fill="#98A2B3" font-size="16" font-weight="600">组件</text>
+		<text x="360" y="172" fill="#B91C1C" font-size="16" font-weight="600">原始 Transformer (2017)</text>
+		<text x="800" y="172" fill="#15803D" font-size="16" font-weight="600">现代主流 (LLaMA 范式)</text>
+		<line x1="80" y1="186" x2="1120" y2="186" stroke="#E4E7EC" />
+
+		<!-- 行：归一化 -->
+		<text x="80" y="244" fill="#111827" font-size="19" font-weight="700">归一化</text>
+		<rect x="340" y="214" width="400" height="44" rx="9" fill="#FEF2F2" stroke="#FCA5A5" /><text x="360" y="242" fill="#B91C1C" font-size="16">Post-LN · LayerNorm（减均值+偏置）</text>
+		<text x="752" y="242" fill="#475467" font-size="20">→</text>
+		<rect x="780" y="214" width="320" height="44" rx="9" fill="#F0FDF4" stroke="#86EFAC" /><text x="800" y="242" fill="#15803D" font-size="16">Pre-LN · RMSNorm</text>
+		<line x1="80" y1="276" x2="1120" y2="276" stroke="#F2F4F7" />
+
+		<!-- 行：激活/FFN -->
+		<text x="80" y="334" fill="#111827" font-size="19" font-weight="700">激活 / FFN</text>
+		<rect x="340" y="304" width="400" height="44" rx="9" fill="#FEF2F2" stroke="#FCA5A5" /><text x="360" y="332" fill="#B91C1C" font-size="16">ReLU + 带偏置两层 MLP</text>
+		<text x="752" y="332" fill="#475467" font-size="20">→</text>
+		<rect x="780" y="304" width="320" height="44" rx="9" fill="#F0FDF4" stroke="#86EFAC" /><text x="800" y="332" fill="#15803D" font-size="16">SwiGLU / GeGLU · 去偏置</text>
+		<line x1="80" y1="366" x2="1120" y2="366" stroke="#F2F4F7" />
+
+		<!-- 行：位置编码 -->
+		<text x="80" y="424" fill="#111827" font-size="19" font-weight="700">位置编码</text>
+		<rect x="340" y="394" width="400" height="44" rx="9" fill="#FEF2F2" stroke="#FCA5A5" /><text x="360" y="422" fill="#B91C1C" font-size="16">正弦绝对位置编码（相加）</text>
+		<text x="752" y="422" fill="#475467" font-size="20">→</text>
+		<rect x="780" y="394" width="320" height="44" rx="9" fill="#F0FDF4" stroke="#86EFAC" /><text x="800" y="422" fill="#15803D" font-size="16">RoPE（旋转 · 相对位置）</text>
+	</g>
+
+	<text x="56" y="478" fill="#475467" font-family="Inter, Arial, sans-serif" font-size="15">注：GLU 带来持续但温和的收益，并非必需——GPT-3、Falcon、Nemotron 等高性能模型就未采用。</text>
+</svg>

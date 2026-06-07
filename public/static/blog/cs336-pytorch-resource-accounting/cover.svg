@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+	<title id="title">PyTorch 与资源核算封面</title>
+	<desc id="desc">CS336 第二讲：训练大模型前要算清的两笔账，时间核算 6×参数×Token 与显存核算 16 字节每参数。</desc>
+	<defs>
+		<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0" stop-color="#0b1120" />
+			<stop offset="0.5" stop-color="#0f172a" />
+			<stop offset="1" stop-color="#1e293b" />
+		</linearGradient>
+		<linearGradient id="accentA" x1="0" y1="0" x2="1" y2="0">
+			<stop offset="0" stop-color="#22d3ee" />
+			<stop offset="1" stop-color="#a78bfa" />
+		</linearGradient>
+		<linearGradient id="accentB" x1="0" y1="0" x2="1" y2="0">
+			<stop offset="0" stop-color="#f472b6" />
+			<stop offset="1" stop-color="#fb923c" />
+		</linearGradient>
+		<filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+			<feGaussianBlur stdDeviation="5" result="blur" />
+			<feMerge>
+				<feMergeNode in="blur" />
+				<feMergeNode in="SourceGraphic" />
+			</feMerge>
+		</filter>
+	</defs>
+	<rect width="1200" height="630" fill="url(#bg)" />
+
+	<text x="80" y="118" fill="#7dd3fc" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="600" letter-spacing="3">CS336 · LECTURE 2</text>
+	<text x="80" y="190" fill="#f8fafc" font-family="Inter, Arial, sans-serif" font-size="62" font-weight="800">PyTorch 与资源核算</text>
+	<text x="80" y="240" fill="#cbd5e1" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="500">训练大模型前，要先算清的两笔账</text>
+
+	<!-- 账一：时间 -->
+	<g transform="translate(80,310)">
+		<rect width="480" height="230" rx="22" fill="#0b1120" fill-opacity="0.6" stroke="#334155" />
+		<text x="32" y="56" fill="#22d3ee" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">账一 · 时间核算</text>
+		<text x="32" y="128" fill="#f8fafc" font-family="ui-monospace, Menlo, monospace" font-size="40" font-weight="800" filter="url(#glow)">FLOPs ≈ 6 N D</text>
+		<text x="32" y="168" fill="#94a3b8" font-family="Inter, Arial, sans-serif" font-size="19">N = 参数量　D = Token 数</text>
+		<text x="32" y="200" fill="#94a3b8" font-family="Inter, Arial, sans-serif" font-size="19">前向 2× + 反向 4×</text>
+	</g>
+
+	<!-- 账二：显存 -->
+	<g transform="translate(640,310)">
+		<rect width="480" height="230" rx="22" fill="#0b1120" fill-opacity="0.6" stroke="#334155" />
+		<text x="32" y="56" fill="#fb923c" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">账二 · 显存核算</text>
+		<text x="32" y="128" fill="#f8fafc" font-family="ui-monospace, Menlo, monospace" font-size="40" font-weight="800" filter="url(#glow)">16 bytes / 参数</text>
+		<text x="32" y="168" fill="#94a3b8" font-family="Inter, Arial, sans-serif" font-size="19">参数4 + 梯度4 + Adam 状态8</text>
+		<text x="32" y="200" fill="#94a3b8" font-family="Inter, Arial, sans-serif" font-size="19">混合精度 + AdamW 口径</text>
+	</g>
+
+	<rect x="80" y="582" width="60" height="6" rx="3" fill="url(#accentA)" />
+	<rect x="150" y="582" width="36" height="6" rx="3" fill="url(#accentB)" />
+	<text x="1120" y="600" text-anchor="end" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="18">Tensors · FLOPs · Memory · Training</text>
+</svg>

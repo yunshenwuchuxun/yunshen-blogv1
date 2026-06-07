@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="640" viewBox="0 0 1200 640" fill="none" role="img" aria-labelledby="ftitle fdesc">
+	<title id="ftitle">浮点数格式位布局对比</title>
+	<desc id="fdesc">FP32、FP16、BF16、FP8(E4M3) 的符号位、指数位、尾数位布局对比，指数位决定动态范围，尾数位决定精度。</desc>
+	<rect width="1200" height="640" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="592" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+
+	<text x="56" y="80" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="700">浮点数格式：指数位决定范围，尾数位决定精度</text>
+	<text x="56" y="114" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="19">条带长度 = 比特数。BF16 保留 FP32 的 8 位指数（同等动态范围），只牺牲尾数精度。</text>
+
+	<!-- 图例 -->
+	<g font-family="Inter, Arial, sans-serif" font-size="17">
+		<rect x="640" y="62" width="20" height="20" rx="4" fill="#F472B6" /><text x="668" y="78" fill="#344054">符号</text>
+		<rect x="730" y="62" width="20" height="20" rx="4" fill="#60A5FA" /><text x="758" y="78" fill="#344054">指数 (动态范围)</text>
+		<rect x="930" y="62" width="20" height="20" rx="4" fill="#34D399" /><text x="958" y="78" fill="#344054">尾数 (精度)</text>
+	</g>
+
+	<!-- 行模板：x基准200, 每比特26px -->
+	<!-- FP32 -->
+	<g transform="translate(0,160)">
+		<text x="56" y="34" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700">FP32</text>
+		<text x="56" y="60" fill="#98A2B3" font-family="Inter, Arial, sans-serif" font-size="15">4 字节</text>
+		<rect x="200" y="6" width="26" height="52" rx="5" fill="#F472B6" />
+		<rect x="228" y="6" width="208" height="52" rx="5" fill="#60A5FA" />
+		<rect x="438" y="6" width="598" height="52" rx="5" fill="#34D399" />
+		<text x="213" y="38" text-anchor="middle" fill="#fff" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700">1</text>
+		<text x="332" y="38" text-anchor="middle" fill="#fff" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700">指数 8</text>
+		<text x="737" y="38" text-anchor="middle" fill="#fff" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700">尾数 23</text>
+	</g>
+
+	<!-- FP16 -->
+	<g transform="translate(0,260)">
+		<text x="56" y="34" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700">FP16</text>
+		<text x="56" y="60" fill="#98A2B3" font-family="Inter, Arial, sans-serif" font-size="15">2 字节</text>
+		<rect x="200" y="6" width="26" height="52" rx="5" fill="#F472B6" />
+		<rect x="228" y="6" width="130" height="52" rx="5" fill="#60A5FA" />
+		<rect x="360" y="6" width="260" height="52" rx="5" fill="#34D399" />
+		<text x="213" y="38" text-anchor="middle" fill="#fff" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700">1</text>
+		<text x="293" y="38" text-anchor="middle" fill="#fff" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700">指数 5</text>
+		<text x="490" y="38" text-anchor="middle" fill="#fff" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700">尾数 10</text>
+		<text x="650" y="40" fill="#B42318" font-family="Inter, Arial, sans-serif" font-size="16">指数仅 5 位 → 动态范围窄，易上/下溢</text>
+	</g>
+
+	<!-- BF16 -->
+	<g transform="translate(0,360)">
+		<text x="56" y="34" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700">BF16</text>
+		<text x="56" y="60" fill="#98A2B3" font-family="Inter, Arial, sans-serif" font-size="15">2 字节</text>
+		<rect x="200" y="6" width="26" height="52" rx="5" fill="#F472B6" />
+		<rect x="228" y="6" width="208" height="52" rx="5" fill="#60A5FA" />
+		<rect x="438" y="6" width="182" height="52" rx="5" fill="#34D399" />
+		<text x="213" y="38" text-anchor="middle" fill="#fff" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700">1</text>
+		<text x="332" y="38" text-anchor="middle" fill="#fff" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700">指数 8</text>
+		<text x="529" y="38" text-anchor="middle" fill="#fff" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700">尾数 7</text>
+		<text x="650" y="40" fill="#027A48" font-family="Inter, Arial, sans-serif" font-size="16">指数同 FP32 → 当前 LLM 训练主流</text>
+	</g>
+
+	<!-- FP8 E4M3 -->
+	<g transform="translate(0,460)">
+		<text x="56" y="34" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700">FP8</text>
+		<text x="56" y="60" fill="#98A2B3" font-family="Inter, Arial, sans-serif" font-size="15">1 字节 · E4M3</text>
+		<rect x="200" y="6" width="26" height="52" rx="5" fill="#F472B6" />
+		<rect x="228" y="6" width="104" height="52" rx="5" fill="#60A5FA" />
+		<rect x="334" y="6" width="78" height="52" rx="5" fill="#34D399" />
+		<text x="213" y="38" text-anchor="middle" fill="#fff" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700">1</text>
+		<text x="280" y="38" text-anchor="middle" fill="#fff" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700">指 4</text>
+		<text x="373" y="38" text-anchor="middle" fill="#fff" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700">尾 3</text>
+		<text x="440" y="40" fill="#475467" font-family="Inter, Arial, sans-serif" font-size="16">H100 及以上才支持，多用于推理/部分训练加速</text>
+	</g>
+
+	<line x1="200" y1="150" x2="200" y2="540" stroke="#E4E7EC" stroke-dasharray="4 4" />
+	<text x="56" y="590" fill="#98A2B3" font-family="Inter, Arial, sans-serif" font-size="15">注：FP8 还有 E5M2 变体（指数 5、尾数 2），范围更大、精度更低。</text>
+</svg>

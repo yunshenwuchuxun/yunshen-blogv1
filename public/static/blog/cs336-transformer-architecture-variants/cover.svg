@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+	<title id="title">Transformer 架构与现代变体封面</title>
+	<desc id="desc">CS336 第三讲：从原始 Transformer 到 LLaMA 范式，归一化、激活函数、位置编码、前馈网络四大组件的演进。</desc>
+	<defs>
+		<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0" stop-color="#0b1120" />
+			<stop offset="0.5" stop-color="#111a2e" />
+			<stop offset="1" stop-color="#1e293b" />
+		</linearGradient>
+		<linearGradient id="accentA" x1="0" y1="0" x2="1" y2="0">
+			<stop offset="0" stop-color="#22d3ee" />
+			<stop offset="1" stop-color="#a78bfa" />
+		</linearGradient>
+		<linearGradient id="accentB" x1="0" y1="0" x2="1" y2="0">
+			<stop offset="0" stop-color="#f472b6" />
+			<stop offset="1" stop-color="#fb923c" />
+		</linearGradient>
+		<filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+			<feGaussianBlur stdDeviation="5" result="blur" />
+			<feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+		</filter>
+	</defs>
+	<rect width="1200" height="630" fill="url(#bg)" />
+
+	<text x="80" y="116" fill="#7dd3fc" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="600" letter-spacing="3">CS336 · LECTURE 3</text>
+	<text x="80" y="188" fill="#f8fafc" font-family="Inter, Arial, sans-serif" font-size="58" font-weight="800">Transformer 架构与现代变体</text>
+	<text x="80" y="236" fill="#cbd5e1" font-family="Inter, Arial, sans-serif" font-size="27" font-weight="500">从原始设计到 LLaMA 范式：四大组件如何演进</text>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<g transform="translate(80,300)">
+			<rect width="248" height="220" rx="20" fill="#0b1120" fill-opacity="0.6" stroke="#334155" />
+			<text x="24" y="48" fill="#22d3ee" font-size="20" font-weight="700">归一化</text>
+			<text x="24" y="100" fill="#94a3b8" font-size="17">Post-LN</text>
+			<text x="24" y="128" fill="#f8fafc" font-size="19" font-weight="700">→ Pre-LN</text>
+			<text x="24" y="160" fill="#f8fafc" font-size="19" font-weight="700">→ RMSNorm</text>
+		</g>
+		<g transform="translate(344,300)">
+			<rect width="248" height="220" rx="20" fill="#0b1120" fill-opacity="0.6" stroke="#334155" />
+			<text x="24" y="48" fill="#a78bfa" font-size="20" font-weight="700">激活 / FFN</text>
+			<text x="24" y="100" fill="#94a3b8" font-size="17">ReLU → GeLU</text>
+			<text x="24" y="128" fill="#f8fafc" font-size="19" font-weight="700">→ SwiGLU</text>
+			<text x="24" y="160" fill="#94a3b8" font-size="17">去偏置 + 门控</text>
+		</g>
+		<g transform="translate(608,300)">
+			<rect width="248" height="220" rx="20" fill="#0b1120" fill-opacity="0.6" stroke="#334155" />
+			<text x="24" y="48" fill="#f472b6" font-size="20" font-weight="700">位置编码</text>
+			<text x="24" y="100" fill="#94a3b8" font-size="17">正弦绝对编码</text>
+			<text x="24" y="128" fill="#f8fafc" font-size="19" font-weight="700">→ RoPE</text>
+			<text x="24" y="160" fill="#94a3b8" font-size="17">相对位置 · 旋转</text>
+		</g>
+		<g transform="translate(872,300)">
+			<rect width="248" height="220" rx="20" fill="#0b1120" fill-opacity="0.6" stroke="#334155" />
+			<text x="24" y="48" fill="#fb923c" font-size="20" font-weight="700">注意力</text>
+			<text x="24" y="100" fill="#94a3b8" font-size="17">多头 MHA</text>
+			<text x="24" y="128" fill="#f8fafc" font-size="19" font-weight="700">scaled dot-product</text>
+			<text x="24" y="160" fill="#94a3b8" font-size="17">QKᵀ/√dₖ</text>
+		</g>
+	</g>
+
+	<rect x="80" y="566" width="60" height="6" rx="3" fill="url(#accentA)" />
+	<rect x="150" y="566" width="36" height="6" rx="3" fill="url(#accentB)" />
+	<text x="1120" y="584" text-anchor="end" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="18">Attention · Norm · Activation · Position</text>
+</svg>

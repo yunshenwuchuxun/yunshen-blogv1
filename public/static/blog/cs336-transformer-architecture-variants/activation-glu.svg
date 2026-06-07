@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" fill="none" role="img" aria-labelledby="atitle adesc">
+	<title id="atitle">激活函数演进：从 ReLU/GeLU 到门控线性单元</title>
+	<desc id="adesc">GeLU 在原点处平滑可微，GLU 家族用一条门控通路对内容通路做逐元素调制，SwiGLU/GeGLU 是当前主流。</desc>
+	<rect width="1200" height="560" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="512" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="78" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="700">激活函数：从 ReLU/GeLU 到门控单元 (GLU)</text>
+	<text x="56" y="112" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="18">2023 年后几乎所有模型都用 GLU 家族；SwiGLU 是 LLaMA/PaLM 的默认选择。</text>
+
+	<!-- 左：曲线 -->
+	<g font-family="Inter, Arial, sans-serif">
+		<rect x="60" y="150" width="500" height="360" rx="16" fill="#FFFFFF" stroke="#E4E7EC" />
+		<text x="84" y="184" fill="#111827" font-size="19" font-weight="700">ReLU vs GeLU</text>
+		<!-- 轴 -->
+		<line x1="130" y1="367" x2="510" y2="367" stroke="#CBD5E1" stroke-width="1.5" />
+		<line x1="320" y1="200" x2="320" y2="430" stroke="#CBD5E1" stroke-width="1.5" />
+		<text x="500" y="388" fill="#98A2B3" font-size="13">x</text>
+		<!-- ReLU -->
+		<polyline points="140,367 320,367 350,334 380,301 440,236 500,170" fill="none" stroke="#2563EB" stroke-width="3" />
+		<!-- GeLU -->
+		<polyline points="140,367 200,370 260,377 290,377 320,367 350,344 380,312 440,239 500,170" fill="none" stroke="#EA580C" stroke-width="3" />
+		<rect x="150" y="446" width="16" height="16" rx="3" fill="#2563EB" /><text x="174" y="460" fill="#1D4ED8" font-size="15">ReLU：原点突变，不可微</text>
+		<rect x="150" y="474" width="16" height="16" rx="3" fill="#EA580C" /><text x="174" y="488" fill="#C2410C" font-size="15">GeLU：原点平滑，处处可微</text>
+		<text x="84" y="412" fill="#667085" font-size="14">GeLU(x) = x · Φ(x)，Φ 为高斯 CDF</text>
+	</g>
+
+	<!-- 右：GLU 门控 -->
+	<g font-family="Inter, Arial, sans-serif" text-anchor="middle">
+		<rect x="600" y="150" width="520" height="360" rx="16" fill="#FFFFFF" stroke="#E4E7EC" />
+		<text x="624" y="184" fill="#111827" font-size="19" font-weight="700" text-anchor="start">GLU 门控机制：内容 × 开关</text>
+
+		<defs>
+			<marker id="ag" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#64748B" /></marker>
+		</defs>
+
+		<rect x="640" y="306" width="90" height="44" rx="9" fill="#E2E8F0" stroke="#94A3B8" /><text x="685" y="334" fill="#334155" font-size="17" font-weight="700">输入 x</text>
+
+		<!-- 内容通路 -->
+		<path d="M730,318 C770,300 770,256 808,256" stroke="#64748B" stroke-width="2" fill="none" marker-end="url(#ag)" />
+		<rect x="812" y="232" width="150" height="48" rx="9" fill="#34D399" fill-opacity="0.22" stroke="#059669" /><text x="887" y="261" fill="#047857" font-size="16" font-weight="700">内容 xW</text>
+
+		<!-- 门控通路 -->
+		<path d="M730,338 C770,356 770,400 808,400" stroke="#64748B" stroke-width="2" fill="none" marker-end="url(#ag)" />
+		<rect x="812" y="376" width="150" height="48" rx="9" fill="#A78BFA" fill-opacity="0.22" stroke="#7C3AED" /><text x="887" y="398" fill="#6D28D9" font-size="15" font-weight="700">门控 σ(xV)</text><text x="887" y="416" fill="#7C3AED" font-size="12">每元素 0~1 开关</text>
+
+		<!-- 相乘 -->
+		<path d="M962,256 C1010,256 1010,316 1030,328" stroke="#64748B" stroke-width="2" fill="none" marker-end="url(#ag)" />
+		<path d="M962,400 C1010,400 1010,340 1030,328" stroke="#64748B" stroke-width="2" fill="none" marker-end="url(#ag)" />
+		<circle cx="1052" cy="328" r="26" fill="#FBBF24" fill-opacity="0.3" stroke="#D97706" /><text x="1052" y="336" fill="#92400E" font-size="22" font-weight="700">⊙</text>
+
+		<text x="792" y="470" fill="#475467" font-size="15">逐元素相乘：门控值决定内容每个维度"通过多少"</text>
+		<text x="792" y="492" fill="#111827" font-family="ui-monospace, monospace" font-size="15" font-weight="700">GLU(x) = (xW) ⊙ σ(xV)</text>
+	</g>
+</svg>

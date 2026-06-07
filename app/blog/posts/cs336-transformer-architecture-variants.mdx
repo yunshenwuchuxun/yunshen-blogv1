@@ -1,0 +1,221 @@
+---
+title: 'CS336 第三讲 · Transformer 架构与现代变体：从原始设计到 LLaMA 范式'
+publishedAt: '2026-06-08'
+summary: '先快速回顾原始 Transformer 的五大组件，再系统梳理归一化、前馈网络、激活函数、位置编码四条主线的现代演进——以及它们为何最终收敛到 RMSNorm + SwiGLU + RoPE 的 LLaMA 范式。'
+draft: false
+image: '/static/blog/cs336-transformer-architecture-variants/cover.svg'
+tags: [Deep Learning, Transformer, LLM, Tech Blog]
+---
+
+2017 年《Attention Is All You Need》提出 Transformer 之后，它就成了几乎所有现代语言模型的骨架。但今天你打开 LLaMA、Qwen 或 Gemma 的代码，会发现它和原始论文已经"长得不太一样"了：LayerNorm 换成了 RMSNorm，ReLU 换成了 SwiGLU，正弦位置编码换成了 RoPE，偏置项被大面积删掉。
+
+这些改动单看都很"细微"，但正是它们的累积，构成了今天稳定可扩展的大模型架构。本文对应斯坦福 CS336 第三讲，分两部分展开：<strong>先快速回顾原始 Transformer 的五个核心组件</strong>，建立坐标系；<strong>再沿着归一化、前馈网络、激活函数、位置编码四条主线，讲清楚现代变体改了什么、为什么改</strong>。原文较为零散，这里按"组件 + 动机"的逻辑重新组织，并用图示替换了截图。
+
+## 第一部分：快速回顾原始 Transformer
+
+Transformer 的核心创新是<strong>自注意力机制（Self-Attention）</strong>，它彻底摒弃了 RNN 的循环和 CNN 的卷积，让序列中任意两个位置可以直接交互。一个标准的 Transformer 层由五个组件协同构成：
+
+![标准 Transformer 编码层结构](/static/blog/cs336-transformer-architecture-variants/transformer-block.svg)
+
+下面逐个拆解。
+
+### 位置编码：给"无序"的注意力补上顺序
+
+自注意力有一个常被忽略的特性：它<strong>本身对输入顺序不敏感（排列不变）</strong>。打乱 token 顺序，注意力的计算结果只是跟着换了位置，模型并不知道"谁在前、谁在后"。而语言显然是有序的，所以必须额外注入位置信息。
+
+原始论文用<strong>正弦位置编码</strong>解决这个问题——用不同频率的 sin/cos 为每个位置生成一个唯一向量：
+
+$$
+PE_{(pos,\,2i)} = \sin\!\left(\frac{pos}{10000^{2i/d_{model}}}\right), \quad
+PE_{(pos,\,2i+1)} = \cos\!\left(\frac{pos}{10000^{2i/d_{model}}}\right)
+$$
+
+其中 $pos$ 是 token 在序列中的位置，$i$ 是维度索引，$d_{model}$ 是嵌入维度。算出的位置编码直接与词嵌入相加：$X = \text{Token} + PE(pos)$。
+
+设计的巧思在于<strong>多频率</strong>：低维度对应高频，精细区分相邻位置；高维度对应低频，覆盖远距离关系。它完全确定、无需训练参数、数值被约束在 $[-1, 1]$ 之间，还能在一定程度上外推到训练时未见过的更长序列。
+
+### 多头注意力：在多个子空间里并行关注
+
+注意力的本质是<strong>加权求和</strong>。先把输入 $X$ 通过三组权重矩阵投影成查询 $Q$、键 $K$、值 $V$，再用 $Q$ 和 $K$ 的相似度决定对 $V$ 的加权：
+
+$$
+\text{Attention}(Q, K, V) = \text{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}}\right)V
+$$
+
+但单头注意力只能学一种"查询-键"关系，难以同时捕捉语法、共指、语义等多种模式。<strong>多头注意力</strong>的做法是把 $d_{model}$ 维拆成 $h$ 个头，每个头在更低的 $d_k = d_{model}/h$ 维空间里独立计算，最后拼接、再过一个输出投影 $W_O$：
+
+![多头注意力的计算流程](/static/blog/cs336-transformer-architecture-variants/multihead-attention.svg)
+
+这里有两个高频面试点值得讲透：
+
+<strong>为什么要多头而不是单头？</strong> 不同的头可以学到不同的注意力模式——比如一个头盯语法主谓宾，一个头盯代词指代，一个头盯同义关联。而且各头在低维子空间计算、天然适合 GPU 并行，<strong>总计算量与单头基本相当</strong>（都是 $d_{model} \times d_{model}$ 量级），相当于"免费"获得了多视角能力。
+
+<strong>为什么要除以 $\sqrt{d_k}$？</strong> 当 $d_k$ 较大时，$Q$ 与 $K$ 的点积是 $d_k$ 项之和，其方差会随维度放大：
+
+$$
+\text{Var}(Q \cdot K) = \sum_{i=1}^{d_k}\text{Var}(q_i k_i) = d_k \cdot \text{Var}(q_i k_i)
+$$
+
+点积绝对值过大，会把 softmax 推入<strong>梯度极小的饱和区</strong>，反向传播几乎传不动。除以 $\sqrt{d_k}$ 把方差重新标准化，让无论维度多大，输入 softmax 的数值都落在合理范围，训练才稳。
+
+### 残差连接与层归一化
+
+深层网络面临两个老问题：信息随层数加深而损失、梯度不稳定。Transformer 用<strong>残差连接</strong>和<strong>层归一化</strong>这对组合来应对。
+
+残差连接（也叫跳跃连接）给信息开了一条"捷径"：
+
+$$
+\text{Output} = \text{Input} + \text{Layer}(\text{Input})
+$$
+
+它的数学含义是：不强迫网络直接学习理想映射 $H(x)$，而是学习<strong>残差</strong> $F(x) = H(x) - x$。如果某层不需要变换，网络只要让 $F(x) \approx 0$ 就能保留输入；即使这层学得很差，输出至少不会比输入更糟。这保证了梯度能直接回传，极深网络也能训练。
+
+层归一化则对单个样本的同一层做标准化，把分布重置为零均值、单位方差，再用可学习的 $\gamma$、$\beta$ 缩放平移：
+
+$$
+\text{LayerNorm}(v) = \gamma \cdot \frac{v - \mu}{\sigma} + \beta
+$$
+
+原始论文采用<strong>后归一化（Post-Norm）</strong>：先残差相加，再归一化，即 $\text{LayerNorm}(x + \text{Sublayer}(x))$。残差保证梯度通路与恒等映射能力，层归一化压住相加后的数值分布，二者结合让十几层乃至更深的网络可训练。（后面会看到，这个顺序在现代模型里被改写了。）
+
+### 前馈网络与激活函数
+
+注意力负责"token 之间"的信息交互，而<strong>前馈网络（FFN）</strong>负责"每个位置内部"的非线性变换。它是一个两层 MLP，中间维度扩展 4 倍：
+
+$$
+\text{FFN}(x) = \max(0,\; xW_1 + b_1)\,W_2 + b_2
+$$
+
+原始论文里 $d_{model}=512$、中间层 $d_{ff}=2048$，第一层做"线性变换 + ReLU"，第二层只做线性变换。激活函数用 ReLU，理由很朴素：<strong>计算高效</strong>，导数非 0 即 1。
+
+顺带厘清一个基础问题——一个合格的激活函数需要什么特质？第一是<strong>非线性</strong>，否则再深的网络都会退化成单层线性模型；第二是<strong>几乎处处可微</strong>，才能用梯度下降训练（ReLU 在 0 点不可微，但实践中用次梯度即可）；第三是<strong>计算简单</strong>，因为它会在训练推理中被调用数十亿次。
+
+## 第二部分：现代变体——架构如何收敛到 LLaMA 范式
+
+仅去年就发布了约 19 个稠密模型（CommandA、OLMo2、Phi-4、Gemma3、Qwen2.5、InternLM……），大多只在架构上做细微调整。有意思的是，这些调整正在<strong>趋同</strong>：2023 年之后，几乎所有人都用上了 RoPE、RMSNorm 和门控激活。Llama 作为最受欢迎的开源底座（这个地位正被 Qwen 系列挑战），它的架构选择极具参考意义。
+
+下面沿四条主线讲清楚"改了什么、为什么改"。
+
+### 归一化：Post-Norm → Pre-Norm → RMSNorm
+
+<strong>第一步演进是位置。</strong> 人们很快发现，把 LayerNorm 从"残差之后"移到"子层之前"效果更好，这就是<strong>预归一化（Pre-Norm）</strong>：
+
+![Post-Norm 与 Pre-Norm 对比](/static/blog/cs336-transformer-architecture-variants/pre-post-norm.svg)
+
+$$
+\text{Post-Norm:}\quad x = \text{LayerNorm}(x + \text{Sublayer}(x))
+$$
+
+$$
+\text{Pre-Norm:}\quad x = x + \text{Sublayer}(\text{LayerNorm}(x))
+$$
+
+差别就在 LayerNorm 的位置，但影响很大。Pre-Norm 让残差成为一条<strong>未被归一化打断的恒等通路</strong>，梯度可以畅通地从顶层流回底层。它的直接收益是：训练更稳定、<strong>无需复杂的学习率预热（warmup）</strong>、能撑起 100+ 层的极深网络。GPT-3、PaLM 等都把它设为默认。实验也证实，Pre-Norm 即使不用预热，表现也能媲美甚至超过精心调过预热的 Post-Norm。
+
+> 也有模型在探索"双归一化"（子层前后都放 LayerNorm，如 Grok、Gemma2）或仅在子层之后放（如 OLMo2）。这块仍在演化，但 Pre-Norm 系做法已是稳定性的共识手段。
+
+<strong>第二步演进是简化。</strong> LayerNorm 要算均值和标准差，成本不低，而研究发现"减均值"对 Transformer 并非必要。于是有了<strong>RMSNorm</strong>——只按均方根缩放，去掉减均值、也去掉偏置 $\beta$：
+
+![LayerNorm 与 RMSNorm 对比](/static/blog/cs336-transformer-architecture-variants/layernorm-rmsnorm.svg)
+
+$$
+\text{RMSNorm}(v) = \gamma \cdot \frac{v}{\sqrt{\dfrac{1}{d}\sum_{i=1}^{d} v_i^2 + \epsilon}}
+$$
+
+少一次归约、少一组参数搬运，速度更快而效果相当。Narang 等人 2020 年的消融实验很有说服力：基准 Transformer 每秒 3.5 步，RMSNorm 版达到 3.68 步，<strong>最终损失还更低</strong>。如今 LLaMA、PaLM、Chinchilla、T5 等几乎都转向了 RMSNorm。
+
+### 前馈网络：删掉偏置项
+
+现代非门控 FFN 还做了一个看似激进的改动——<strong>移除所有偏置项</strong>：
+
+$$
+\text{FFN}(x) = \max(0,\; xW_1)\,W_2
+$$
+
+理由和 RMSNorm 去偏置一脉相承。一方面，纯矩阵乘法已经够用；另一方面（也更重要），<strong>实证上去掉偏置能让大模型训练更稳定</strong>。其确切机理学界尚未完全讲清，但"去偏置 = 更稳"已是被反复观察到的经验规律。于是今天很多实现里，模型几乎处处都没有偏置项。
+
+### 激活函数：从 ReLU 到门控单元
+
+激活函数一直是改进热点：ReLU、GeLU、Swish……以及一整个门控家族 GeGLU、ReGLU、SwiGLU。
+
+<strong>GeLU</strong>（高斯误差线性单元）是第一步升级。它把输入乘以标准高斯的累积分布函数（CDF），在原点处<strong>平滑过渡</strong>而非像 ReLU 那样硬拐弯，因而处处可微：
+
+$$
+\text{GeLU}(x) = x \cdot \Phi(x), \qquad \Phi(x) = \frac{1}{2}\left[1 + \text{erf}\!\left(\frac{x}{\sqrt{2}}\right)\right]
+$$
+
+GPT-1/2/3、GPT-J 等都用 GeLU；代价是误差函数计算较贵，实践中常用多项式近似。
+
+真正的范式转变来自<strong>门控线性单元（GLU）</strong>——2023 年后几乎成了标配。它给 MLP 加了一条"门控通路"，对内容做逐元素调制：
+
+![激活函数演进：从 ReLU/GeLU 到门控线性单元](/static/blog/cs336-transformer-architecture-variants/activation-glu.svg)
+
+$$
+\text{GLU}(x) = (xW) \odot \sigma(xV)
+$$
+
+可以把它理解成"内容 + 开关"双通道：$xW$ 提供原始信息，$\sigma(xV)$ 生成一组 $0$ 到 $1$ 的"开关"，逐元素相乘（$\odot$）后决定每个维度通过多少。像一扇智能百叶窗，按输入动态调节每片叶片的开度，而不是传统激活"全开/全关"。
+
+把门控函数换一换，就得到主流变体：
+
+| 变体 | 公式 | 特点 |
+|------|------|------|
+| GeGLU | $\text{GeLU}(xW) \odot (xV)$ | 用平滑 GeLU 当门控，梯度更稳，T5/Gemma 采用 |
+| SwiGLU | $\text{Swish}(xW) \odot (xV)$ | 性能再进一步，计算成本最高，<strong>LLaMA/PaLM 默认</strong> |
+
+其中 $\text{Swish}(x) = x \cdot \sigma(\beta x)$，通常取 $\beta = 1$。Noam Shazeer 2020 年的论文系统评测了所有 GLU 变体，在 CoLA、SST-2 等任务上 GLU 系持续更优且具统计显著性；Narang 等人在 T5 上的实验也一致显示门控变体损失更低。
+
+不过要强调一点：<strong>GLU 带来的是持续但温和的收益，并非不可或缺。</strong> GPT-3 用普通 GeLU、Falcon 用 ReLU、Nemotron-340B 用平方 ReLU，都是高性能模型。所以"用不用 GLU"是优化项，不是必选项。
+
+### 位置编码：RoPE 为什么赢了
+
+回到开头那个问题——怎么给注意力注入位置信息。原始的正弦编码是<strong>绝对位置编码</strong>：每个位置一个固定向量，与词嵌入相加。它无参、高效、能外推，但有个硬伤——<strong>它编码的是绝对位置，无法直接建模"相对距离"</strong>，长序列上性能会衰减。
+
+现代答案是 <strong>RoPE（旋转位置编码）</strong>，由苏剑林 2021 年在 RoFormer 中提出，如今几乎是所有先进模型的标配。它的思路很优雅：不再"相加"位置向量，而是按位置把 $Q$、$K$ 向量<strong>旋转</strong>不同的角度。
+
+![旋转位置编码 RoPE 原理](/static/blog/cs336-transformer-architecture-variants/rope.svg)
+
+旋转与复数相关——二维平面上把向量 $v=(x,y)$ 旋转 $\theta$ 角，等价于左乘一个旋转矩阵：
+
+$$
+R(\theta) = \begin{bmatrix} \cos\theta & -\sin\theta \\ \sin\theta & \cos\theta \end{bmatrix}
+$$
+
+RoPE 对位置 $m$ 处的查询、位置 $n$ 处的键分别旋转 $m\theta$ 和 $n\theta$：$q'_m = R(m\theta)\,q_m$，$k'_n = R(n\theta)\,k_n$。<strong>关键性质</strong>在于，两个旋转向量的点积只取决于它们的<strong>相对位置差</strong>：
+
+$$
+(R(m\theta)\,q) \cdot (R(n\theta)\,k) = q^\top R\!\left((m-n)\theta\right) k
+$$
+
+也就是说，注意力分数天然编码了相对距离 $(m-n)$ 而非绝对位置——这正是 RoPE 外推性好、效果稳的根源。在高维空间里，向量被切成 $d/2$ 个二维块，每块用不同基频旋转，频率按 $\theta_i = \text{base}^{-2i/d}$ 设定（$\text{base}$ 默认 $10000$），思路与正弦编码的多频率一致。
+
+顺带提两个相关话题：
+
+- <strong>ALiBi</strong> 是另一种相对位置方案，它不动 $Q/K$，而是直接在注意力分数上加一个随相对距离线性递减的偏置 $-\alpha|m-n|$。计算极省、外推天然，但大模型上 RoPE 通常更优。
+- <strong>长上下文扩展</strong>几乎都围绕 RoPE 的基频做文章：线性插值（把现有编码压缩腾空间）、YaRN（分频段差异化缩放）、或直接调大 $\text{base}$ 让波长变长。目标都是在不重训的前提下扩展有效上下文窗口。
+
+## 总结：从原始设计到现代范式
+
+把全文的演进收敛成一张对照图：
+
+![Transformer 组件从原始设计到现代范式的演进](/static/blog/cs336-transformer-architecture-variants/architecture-evolution.svg)
+
+| 组件 | 原始 Transformer | 现代 LLaMA 范式 | 改动动机 |
+|------|------|------|------|
+| 归一化位置 | Post-Norm | Pre-Norm | 残差通路更干净，免预热、可极深 |
+| 归一化方式 | LayerNorm | RMSNorm | 去均值/偏置，更快且效果相当 |
+| 前馈偏置 | 带偏置 | 去偏置 | 实证更稳定 |
+| 激活函数 | ReLU | SwiGLU / GeGLU | 持续的性能增益（非必需） |
+| 位置编码 | 正弦绝对编码 | RoPE | 建模相对位置，外推更好 |
+
+这些改动看似零散，但都服务于两个一以贯之的目标：<strong>更强的表达能力</strong>与<strong>更稳定、更高效的训练</strong>。理解了每个组件"为什么变成现在这样"，再去读任何一个开源模型的代码，你都能迅速看懂它的架构选择，并判断哪些是关键、哪些只是锦上添花。
+
+## 参考资料
+
+- [CS336: Language Modeling from Scratch（Stanford）](https://stanford-cs336.github.io/)
+- [Datawhale diy-llm · 第四章 语言模型架构和训练的技术细节](https://datawhalechina.github.io/diy-llm/)
+- [Attention Is All You Need（arXiv:1706.03762）](https://arxiv.org/abs/1706.03762)
+- [RoFormer: Enhanced Transformer with Rotary Position Embedding（arXiv:2104.09864）](https://arxiv.org/abs/2104.09864)
+- [GLU Variants Improve Transformer（Noam Shazeer, arXiv:2002.05202）](https://arxiv.org/abs/2002.05202)
+- [Root Mean Square Layer Normalization（arXiv:1910.07467）](https://arxiv.org/abs/1910.07467)
+- [Train Short, Test Long: ALiBi（arXiv:2108.12409）](https://arxiv.org/abs/2108.12409)

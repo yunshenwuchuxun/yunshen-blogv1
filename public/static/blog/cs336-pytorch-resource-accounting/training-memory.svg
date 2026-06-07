@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="540" viewBox="0 0 1200 540" fill="none" role="img" aria-labelledby="mtitle mdesc">
+	<title id="mtitle">训练时每参数的显存占用</title>
+	<desc id="mdesc">使用 AdamW 与混合精度时，每个参数约占 16 字节：FP32 参数 4、梯度 4、优化器一阶矩 4、二阶矩 4。</desc>
+	<rect width="1200" height="540" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="492" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+
+	<text x="56" y="80" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="700">训练显存：为什么每个参数要 16 字节？</text>
+	<text x="56" y="114" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="19">用 AdamW 时，光"参数 + 梯度 + 优化器状态"就要 16 字节，激活值还要另算。</text>
+
+	<!-- 四段堆叠条 -->
+	<g transform="translate(56,160)" font-family="Inter, Arial, sans-serif">
+		<rect x="0" y="0" width="252" height="96" rx="14" fill="#60A5FA" />
+		<text x="126" y="42" text-anchor="middle" fill="#fff" font-size="20" font-weight="700">参数 (FP32)</text>
+		<text x="126" y="74" text-anchor="middle" fill="#fff" font-size="22" font-weight="800" font-family="ui-monospace, monospace">4 B</text>
+
+		<rect x="262" y="0" width="252" height="96" rx="14" fill="#34D399" />
+		<text x="388" y="42" text-anchor="middle" fill="#064E3B" font-size="20" font-weight="700">梯度 (FP32)</text>
+		<text x="388" y="74" text-anchor="middle" fill="#064E3B" font-size="22" font-weight="800" font-family="ui-monospace, monospace">4 B</text>
+
+		<rect x="524" y="0" width="252" height="96" rx="14" fill="#FBBF24" />
+		<text x="650" y="38" text-anchor="middle" fill="#78350F" font-size="19" font-weight="700">Adam 一阶矩 m</text>
+		<text x="650" y="74" text-anchor="middle" fill="#78350F" font-size="22" font-weight="800" font-family="ui-monospace, monospace">4 B</text>
+
+		<rect x="786" y="0" width="252" height="96" rx="14" fill="#F472B6" />
+		<text x="912" y="38" text-anchor="middle" fill="#fff" font-size="19" font-weight="700">Adam 二阶矩 v</text>
+		<text x="912" y="74" text-anchor="middle" fill="#fff" font-size="22" font-weight="800" font-family="ui-monospace, monospace">4 B</text>
+
+		<text x="519" y="146" text-anchor="middle" fill="#111827" font-size="24" font-weight="800">合计 ≈ 16 字节 / 参数</text>
+	</g>
+
+	<!-- 推算块 -->
+	<g transform="translate(56,360)">
+		<rect x="0" y="0" width="1040" height="120" rx="16" fill="#111827" />
+		<text x="36" y="50" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="20">8 × H100 (80GB) = 640 GB 显存，最多能放下多大的模型？</text>
+		<text x="36" y="98" fill="#F9FAFB" font-family="ui-monospace, Menlo, monospace" font-size="30" font-weight="800">640 GB ÷ 16 B ≈ 400 亿参数 (40B)</text>
+		<text x="1004" y="98" text-anchor="end" fill="#FCA5A5" font-family="Inter, Arial, sans-serif" font-size="16">而非按 4 字节估的 160B</text>
+	</g>
+</svg>

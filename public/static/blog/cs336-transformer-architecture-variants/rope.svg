@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="540" viewBox="0 0 1200 540" fill="none" role="img" aria-labelledby="rtitle rdesc">
+	<title id="rtitle">旋转位置编码 RoPE 原理</title>
+	<desc id="rdesc">RoPE 按位置 m 把 Q/K 向量旋转 mθ，两个旋转向量的点积只依赖相对位置差 m-n，从而天然编码相对距离。</desc>
+	<rect width="1200" height="540" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="492" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="78" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="700">RoPE：用"旋转"把相对位置写进注意力</text>
+	<text x="56" y="112" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="18">不再相加绝对位置向量，而是按位置把 Q/K 旋转不同角度——几乎所有先进模型的标配。</text>
+
+	<!-- 左：旋转示意 -->
+	<g font-family="Inter, Arial, sans-serif">
+		<rect x="60" y="150" width="420" height="346" rx="16" fill="#FFFFFF" stroke="#E4E7EC" />
+		<text x="84" y="184" fill="#111827" font-size="19" font-weight="700">二维旋转：位置 m → 旋转 mθ</text>
+		<!-- 坐标轴 -->
+		<line x1="100" y1="430" x2="450" y2="430" stroke="#CBD5E1" stroke-width="1.5" />
+		<line x1="270" y1="460" x2="270" y2="210" stroke="#CBD5E1" stroke-width="1.5" />
+		<!-- 原向量 q -->
+		<defs>
+			<marker id="vq" markerWidth="11" markerHeight="11" refX="8" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#2563EB" /></marker>
+			<marker id="vqr" markerWidth="11" markerHeight="11" refX="8" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#EA580C" /></marker>
+		</defs>
+		<line x1="270" y1="430" x2="410" y2="430" stroke="#2563EB" stroke-width="3" marker-end="url(#vq)" />
+		<text x="416" y="436" fill="#1D4ED8" font-size="16" font-weight="700">q</text>
+		<!-- 旋转后向量 -->
+		<line x1="270" y1="430" x2="372" y2="334" stroke="#EA580C" stroke-width="3" marker-end="url(#vqr)" />
+		<text x="380" y="328" fill="#C2410C" font-size="16" font-weight="700">R(mθ)·q</text>
+		<!-- 角度弧 -->
+		<path d="M340,430 A70 70 0 0 0 322 382" fill="none" stroke="#94A3B8" stroke-width="1.5" />
+		<text x="350" y="402" fill="#475467" font-size="15">mθ</text>
+		<text x="84" y="478" fill="#475467" font-family="ui-monospace, monospace" font-size="13">R(θ)=[[cosθ,−sinθ],[sinθ,cosθ]]</text>
+	</g>
+
+	<!-- 右：相对位置性质 -->
+	<g font-family="Inter, Arial, sans-serif">
+		<rect x="510" y="150" width="610" height="220" rx="16" fill="#EFF6FF" stroke="#93C5FD" />
+		<text x="534" y="186" fill="#1D4ED8" font-size="19" font-weight="700">关键性质：点积只看相对距离</text>
+		<text x="534" y="244" fill="#111827" font-family="ui-monospace, Menlo, monospace" font-size="21" font-weight="700">(R(mθ)q)·(R(nθ)k)</text>
+		<text x="694" y="290" fill="#475467" font-size="22" font-weight="700">=</text>
+		<text x="534" y="334" fill="#C2410C" font-family="ui-monospace, Menlo, monospace" font-size="21" font-weight="700">q · R((m−n)θ) · k</text>
+		<text x="760" y="300" fill="#1D4ED8" font-size="16">注意力分数自动编码</text>
+		<text x="760" y="324" fill="#1D4ED8" font-size="16">相对位置 (m−n)</text>
+	</g>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<rect x="510" y="386" width="610" height="110" rx="16" fill="#111827" />
+		<text x="534" y="422" fill="#94A3B8" font-size="16">高维做法：把向量切成 d/2 个二维块，每块用不同基频旋转</text>
+		<text x="534" y="458" fill="#F9FAFB" font-family="ui-monospace, Menlo, monospace" font-size="18" font-weight="700">θᵢ = base^(−2i/d)　base 默认 10000</text>
+		<text x="534" y="484" fill="#7DD3FC" font-size="14">改大 base / 插值 / YaRN → 扩展上下文长度</text>
+	</g>
+</svg>

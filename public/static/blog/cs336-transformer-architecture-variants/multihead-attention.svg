@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="600" viewBox="0 0 1200 600" fill="none" role="img" aria-labelledby="mtitle mdesc">
+	<title id="mtitle">多头注意力的计算流程</title>
+	<desc id="mdesc">输入经投影得到 Q K V，拆分为 h 个头并行做缩放点积注意力，再拼接并经输出投影 W_O。</desc>
+	<rect width="1200" height="600" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="552" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="78" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="700">多头注意力：在多个低维子空间里并行关注</text>
+	<text x="56" y="112" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="18">把 d_model 拆成 h 个头，每个头在 d_k = d_model/h 维空间独立计算，总算力与单头相当。</text>
+
+	<defs>
+		<marker id="ar2" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#64748B" /></marker>
+	</defs>
+
+	<g font-family="Inter, Arial, sans-serif" text-anchor="middle">
+		<!-- 输入 -->
+		<rect x="60" y="270" width="120" height="60" rx="10" fill="#E2E8F0" stroke="#94A3B8" />
+		<text x="120" y="298" fill="#334155" font-size="18" font-weight="700">输入 X</text>
+		<text x="120" y="320" fill="#64748B" font-size="13">[bs, seq, d_model]</text>
+
+		<!-- 投影 QKV -->
+		<line x1="180" y1="300" x2="222" y2="300" stroke="#64748B" stroke-width="2" marker-end="url(#ar2)" />
+		<rect x="226" y="252" width="150" height="96" rx="10" fill="#A78BFA" fill-opacity="0.2" stroke="#7C3AED" />
+		<text x="301" y="290" fill="#6D28D9" font-size="17" font-weight="700">线性投影</text>
+		<text x="301" y="316" fill="#7C3AED" font-size="15">Q = XWq</text>
+		<text x="301" y="336" fill="#7C3AED" font-size="15">K,V 同理</text>
+
+		<!-- 拆分到 h 个头 -->
+		<line x1="376" y1="300" x2="418" y2="300" stroke="#64748B" stroke-width="2" marker-end="url(#ar2)" />
+		<text x="397" y="290" fill="#64748B" font-size="12">拆头</text>
+
+		<!-- 三个头 -->
+		<g>
+			<rect x="430" y="156" width="300" height="80" rx="10" fill="#60A5FA" fill-opacity="0.18" stroke="#2563EB" />
+			<text x="580" y="190" fill="#1D4ED8" font-size="16" font-weight="700">Head 1: softmax(Q₁K₁ᵀ/√dₖ)V₁</text>
+			<text x="580" y="214" fill="#3B82F6" font-size="13">例：关注语法依赖</text>
+
+			<rect x="430" y="260" width="300" height="80" rx="10" fill="#34D399" fill-opacity="0.18" stroke="#059669" />
+			<text x="580" y="294" fill="#047857" font-size="16" font-weight="700">Head 2: softmax(Q₂K₂ᵀ/√dₖ)V₂</text>
+			<text x="580" y="318" fill="#10B981" font-size="13">例：关注共指关系</text>
+
+			<rect x="430" y="364" width="300" height="80" rx="10" fill="#FB923C" fill-opacity="0.18" stroke="#EA580C" />
+			<text x="580" y="398" fill="#C2410C" font-size="16" font-weight="700">Head h: softmax(QₕKₕᵀ/√dₖ)Vₕ</text>
+			<text x="580" y="422" fill="#EA580C" font-size="13">例：关注语义相似</text>
+		</g>
+
+		<!-- 拼接 -->
+		<line x1="730" y1="300" x2="772" y2="300" stroke="#64748B" stroke-width="2" marker-end="url(#ar2)" />
+		<rect x="776" y="252" width="140" height="96" rx="10" fill="#FBBF24" fill-opacity="0.25" stroke="#D97706" />
+		<text x="846" y="296" fill="#92400E" font-size="17" font-weight="700">Concat</text>
+		<text x="846" y="320" fill="#B45309" font-size="13">拼回 d_model</text>
+
+		<!-- 输出投影 -->
+		<line x1="916" y1="300" x2="958" y2="300" stroke="#64748B" stroke-width="2" marker-end="url(#ar2)" />
+		<rect x="962" y="252" width="150" height="96" rx="10" fill="#A78BFA" fill-opacity="0.2" stroke="#7C3AED" />
+		<text x="1037" y="290" fill="#6D28D9" font-size="17" font-weight="700">输出投影</text>
+		<text x="1037" y="316" fill="#7C3AED" font-size="15">× W_O</text>
+		<text x="1037" y="336" fill="#7C3AED" font-size="13">→ 输出</text>
+	</g>
+
+	<!-- 底部公式条 -->
+	<g transform="translate(56,476)">
+		<rect x="0" y="0" width="1064" height="76" rx="14" fill="#111827" />
+		<text x="32" y="34" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="16">缩放因子 √dₖ 防止点积过大把 softmax 推入梯度饱和区：</text>
+		<text x="32" y="62" fill="#F9FAFB" font-family="ui-monospace, Menlo, monospace" font-size="19" font-weight="700">Attention(Q,K,V) = softmax( QKᵀ / √dₖ ) V　　原论文 d_model=512, h=8, dₖ=64</text>
+	</g>
+</svg>

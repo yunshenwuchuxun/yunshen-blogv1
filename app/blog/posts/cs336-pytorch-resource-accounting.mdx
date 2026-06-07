@@ -1,0 +1,401 @@
+---
+title: 'CS336 第二讲 · PyTorch 与资源核算：训练大模型前要算清的两笔账'
+publishedAt: '2026-06-07'
+summary: '跟随斯坦福 CS336 第二讲，从“训练要多久”和“显存放得下多大模型”两个真实问题出发，系统讲解张量机制、浮点精度、FLOPs 估算与训练全流程的资源核算方法。'
+draft: false
+image: '/static/blog/cs336-pytorch-resource-accounting/cover.svg'
+tags: [Deep Learning, PyTorch, LLM, Tech Blog]
+---
+
+训练一个大模型动辄消耗成百上千张 GPU、跑上几个月。在按下启动键之前，有两个问题必须先回答：<strong>这次训练大概要跑多久？现有的显卡到底放得下多大的模型？</strong> 如果答不上来，要么是钱烧光了模型还没收敛，要么是跑到一半 OOM 崩溃。
+
+这正是斯坦福 CS336《Language Modeling from Scratch》第二讲的主题——<strong>资源核算（Resource Accounting）</strong>。它不教你写出多花哨的网络，而是教你用几个简单的公式，在动手之前就把时间和显存这两笔账算清楚。本文在保留核心知识点的基础上重新组织了这一讲的内容：先用两个估算问题建立直觉，再依次拆解张量、浮点精度、计算量与训练全流程背后的核算逻辑。
+
+## 先看两笔账：资源核算到底在算什么
+
+资源核算的全部价值，都浓缩在下面这两个估算问题里。先感受一下它们的威力，后文所有细节都是为了支撑这两个计算。
+
+### 账一：这次训练要跑多久？
+
+<strong>问题</strong>：用 1024 张 H100，训练一个 70B 参数的模型，喂 15T tokens 的数据，需要多久？
+
+第一步，估算总工作量。深度学习里有一个极其好用的经验公式：一次训练迭代的浮点运算总数约等于参数量的 6 倍乘以 Token 数。
+
+$$
+\text{FLOPs} \approx 6 \times N \times D
+$$
+
+其中 $N$ 是参数量、$D$ 是训练 Token 数。代入数据：
+
+$$
+6 \times (70 \times 10^9) \times (15 \times 10^{12}) \approx 6.3 \times 10^{24}\ \text{FLOPs}
+$$
+
+第二步，估算硬件能提供多少算力。H100 的 BF16 峰值约 $989\ \text{TFLOP/s}$（稠密计算口径）。但峰值是理论上限，实际利用率（MFU）通常只有 50% 左右：
+
+$$
+\underbrace{989 \times 10^{12}}_{\text{单卡峰值}} \times 0.5 \times \underbrace{1024}_{\text{卡数}} \approx 5 \times 10^{17}\ \text{FLOP/s}
+$$
+
+第三步，工作量除以算力，就得到时间：
+
+$$
+\frac{6.3 \times 10^{24}}{5 \times 10^{17}} \approx 1.26 \times 10^{7}\ \text{秒} \approx 146\ \text{天}
+$$
+
+一个简单的除法，就把"要不要立项""预算够不够"这种关键决策从拍脑袋变成了可估算。
+
+### 账二：显存放得下多大的模型？
+
+<strong>问题</strong>：8 张 H100（每张 80GB，共 640GB），用 AdamW 优化器，最多能训练多大的模型？
+
+一个常见的<strong>错误</strong>是直接用 $640\text{GB} / 4\text{字节} = 1600$ 亿参数。这只算了参数本身，却忘了训练时每个参数还拖着一串"配套开销"。用 AdamW + 混合精度训练时，每个参数实际要占约 16 字节：
+
+<strong>正确估算</strong>：
+
+$$
+\frac{640 \times 10^9\ \text{bytes}}{16\ \text{bytes/param}} \approx 400\ \text{亿参数 (40B)}
+$$
+
+差了整整 4 倍。这 16 字节是怎么来的，后文"训练显存核算"一节会拆开讲。
+
+> 这两笔账分别对应<strong>计算（compute）</strong>和<strong>显存（memory）</strong>两条主线。接下来我们从最底层的张量开始，逐层补齐支撑这两个估算所需的全部知识。
+
+## 张量：一切计算的载体
+
+张量是 PyTorch 中存储和操作数据的基本单位。模型参数、激活值、梯度——全都是张量。
+
+### 创建张量
+
+最常用的几种创建方式：
+
+```python
+x = torch.tensor([[1., 2, 3], [4, 5, 6]])  # 从数据直接构造
+x = torch.zeros(4, 8)                        # 全 0
+x = torch.ones(4, 8)                         # 全 1
+x = torch.randn(4, 8)                        # 标准正态分布
+x = torch.empty(4, 8)                        # 未初始化（内容是内存里的脏数据）
+nn.init.trunc_normal_(x, mean=0, std=1, a=-2, b=2)  # 截断正态，初始化常用
+```
+
+### 视图与"连续性"陷阱
+
+张量的很多操作（切片、`view`、`transpose`）返回的是<strong>视图（view）</strong>而非副本——它们和原张量共享同一块底层内存，只是换了一种"读法"。这让它们几乎零成本，但也埋了一个坑：
+
+```python
+x = torch.tensor([[1., 2, 3], [4, 5, 6]])
+y = x.transpose(1, 0)        # 转置，得到视图
+assert not y.is_contiguous() # 转置后内存不再连续！
+
+# 直接 view 会报错，需要先 contiguous() 把数据真正复制成连续布局
+y = x.transpose(1, 0).contiguous().view(2, 3)
+```
+
+要理解为什么转置会破坏连续性，得先看张量在内存里到底是怎么存的。
+
+### 内存布局与步长（stride）
+
+逻辑上是多维矩阵，物理上张量却是一段<strong>一维连续内存</strong>。两者之间靠<strong>步长（stride）</strong>来"翻译"：`stride(i)` 表示第 $i$ 维坐标每加 1，在底层一维数组上要跨过多少个元素。
+
+![张量的行优先内存布局与步长](/static/blog/cs336-pytorch-resource-accounting/tensor-memory.svg)
+
+以一个行优先存储的 $4 \times 4$ 张量为例，`stride(0) = 4`（跳一整行要跨 4 个元素），`stride(1) = 1`（同一行内相邻元素紧挨着）。任意元素的物理地址就是坐标与步长的内积：
+
+```python
+r, c = 1, 2
+index = r * x.stride(0) + c * x.stride(1)  # 1*4 + 2*1 = 6
+```
+
+这下就清楚了：`transpose` 并没有搬动任何数据，它只是<strong>交换了 stride</strong>。于是逻辑上的"按行连续"在物理上变成了"按列跳跃"，`is_contiguous()` 自然返回 `False`。`view` 要求底层内存连续，所以才需要 `contiguous()` 先真正复制一份。
+
+### 用 einops 写更可读的张量操作
+
+裸 PyTorch 的维度操作（`transpose(-2, -1)`、记不清 `dim` 是哪一维）非常容易出错。`einops` 用<strong>命名维度</strong>让张量操作自解释。三个核心函数足以覆盖大部分场景：
+
+```python
+from einops import einsum, reduce, rearrange
+
+# 1) einsum：用维度名描述矩阵乘法，"..."表示任意前置批维度
+#    下式等价于 x @ y.transpose(-2, -1)
+z = einsum(x, y, "... seq1 hidden, ... seq2 hidden -> ... seq1 seq2")
+
+# 2) reduce：在指定维度上聚合，等价于 x.mean(dim=-1)
+y = reduce(x, "... hidden -> ...", "mean")
+
+# 3) rearrange：拆分 / 合并维度，多头注意力里极其常用
+x = rearrange(x, "... (heads hidden) -> ... heads hidden", heads=2)  # 拆头
+x = rearrange(x, "... heads hidden -> ... (heads hidden)")            # 合并
+```
+
+相比 `x.view(b, s, 2, -1).transpose(...)` 这种需要在脑子里推维度的写法，`einops` 把意图直接写在了字符串里，代码即文档。
+
+## 浮点精度：显存与数值稳定的权衡
+
+每个张量元素用什么浮点格式存储，直接决定了显存占用和数值稳定性。这是"账二"的微观基础。核心矛盾只有一句话：<strong>指数位决定动态范围，尾数位决定精度，位数越少越省显存但越容易出问题。</strong>
+
+![浮点数格式位布局对比](/static/blog/cs336-pytorch-resource-accounting/float-formats.svg)
+
+| 格式 | 字节 | 符号/指数/尾数 | 特点与用途 |
+|------|------|------|------|
+| FP32 | 4 | 1 / 8 / 23 | 精度高、范围大，用作参数主副本与优化器状态 |
+| FP16 | 2 | 1 / 5 / 10 | 指数仅 5 位，范围窄、易上溢/下溢，需配合 Loss Scaling |
+| BF16 | 2 | 1 / 8 / 7 | 保留 FP32 的 8 位指数，范围相同、只损失精度，<strong>当前 LLM 训练主流</strong> |
+| FP8 | 1 | 1 / 4 / 3（E4M3） | 仅 H100 及更新架构支持，多用于推理量化与部分训练加速 |
+
+这张图最值得记住的一点是：<strong>BF16 和 FP16 都是 2 字节，但 BF16 把比特预算更多地投给了指数位</strong>。深度学习里数值的"量级跨度"往往比"小数精度"更重要，所以 BF16 能在不做 Loss Scaling 的情况下稳定训练，成了今天的默认选择。
+
+### 数据在 CPU 与 GPU 间的移动
+
+张量默认在 CPU 内存里，参与 GPU 计算前必须显式搬到显存。这一步既是性能关键，也是显存核算的着手点：
+
+```python
+# 查询设备与当前显存占用
+num_gpus = torch.cuda.device_count()
+memory_before = torch.cuda.memory_allocated()
+
+y = x.to("cuda:0")                     # 把张量搬到 0 号 GPU
+z = torch.zeros(32, 32, device="cuda:0")  # 直接在 GPU 上创建，避免一次搬运
+
+# 验证显存增量：32*32 个 float32，每个 4 字节
+memory_used = torch.cuda.memory_allocated() - memory_before
+assert memory_used == 2 * (32 * 32 * 4)
+```
+
+`memory_allocated()` 让显存占用<strong>可测量</strong>——这正是把"账二"从估算变成验证的工具。
+
+## 计算量：FLOPs 与 MFU
+
+回到"账一"。要估算时间，得先会数浮点运算。这里有两个容易混淆的概念，务必分清：
+
+- <strong>FLOPs</strong>（小写 s，operations）：完成某个任务所需的浮点运算<strong>总数</strong>，衡量工作量。
+- <strong>FLOP/s</strong>（大写 S，per second）：每秒能做多少次浮点运算，衡量硬件算力，即常说的 TFLOPS。
+
+时间 = 工作量 / 算力 = FLOPs / (FLOP/s)。下面分别把这两项算清楚。
+
+### 矩阵乘法：2BDK 法则
+
+神经网络里绝大部分计算都是矩阵乘法，而矩阵乘法的 FLOPs 有一个简洁的公式。考虑 $X_{B \times D} \times W_{D \times K} = Y_{B \times K}$：
+
+![矩阵乘法的 FLOPs 推导](/static/blog/cs336-pytorch-resource-accounting/matmul-flops.svg)
+
+输出矩阵有 $B \times K$ 个元素，每个元素是一次长度为 $D$ 的点积，需要 $D$ 次乘法加 $D-1$ 次加法，约 $2D$ 次运算。所以总计算量为：
+
+$$
+\text{FLOPs} = 2 \times B \times D \times K
+$$
+
+如果把 $D \times K$ 看作模型的一层权重（参数量 $\approx D \times K$），$B$ 看作数据量，这条公式就推广成了那句广为流传的口诀：
+
+$$
+\text{FLOPs} \approx 2 \times \text{数据量} \times \text{参数量}
+$$
+
+至于逐元素操作（加法、激活函数等），计算量是 $O(B \times D)$ 量级，相比矩阵乘法的 $O(B \times D \times K)$ 可以忽略不计。
+
+### MFU：你离硬件峰值有多远
+
+理论峰值算力几乎不可能跑满。<strong>MFU（Model FLOPs Utilization，模型算力利用率）</strong>衡量真实利用程度：
+
+$$
+\text{MFU} = \frac{\text{实际 FLOP/s}}{\text{硬件峰值 FLOP/s}}
+$$
+
+经验上，$\text{MFU} \geq 0.5$ 已经算相当不错的工程实现，越接近 1.0 越难。这也是为什么"账一"里要乘上 0.5——用峰值算出来的时间是理论下限，现实中要打个对折。
+
+### 反向传播与 6× 法则
+
+前向传播一次的计算量是 $2ND$，那训练为什么是 $6ND$？关键在反向传播：它要算两组梯度。
+
+![训练计算量 6 倍法则](/static/blog/cs336-pytorch-resource-accounting/flops-6x.svg)
+
+以一层 $h = x W$ 为例，反向传播需要：
+
+- <strong>对权重的梯度</strong> $\partial \text{loss} / \partial W$：约 $2ND$，用于更新这层参数；
+- <strong>对输入的梯度</strong> $\partial \text{loss} / \partial x$：约 $2ND$，用于把梯度继续往前一层传。
+
+两者相加，反向是 $4ND$。加上前向的 $2ND$，一次完整训练迭代就是：
+
+$$
+\text{FLOPs}_{\text{train}} \approx \underbrace{2ND}_{\text{前向}} + \underbrace{4ND}_{\text{反向}} = 6ND
+$$
+
+这就是"账一"开头那个 6 倍系数的来历。需要注意的是，它是个工程估算（只数了主要的矩阵乘法），但对规划训练规模已经足够准确。
+
+PyTorch 用自动微分（autograd）替我们完成全部反向计算，只需把要求梯度的张量标记出来：
+
+```python
+x = torch.tensor([1., 2, 3])
+w = torch.tensor([1., 1, 1], requires_grad=True)  # 标记需要梯度
+loss = 0.5 * (x @ w - 5).pow(2)
+loss.backward()                                    # 自动反传
+assert torch.equal(w.grad, torch.tensor([1, 2, 3]))  # 梯度存入 w.grad
+```
+
+## 训练全流程：把核算落到代码里
+
+有了张量、精度、计算量三块基础，现在把它们串成一个能跑的训练流程，并在最后回收"账二"的显存估算。
+
+### 参数初始化：别让梯度一开始就爆炸
+
+直接用标准高斯分布初始化权重，会让前向输出的方差随维度线性放大，深层网络很快梯度爆炸。解决办法是按输入维度缩放方差，这就是 <strong>Xavier 初始化</strong>的思想：
+
+```python
+import numpy as np
+
+# Xavier：除以 sqrt(输入维度)，让输出方差保持稳定
+w = nn.Parameter(torch.randn(input_dim, output_dim) / np.sqrt(input_dim))
+
+# 更稳健的做法：截断正态分布，避免极端值
+w = nn.Parameter(nn.init.trunc_normal_(
+    torch.empty(input_dim, output_dim),
+    std=1 / np.sqrt(input_dim), a=-3, b=3,
+))
+```
+
+### 用 nn.Module 自定义模型
+
+PyTorch 模型都继承自 `nn.Module`，用 `nn.Parameter` 声明可训练参数，在 `forward` 里描述计算：
+
+```python
+class Linear(nn.Module):
+    def __init__(self, input_dim: int, output_dim: int):
+        super().__init__()
+        self.weight = nn.Parameter(
+            torch.randn(input_dim, output_dim) / np.sqrt(input_dim)
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return x @ self.weight
+
+class Cruncher(nn.Module):
+    def __init__(self, dim: int, num_layers: int):
+        super().__init__()
+        self.layers = nn.ModuleList([Linear(dim, dim) for _ in range(num_layers)])
+        self.final = Linear(dim, 1)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        for layer in self.layers:
+            x = layer(x)
+        return self.final(x).squeeze(-1)
+```
+
+模型搭好后，可以用 `state_dict()` 检查每个参数的元素个数，再 `.to(device)` 整体搬上 GPU。
+
+### 数据加载：用内存映射喂大数据集
+
+训练数据通常远大于内存，不能一次性读入。`np.memmap` 把磁盘文件<strong>映射</strong>为数组，按需读取对应分页，配合随机采样起始位置就能高效取批：
+
+```python
+import numpy as np
+
+data = np.memmap("data.npy", dtype=np.int32)  # 内存映射，不全部载入
+
+def get_batch(data, batch_size, sequence_length, device):
+    # 随机选 batch_size 个起始位置
+    starts = torch.randint(len(data) - sequence_length, (batch_size,))
+    x = torch.tensor([data[s:s + sequence_length] for s in starts])
+    if torch.cuda.is_available():
+        x = x.pin_memory()                   # 锁页内存，加速 CPU→GPU 拷贝
+    return x.to(device, non_blocking=True)   # 异步搬运，与计算重叠
+```
+
+`pin_memory()` + `non_blocking=True` 是数据搬运的常见加速组合：锁页内存让 GPU 能用 DMA 直接拷贝，并与计算并行。
+
+### 优化器：从 SGD 到 Adam
+
+优化器决定如何用梯度更新参数。它们沿着一条清晰的演进线发展：SGD（最朴素）→ Momentum（加动量抑制震荡）→ AdaGrad / RMSProp（自适应学习率）→ Adam（融合动量与自适应）。自定义一个优化器只需继承 `torch.optim.Optimizer` 并实现 `step()`：
+
+```python
+class SGD(torch.optim.Optimizer):
+    def __init__(self, params, lr: float = 0.01):
+        super().__init__(params, dict(lr=lr))
+
+    def step(self):
+        for group in self.param_groups:
+            for p in group["params"]:
+                p.data -= group["lr"] * p.grad.data   # 朴素梯度下降
+
+class AdaGrad(torch.optim.Optimizer):
+    def __init__(self, params, lr: float = 0.01):
+        super().__init__(params, dict(lr=lr))
+
+    def step(self):
+        for group in self.param_groups:
+            for p in group["params"]:
+                state = self.state[p]
+                grad = p.grad.data
+                # 累积历史梯度平方，按其开方缩放学习率
+                g2 = state.get("g2", torch.zeros_like(grad)) + grad.square()
+                state["g2"] = g2
+                p.data -= group["lr"] * grad / torch.sqrt(g2 + 1e-5)
+```
+
+注意 AdaGrad 比 SGD 多维护了一份 `g2`（历史梯度平方和）状态。Adam 更进一步，要维护<strong>两份</strong>状态（一阶矩 $m$ 与二阶矩 $v$）——这正是"账二"里每参数 16 字节的来源。
+
+### 训练显存核算：16 字节是怎么来的
+
+现在可以兑现"账二"了。训练时显存被四类张量占用，用 AdamW + FP32 状态时，每个参数对应：
+
+![训练时每参数的显存占用](/static/blog/cs336-pytorch-resource-accounting/training-memory.svg)
+
+$$
+\underbrace{4}_{\text{参数}} + \underbrace{4}_{\text{梯度}} + \underbrace{4}_{\text{Adam } m} + \underbrace{4}_{\text{Adam } v} = 16\ \text{bytes/param}
+$$
+
+所以 640GB 显存除以 16，得到约 40B 参数的上限。这还<strong>没算激活值（activations）</strong>——前向传播为了反向用，要缓存中间结果，其规模与 batch、序列长度、层数相关。完整的显存账是：
+
+$$
+\text{总显存} = (\text{参数} + \text{梯度} + \text{优化器状态} + \text{激活值}) \times \text{每元素字节数}
+$$
+
+### 训练循环、检查点与混合精度
+
+把上面所有部件拼起来，标准训练循环就是"取批 → 前向算 loss → 反向算梯度 → 更新 → 清零"五步：
+
+```python
+import torch.nn.functional as F
+
+for t in range(num_train_steps):
+    x, y = get_batch(B)
+    loss = F.mse_loss(model(x), y)   # 前向 + 损失
+    loss.backward()                  # 反向：填充各参数的 .grad
+    optimizer.step()                 # 用梯度更新参数
+    optimizer.zero_grad(set_to_none=True)  # 清零，准备下一步
+```
+
+长时间训练必须能<strong>断点续训</strong>。检查点要同时保存模型和优化器状态（否则 Adam 的动量会丢失）：
+
+```python
+torch.save({"model": model.state_dict(),
+            "optimizer": optimizer.state_dict()}, "ckpt.pt")
+
+ckpt = torch.load("ckpt.pt")
+model.load_state_dict(ckpt["model"])
+optimizer.load_state_dict(ckpt["optimizer"])
+```
+
+最后是<strong>混合精度训练</strong>：前向用 BF16/FP8 省显存、提速度，参数主副本和敏感的累加仍用 FP32 保精度。PyTorch AMP（`torch.autocast` + `GradScaler`）和 NVIDIA Transformer Engine 都把这套策略封装好了，工程上几行代码即可启用。
+
+## 总结：核算大模型的速查表
+
+资源核算的本质，是用几个粗粒度公式在动手前回答"多久"和"多大"。把全文的关键结论浓缩成一张表：
+
+| 要核算的对象 | 公式 / 经验值 | 说明 |
+|------|------|------|
+| 训练总计算量 | $6 \times N \times D$ | 前向 $2ND$ + 反向 $4ND$ |
+| 单次矩阵乘法 | $2 \times B \times D \times K$ | 每个输出元素约 $2D$ 次运算 |
+| 训练时间 | $\dfrac{\text{FLOPs}}{\text{峰值} \times \text{MFU} \times \text{卡数}}$ | MFU 实践中约 0.5 |
+| 训练显存（每参数） | 16 字节 | 参数4 + 梯度4 + Adam 状态8，激活值另算 |
+| 浮点精度选择 | BF16 训练 / FP8 推理 | 指数位定范围，尾数位定精度 |
+
+记住这几条，你就能在立项阶段对"需要多少卡、跑多少天、放不放得下"给出靠谱的量级判断——这正是 CS336 想传递的核心工程素养：<strong>先算账，再训练。</strong>
+
+## 参考资料
+
+- [CS336: Language Modeling from Scratch（Stanford）](https://stanford-cs336.github.io/)
+- [Datawhale diy-llm · 第三章 PyTorch 与资源核算](https://datawhalechina.github.io/diy-llm/)
+- [NVIDIA H100 Tensor Core GPU 数据手册](https://resources.nvidia.com/en-us-tensor-core/nvidia-tensor-core-gpu-datasheet)
+- [PyTorch 官方文档 · Tensors](https://pytorch.org/docs/stable/tensors.html)
+- [PyTorch 官方文档 · 自动混合精度（AMP）](https://pytorch.org/docs/stable/amp.html)
+- [einops 官方文档](https://einops.rocks/)
+- [FlashAttention（arXiv:2205.14135）](https://arxiv.org/abs/2205.14135)

@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" fill="none" role="img" aria-labelledby="ttitle tdesc">
+	<title id="ttitle">训练计算量 6 倍法则</title>
+	<desc id="tdesc">一次训练迭代的总浮点运算约等于 6 × 参数量 × Token 数，其中前向传播占 2 倍，反向传播占 4 倍。</desc>
+	<rect width="1200" height="560" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="512" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+
+	<text x="56" y="80" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="700">为什么是 6 倍？前向 2× + 反向 4×</text>
+	<text x="56" y="114" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="19">反向传播要同时算"对权重的梯度"和"对输入的梯度"，所以约是前向的两倍。</text>
+
+	<!-- 三段条 -->
+	<g transform="translate(56,170)">
+		<!-- 前向 2x -->
+		<rect x="0" y="0" width="328" height="120" rx="16" fill="#22D3EE" fill-opacity="0.18" stroke="#06B6D4" />
+		<text x="164" y="46" text-anchor="middle" fill="#0E7490" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700">前向传播</text>
+		<text x="164" y="92" text-anchor="middle" fill="#0E7490" font-family="ui-monospace, Menlo, monospace" font-size="40" font-weight="800">2 N D</text>
+
+		<text x="356" y="70" text-anchor="middle" fill="#98A2B3" font-family="Inter, Arial, sans-serif" font-size="40" font-weight="700">+</text>
+
+		<!-- 反向 4x -->
+		<rect x="384" y="0" width="656" height="120" rx="16" fill="#FB923C" fill-opacity="0.18" stroke="#F97316" />
+		<line x1="712" y1="14" x2="712" y2="106" stroke="#F97316" stroke-dasharray="5 5" stroke-opacity="0.5" />
+		<text x="548" y="42" text-anchor="middle" fill="#C2410C" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700">∂loss/∂权重</text>
+		<text x="548" y="84" text-anchor="middle" fill="#C2410C" font-family="ui-monospace, Menlo, monospace" font-size="32" font-weight="800">2 N D</text>
+		<text x="876" y="42" text-anchor="middle" fill="#C2410C" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700">∂loss/∂输入</text>
+		<text x="876" y="84" text-anchor="middle" fill="#C2410C" font-family="ui-monospace, Menlo, monospace" font-size="32" font-weight="800">2 N D</text>
+		<text x="712" y="112" text-anchor="middle" fill="#9A3412" font-family="Inter, Arial, sans-serif" font-size="15">反向传播 = 4 N D</text>
+	</g>
+
+	<!-- 等号汇总 -->
+	<g transform="translate(56,330)">
+		<rect x="0" y="0" width="1040" height="92" rx="16" fill="#111827" />
+		<text x="40" y="58" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="22">一次训练迭代总计算量</text>
+		<text x="1000" y="60" text-anchor="end" fill="#F9FAFB" font-family="ui-monospace, Menlo, monospace" font-size="40" font-weight="800">≈ 6 × N × D</text>
+	</g>
+
+	<text x="56" y="470" fill="#344054" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700">N = 模型参数量　　D = 训练 Token 数</text>
+	<text x="56" y="502" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="17">例：70B 参数 × 15T tokens → 6 × 70e9 × 15e12 ≈ 6.3 × 10²⁴ FLOPs</text>
+</svg>

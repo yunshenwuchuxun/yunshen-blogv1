@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="640" viewBox="0 0 1200 640" fill="none" role="img" aria-labelledby="ttitle tdesc">
+	<title id="ttitle">标准 Transformer 编码层结构</title>
+	<desc id="tdesc">输入经词嵌入与位置编码相加后，依次通过多头注意力、Add&amp;Norm、前馈网络、Add&amp;Norm，残差连接贯穿全程。</desc>
+	<rect width="1200" height="640" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="592" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="78" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="700">标准 Transformer 层：五个核心组件如何协同</text>
+	<text x="56" y="112" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="18">原始论文采用 Post-Norm：子层 → 残差相加 → LayerNorm。</text>
+
+	<defs>
+		<marker id="arr" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto">
+			<path d="M0,0 L7,3 L0,6 Z" fill="#475467" />
+		</marker>
+	</defs>
+
+	<g font-family="Inter, Arial, sans-serif" text-anchor="middle">
+		<!-- 输入 -->
+		<rect x="430" y="556" width="340" height="44" rx="10" fill="#E2E8F0" stroke="#94A3B8" />
+		<text x="600" y="584" fill="#334155" font-size="18" font-weight="600">词嵌入 + 位置编码</text>
+
+		<!-- 主干箭头 -->
+		<line x1="600" y1="556" x2="600" y2="520" stroke="#475467" stroke-width="2" marker-end="url(#arr)" />
+
+		<!-- 多头注意力 -->
+		<rect x="400" y="452" width="400" height="64" rx="12" fill="#60A5FA" fill-opacity="0.2" stroke="#2563EB" />
+		<text x="600" y="478" fill="#1D4ED8" font-size="20" font-weight="700">多头自注意力 (Multi-Head Attention)</text>
+		<text x="600" y="502" fill="#3B82F6" font-size="15">让每个 token 关注序列中相关的其它 token</text>
+
+		<!-- Add&Norm 1 -->
+		<line x1="600" y1="452" x2="600" y2="424" stroke="#475467" stroke-width="2" marker-end="url(#arr)" />
+		<rect x="440" y="372" width="320" height="50" rx="12" fill="#FBBF24" fill-opacity="0.25" stroke="#D97706" />
+		<text x="600" y="403" fill="#92400E" font-size="18" font-weight="700">Add &amp; Norm</text>
+
+		<!-- FFN -->
+		<line x1="600" y1="372" x2="600" y2="344" stroke="#475467" stroke-width="2" marker-end="url(#arr)" />
+		<rect x="400" y="272" width="400" height="64" rx="12" fill="#34D399" fill-opacity="0.25" stroke="#059669" />
+		<text x="600" y="298" fill="#047857" font-size="20" font-weight="700">前馈网络 (Feed Forward)</text>
+		<text x="600" y="322" fill="#10B981" font-size="15">逐位置的两层 MLP：512 → 2048 → 512</text>
+
+		<!-- Add&Norm 2 -->
+		<line x1="600" y1="272" x2="600" y2="244" stroke="#475467" stroke-width="2" marker-end="url(#arr)" />
+		<rect x="440" y="192" width="320" height="50" rx="12" fill="#FBBF24" fill-opacity="0.25" stroke="#D97706" />
+		<text x="600" y="223" fill="#92400E" font-size="18" font-weight="700">Add &amp; Norm</text>
+
+		<line x1="600" y1="192" x2="600" y2="160" stroke="#475467" stroke-width="2" marker-end="url(#arr)" />
+		<rect x="470" y="116" width="260" height="40" rx="10" fill="#E2E8F0" stroke="#94A3B8" />
+		<text x="600" y="142" fill="#334155" font-size="16" font-weight="600">输出（送入下一层）</text>
+	</g>
+
+	<!-- 残差跳连 (左侧曲线) -->
+	<g stroke="#EA580C" stroke-width="2" fill="none" stroke-dasharray="6 5">
+		<path d="M600,538 C360,538 360,484 392,484" marker-end="url(#arr)" />
+		<path d="M600,358 C360,358 360,304 392,304" marker-end="url(#arr)" />
+	</g>
+	<text x="300" y="500" fill="#EA580C" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="600">残差连接</text>
+	<text x="300" y="520" fill="#EA580C" font-family="Inter, Arial, sans-serif" font-size="13">Output = x + Sublayer(x)</text>
+
+	<!-- 右侧说明 -->
+	<g font-family="Inter, Arial, sans-serif" font-size="15" fill="#475467">
+		<text x="840" y="488" font-weight="600" fill="#1D4ED8">① 注意力</text>
+		<text x="840" y="510">建模 token 间依赖</text>
+		<text x="840" y="400" font-weight="600" fill="#92400E">② 残差 + 归一化</text>
+		<text x="840" y="422">稳住梯度与数值分布</text>
+		<text x="840" y="308" font-weight="600" fill="#047857">③ 前馈网络</text>
+		<text x="840" y="330">逐位置非线性变换</text>
+	</g>
+</svg>

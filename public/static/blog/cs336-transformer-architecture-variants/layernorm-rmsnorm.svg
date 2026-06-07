@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="500" viewBox="0 0 1200 500" fill="none" role="img" aria-labelledby="ltitle ldesc">
+	<title id="ltitle">LayerNorm 与 RMSNorm 对比</title>
+	<desc id="ldesc">RMSNorm 相比 LayerNorm 去掉了减均值与偏置项，只保留按均方根缩放，运算更少、速度更快、效果相当。</desc>
+	<rect width="1200" height="500" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="452" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="78" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="700">RMSNorm：把 LayerNorm 中"非必要"的步骤砍掉</text>
+	<text x="56" y="112" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="18">LLaMA、PaLM、Chinchilla、T5 等几乎都改用 RMSNorm——更少运算、更少参数搬运。</text>
+
+	<!-- LayerNorm -->
+	<g font-family="Inter, Arial, sans-serif">
+		<rect x="80" y="150" width="500" height="290" rx="16" fill="#FFFFFF" stroke="#D0D5DD" />
+		<text x="104" y="190" fill="#111827" font-size="22" font-weight="700">LayerNorm</text>
+		<text x="104" y="244" fill="#334155" font-family="ui-monospace, Menlo, monospace" font-size="20" font-weight="700">γ (v − μ) / σ + β</text>
+
+		<g font-size="17">
+			<circle cx="116" cy="290" r="6" fill="#EF4444" /><text x="136" y="296" fill="#B91C1C" font-weight="600">减去均值 μ</text><text x="320" y="296" fill="#98A2B3">需先遍历求 μ</text>
+			<circle cx="116" cy="326" r="6" fill="#3B82F6" /><text x="136" y="332" fill="#1D4ED8" font-weight="600">除以标准差 σ</text>
+			<circle cx="116" cy="362" r="6" fill="#10B981" /><text x="136" y="368" fill="#047857" font-weight="600">缩放 γ</text>
+			<circle cx="116" cy="398" r="6" fill="#EF4444" /><text x="136" y="404" fill="#B91C1C" font-weight="600">偏置 β</text><text x="320" y="404" fill="#98A2B3">额外参数搬运</text>
+		</g>
+	</g>
+
+	<!-- 箭头 -->
+	<text x="620" y="300" text-anchor="middle" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="40" font-weight="700">→</text>
+
+	<!-- RMSNorm -->
+	<g font-family="Inter, Arial, sans-serif">
+		<rect x="660" y="150" width="460" height="290" rx="16" fill="#F0FDF4" stroke="#86EFAC" />
+		<text x="684" y="190" fill="#15803D" font-size="22" font-weight="700">RMSNorm</text>
+		<text x="684" y="248" fill="#166534" font-family="ui-monospace, Menlo, monospace" font-size="19" font-weight="700">γ · v / RMS(v)</text>
+		<text x="684" y="280" fill="#15803D" font-family="ui-monospace, Menlo, monospace" font-size="15">RMS(v)=√(mean(vᵢ²)+ε)</text>
+
+		<g font-size="17">
+			<text x="684" y="326" fill="#B91C1C" font-weight="600">✗ 不减均值</text><text x="900" y="326" fill="#16A34A">省一次归约</text>
+			<text x="684" y="362" fill="#16A34A" font-weight="600">✓ 仅按均方根缩放</text>
+			<text x="684" y="398" fill="#B91C1C" font-weight="600">✗ 不加偏置 β</text><text x="900" y="398" fill="#16A34A">少一组参数</text>
+		</g>
+	</g>
+
+	<text x="600" y="466" text-anchor="middle" fill="#475467" font-family="Inter, Arial, sans-serif" font-size="15">Narang 等 2020 消融：基准 3.5 步/秒 → RMSNorm 3.68 步/秒，且最终损失更低。</text>
+</svg>
