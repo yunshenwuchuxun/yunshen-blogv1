@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="420" viewBox="0 0 960 420" role="img" aria-labelledby="title desc">
+	<title id="title">分词器训练流程</title>
+	<desc id="desc">分词器训练四步：准备语料、预分词、统计并迭代合并、输出 vocab 与 merges 产物。</desc>
+	<defs>
+		<linearGradient id="bgp" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0" stop-color="#0b1120" />
+			<stop offset="1" stop-color="#1e293b" />
+		</linearGradient>
+	</defs>
+	<rect width="960" height="420" rx="28" fill="url(#bgp)" />
+	<text x="40" y="52" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700" fill="#f8fafc">分词器训练流程</text>
+	<text x="40" y="78" font-family="Inter, Arial, sans-serif" font-size="14" fill="#94a3b8">不同算法仅在「候选生成方式」与「迭代更新策略」上有差异</text>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<!-- Stage 1 -->
+		<g transform="translate(40 120)">
+			<rect width="200" height="150" rx="16" fill="rgba(251,113,133,0.12)" stroke="#fb7185" stroke-width="1.5" />
+			<circle cx="30" cy="34" r="16" fill="#fb7185" />
+			<text x="30" y="40" font-size="16" font-weight="700" fill="#0b1120" text-anchor="middle">1</text>
+			<text x="58" y="40" font-size="18" font-weight="700" fill="#f8fafc">准备语料</text>
+			<text x="20" y="74" font-size="13" fill="#cbd5e1">多语言平衡采样</text>
+			<text x="20" y="98" font-size="13" fill="#cbd5e1">清洗 / 标准化</text>
+			<text x="20" y="122" font-size="13" fill="#cbd5e1">脱敏去噪 + 验证集</text>
+		</g>
+		<!-- Stage 2 -->
+		<g transform="translate(280 120)">
+			<rect width="200" height="150" rx="16" fill="rgba(251,191,36,0.12)" stroke="#fbbf24" stroke-width="1.5" />
+			<circle cx="30" cy="34" r="16" fill="#fbbf24" />
+			<text x="30" y="40" font-size="16" font-weight="700" fill="#0b1120" text-anchor="middle">2</text>
+			<text x="58" y="40" font-size="18" font-weight="700" fill="#f8fafc">预分词</text>
+			<text x="20" y="74" font-size="13" fill="#cbd5e1">空格 / 标点切分</text>
+			<text x="20" y="98" font-size="13" fill="#cbd5e1">Unicode 类别</text>
+			<text x="20" y="122" font-size="13" fill="#cbd5e1">UTF-8 字节级</text>
+		</g>
+		<!-- Stage 3 -->
+		<g transform="translate(520 120)">
+			<rect width="200" height="150" rx="16" fill="rgba(34,211,238,0.12)" stroke="#22d3ee" stroke-width="1.5" />
+			<circle cx="30" cy="34" r="16" fill="#22d3ee" />
+			<text x="30" y="40" font-size="16" font-weight="700" fill="#0b1120" text-anchor="middle">3</text>
+			<text x="58" y="40" font-size="18" font-weight="700" fill="#f8fafc">统计迭代</text>
+			<text x="20" y="74" font-size="13" fill="#cbd5e1">候选统计</text>
+			<text x="20" y="98" font-size="13" fill="#cbd5e1">合并 / 剪枝</text>
+			<text x="20" y="122" font-size="13" fill="#cbd5e1">达到目标词表大小</text>
+		</g>
+		<!-- Stage 4 -->
+		<g transform="translate(760 120)">
+			<rect width="160" height="150" rx="16" fill="rgba(167,139,250,0.12)" stroke="#a78bfa" stroke-width="1.5" />
+			<circle cx="30" cy="34" r="16" fill="#a78bfa" />
+			<text x="30" y="40" font-size="16" font-weight="700" fill="#0b1120" text-anchor="middle">4</text>
+			<text x="58" y="40" font-size="18" font-weight="700" fill="#f8fafc">输出</text>
+			<text x="20" y="74" font-size="13" fill="#e2e8f0" font-family="JetBrains Mono, monospace">vocab</text>
+			<text x="20" y="98" font-size="13" fill="#e2e8f0" font-family="JetBrains Mono, monospace">merges</text>
+			<text x="20" y="122" font-size="13" fill="#cbd5e1">编码 / 解码可逆</text>
+		</g>
+	</g>
+
+	<g stroke="#475569" stroke-width="2" fill="#475569">
+		<path d="M244 195 l30 0" />
+		<path d="M270 189 l10 6 -10 6 z" />
+		<path d="M484 195 l30 0" />
+		<path d="M510 189 l10 6 -10 6 z" />
+		<path d="M724 195 l30 0" />
+		<path d="M750 189 l10 6 -10 6 z" />
+	</g>
+
+	<text x="40" y="372" font-family="Inter, Arial, sans-serif" font-size="14" fill="#94a3b8">关键指标：平均 token 数 · 碎片化程度 · 跨语言 token 平衡度</text>
+	<text x="40" y="400" font-family="Inter, Arial, sans-serif" font-size="12" fill="#64748b">注：基础单元初始化（基础词表）随算法而定，部分流程可省略。</text>
+</svg>

@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="440" viewBox="0 0 960 440" role="img" aria-labelledby="title desc">
+	<title id="title">BPE、WordPiece、Unigram 的核心差异</title>
+	<desc id="desc">BPE 按频率贪心合并，WordPiece 按似然增益合并，Unigram 从大词表出发用 EM 剪枝低概率子词。</desc>
+	<defs>
+		<linearGradient id="bga" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0" stop-color="#0b1120" />
+			<stop offset="1" stop-color="#1e293b" />
+		</linearGradient>
+	</defs>
+	<rect width="960" height="440" rx="28" fill="url(#bga)" />
+	<text x="40" y="52" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700" fill="#f8fafc">三种子词算法的关键差异</text>
+	<text x="40" y="78" font-family="Inter, Arial, sans-serif" font-size="14" fill="#94a3b8">差异只在「合并/切分准则」与「词表构建方向」</text>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<!-- BPE -->
+		<g transform="translate(40 110)">
+			<rect width="280" height="290" rx="18" fill="rgba(34,211,238,0.10)" stroke="#22d3ee" stroke-width="1.5" />
+			<text x="24" y="44" font-size="20" font-weight="700" fill="#22d3ee">BPE</text>
+			<text x="24" y="74" font-size="13" fill="#94a3b8">自底向上 · 合并 ↑</text>
+			<text x="24" y="112" font-size="14" font-weight="600" fill="#f8fafc">准则</text>
+			<text x="24" y="138" font-size="13" fill="#cbd5e1">合并频次最高的相邻对</text>
+			<text x="24" y="172" font-size="14" font-weight="600" fill="#f8fafc">驱动</text>
+			<text x="24" y="198" font-size="13" fill="#cbd5e1">纯频率统计，贪心</text>
+			<text x="24" y="232" font-size="14" font-weight="600" fill="#f8fafc">直觉</text>
+			<text x="24" y="258" font-size="13" fill="#cbd5e1">常见组合 → 打包成整体</text>
+		</g>
+		<!-- WordPiece -->
+		<g transform="translate(340 110)">
+			<rect width="280" height="290" rx="18" fill="rgba(251,191,36,0.10)" stroke="#fbbf24" stroke-width="1.5" />
+			<text x="24" y="44" font-size="20" font-weight="700" fill="#fbbf24">WordPiece</text>
+			<text x="24" y="74" font-size="13" fill="#94a3b8">自底向上 · 合并 ↑</text>
+			<text x="24" y="112" font-size="14" font-weight="600" fill="#f8fafc">准则</text>
+			<text x="24" y="138" font-size="13" fill="#cbd5e1">最大化语料似然增益</text>
+			<text x="24" y="172" font-size="14" font-weight="600" fill="#f8fafc">评分</text>
+			<text x="24" y="200" font-size="15" fill="#e2e8f0" font-family="JetBrains Mono, monospace">P(A,B) / P(A)·P(B)</text>
+			<text x="24" y="232" font-size="14" font-weight="600" fill="#f8fafc">直觉</text>
+			<text x="24" y="258" font-size="13" fill="#cbd5e1">关联性强于独立出现才合并</text>
+		</g>
+		<!-- Unigram -->
+		<g transform="translate(640 110)">
+			<rect width="280" height="290" rx="18" fill="rgba(167,139,250,0.10)" stroke="#a78bfa" stroke-width="1.5" />
+			<text x="24" y="44" font-size="20" font-weight="700" fill="#a78bfa">Unigram</text>
+			<text x="24" y="74" font-size="13" fill="#94a3b8">自顶向下 · 剪枝 ↓</text>
+			<text x="24" y="112" font-size="14" font-weight="600" fill="#f8fafc">准则</text>
+			<text x="24" y="138" font-size="13" fill="#cbd5e1">淘汰对似然贡献最低者</text>
+			<text x="24" y="172" font-size="14" font-weight="600" fill="#f8fafc">驱动</text>
+			<text x="24" y="198" font-size="13" fill="#cbd5e1">概率语言模型 + EM 迭代</text>
+			<text x="24" y="232" font-size="14" font-weight="600" fill="#f8fafc">直觉</text>
+			<text x="24" y="258" font-size="13" fill="#cbd5e1">大词表 → 逐轮剪到目标</text>
+		</g>
+	</g>
+</svg>

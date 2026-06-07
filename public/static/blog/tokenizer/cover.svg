@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+	<title id="title">分词器全解封面</title>
+	<desc id="desc">分词器把文本切分为 token 并映射为整数 ID，是 LLM 与文本之间的接口；涵盖词级、字符级、字节级与子词算法。</desc>
+	<defs>
+		<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0" stop-color="#0b1120" />
+			<stop offset="0.5" stop-color="#0f172a" />
+			<stop offset="1" stop-color="#1e293b" />
+		</linearGradient>
+		<linearGradient id="pill" x1="0" y1="0" x2="1" y2="0">
+			<stop offset="0" stop-color="#22d3ee" />
+			<stop offset="1" stop-color="#a78bfa" />
+		</linearGradient>
+		<filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+			<feGaussianBlur stdDeviation="6" result="blur" />
+			<feMerge>
+				<feMergeNode in="blur" />
+				<feMergeNode in="SourceGraphic" />
+			</feMerge>
+		</filter>
+	</defs>
+	<rect width="1200" height="630" fill="url(#bg)" />
+	<circle cx="960" cy="140" r="240" fill="#a78bfa" opacity="0.07" />
+	<circle cx="200" cy="540" r="260" fill="#22d3ee" opacity="0.07" />
+
+	<g fill="#e5e7eb">
+		<text x="96" y="150" font-family="Inter, Arial, sans-serif" font-size="76" font-weight="800" letter-spacing="-2">Tokenizer</text>
+		<text x="96" y="206" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="600" fill="#cbd5e1">训练流程 · 粒度权衡 · 子词算法</text>
+		<text x="96" y="252" font-family="Inter, Arial, sans-serif" font-size="22" fill="#94a3b8">把语言变成模型可理解、可复用的离散结构</text>
+	</g>
+
+	<g transform="translate(96 320)" font-family="JetBrains Mono, Consolas, monospace">
+		<text x="0" y="0" font-size="22" fill="#64748b">"incredible"</text>
+		<text x="190" y="0" font-size="22" fill="#475569">→</text>
+		<g transform="translate(240 -28)">
+			<rect width="86" height="40" rx="10" fill="url(#pill)" filter="url(#glow)" />
+			<text x="43" y="26" font-size="20" font-weight="700" fill="#0b1120" text-anchor="middle">in</text>
+			<rect x="104" width="160" height="40" rx="10" fill="url(#pill)" filter="url(#glow)" />
+			<text x="184" y="26" font-size="20" font-weight="700" fill="#0b1120" text-anchor="middle">credible</text>
+		</g>
+		<text x="540" y="0" font-size="22" fill="#475569">→</text>
+		<text x="580" y="0" font-size="22" fill="#94a3b8">[ 259, 7401 ]</text>
+		<text x="0" y="36" font-size="15" fill="#64748b">既非过碎的 ['i','n','cr','e','dible']，也非笼统的 ['incredible']</text>
+	</g>
+
+	<g transform="translate(96 470)">
+		<rect width="540" height="80" rx="18" fill="rgba(15,23,42,0.55)" stroke="rgba(148,163,184,0.35)" />
+		<text x="24" y="36" font-family="Inter, Arial, sans-serif" font-size="18" fill="#bae6fd">四种子词算法</text>
+		<text x="24" y="64" font-family="JetBrains Mono, Consolas, monospace" font-size="20" fill="#e2e8f0">BPE · BBPE · WordPiece · Unigram</text>
+	</g>
+</svg>
