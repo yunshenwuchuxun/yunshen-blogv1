@@ -1,7 +1,7 @@
 ---
 title: 'CS336 第三讲 · Transformer 架构与现代变体：从原始设计到 LLaMA 范式'
 publishedAt: '2026-06-08'
-summary: '先快速回顾原始 Transformer 的五大组件，再系统梳理归一化、前馈网络、激活函数、位置编码四条主线的现代演进——以及它们为何最终收敛到 RMSNorm + SwiGLU + RoPE 的 LLaMA 范式。'
+summary: '先回顾原始 Transformer 的五大组件，再沿归一化、前馈、激活、位置编码四条主线梳理现代变体为何收敛到 RMSNorm + SwiGLU + RoPE 的 LLaMA 范式，最后补上注意力效率变体（KV Cache、MQA/GQA/MLA、稀疏注意力）与训练稳定性技巧（z-loss、QK-Norm、软截断）。'
 draft: false
 image: '/static/blog/cs336-transformer-architecture-variants/cover.svg'
 tags: [Deep Learning, Transformer, LLM, Tech Blog]
@@ -9,7 +9,7 @@ tags: [Deep Learning, Transformer, LLM, Tech Blog]
 
 2017 年《Attention Is All You Need》提出 Transformer 之后，它就成了几乎所有现代语言模型的骨架。但今天你打开 LLaMA、Qwen 或 Gemma 的代码，会发现它和原始论文已经"长得不太一样"了：LayerNorm 换成了 RMSNorm，ReLU 换成了 SwiGLU，正弦位置编码换成了 RoPE，偏置项被大面积删掉。
 
-这些改动单看都很"细微"，但正是它们的累积，构成了今天稳定可扩展的大模型架构。本文对应斯坦福 CS336 第三讲，分两部分展开：<strong>先快速回顾原始 Transformer 的五个核心组件</strong>，建立坐标系；<strong>再沿着归一化、前馈网络、激活函数、位置编码四条主线，讲清楚现代变体改了什么、为什么改</strong>。原文较为零散，这里按"组件 + 动机"的逻辑重新组织，并用图示替换了截图。
+这些改动单看都很"细微"，但正是它们的累积，构成了今天稳定可扩展的大模型架构。本文对应斯坦福 CS336 第三讲：<strong>先快速回顾原始 Transformer 的五个核心组件</strong>建立坐标系，<strong>再沿归一化、前馈网络、激活函数、位置编码四条主线讲清现代变体"改了什么、为什么改"</strong>，最后补上两块同样关键的工程拼图——<strong>注意力的效率变体（KV Cache 与 MQA/GQA/MLA 等）</strong>和<strong>训练稳定性技巧</strong>。原文较为零散，这里按"组件 + 动机"的逻辑重新组织：核心概念配以重绘的示意图，并保留原文中有价值的实验图表与架构图作为佐证。
 
 ## 第一部分：快速回顾原始 Transformer
 
@@ -124,6 +124,22 @@ $$
 
 少一次归约、少一组参数搬运，速度更快而效果相当。Narang 等人 2020 年的消融实验很有说服力：基准 Transformer 每秒 3.5 步，RMSNorm 版达到 3.68 步，<strong>最终损失还更低</strong>。如今 LLaMA、PaLM、Chinchilla、T5 等几乎都转向了 RMSNorm。
 
+![Narang 等 2020 的消融：RMSNorm 相比 Vanilla Transformer 在步速、最终损失与多项下游任务上均更优](/static/blog/cs336-transformer-architecture-variants/rmsnorm-exp.png)
+
+代码上它简单到几乎"不像一个改进"——核心只有一行：
+
+```python
+class RMSNorm(nn.Module):
+    def __init__(self, dim, eps=1e-6):
+        super().__init__()
+        self.gamma = nn.Parameter(torch.ones(dim))  # 仅一组缩放，无偏置 β
+        self.eps = eps
+
+    def forward(self, x):
+        rms = x.pow(2).mean(-1, keepdim=True).add(self.eps).rsqrt()
+        return self.gamma * x * rms  # 只按均方根缩放，不减均值
+```
+
 ### 前馈网络：删掉偏置项
 
 现代非门控 FFN 还做了一个看似激进的改动——<strong>移除所有偏置项</strong>：
@@ -165,6 +181,20 @@ $$
 
 其中 $\text{Swish}(x) = x \cdot \sigma(\beta x)$，通常取 $\beta = 1$。Noam Shazeer 2020 年的论文系统评测了所有 GLU 变体，在 CoLA、SST-2 等任务上 GLU 系持续更优且具统计显著性；Narang 等人在 T5 上的实验也一致显示门控变体损失更低。
 
+落到代码上，SwiGLU 比普通 FFN 多了一条门控通路、共三个无偏置矩阵（$\beta=1$ 时 Swish 即 `F.silu`）：
+
+```python
+class SwiGLU(nn.Module):
+    def __init__(self, d_model, d_ff):  # 多一个矩阵，故 d_ff 取 8/3·d_model 以保持参数量
+        super().__init__()
+        self.w_gate = nn.Linear(d_model, d_ff, bias=False)  # 门控
+        self.w_up = nn.Linear(d_model, d_ff, bias=False)    # 内容
+        self.w_down = nn.Linear(d_ff, d_model, bias=False)  # 投影回 d_model
+
+    def forward(self, x):
+        return self.w_down(F.silu(self.w_gate(x)) * self.w_up(x))  # 开关 ⊙ 内容
+```
+
 不过要强调一点：<strong>GLU 带来的是持续但温和的收益，并非不可或缺。</strong> GPT-3 用普通 GeLU、Falcon 用 ReLU、Nemotron-340B 用平方 ReLU，都是高性能模型。所以"用不用 GLU"是优化项，不是必选项。
 
 ### 位置编码：RoPE 为什么赢了
@@ -194,6 +224,146 @@ $$
 - <strong>ALiBi</strong> 是另一种相对位置方案，它不动 $Q/K$，而是直接在注意力分数上加一个随相对距离线性递减的偏置 $-\alpha|m-n|$。计算极省、外推天然，但大模型上 RoPE 通常更优。
 - <strong>长上下文扩展</strong>几乎都围绕 RoPE 的基频做文章：线性插值（把现有编码压缩腾空间）、YaRN（分频段差异化缩放）、或直接调大 $\text{base}$ 让波长变长。目标都是在不重训的前提下扩展有效上下文窗口。
 
+## 第三部分：注意力的效率之争——KV Cache 与它催生的变体
+
+前面四条主线让模型"训得稳、训得动"。但当模型真正部署、要一个 token 接一个 token 地生成长文本时，新的瓶颈浮现了：<strong>显存</strong>。这一节的所有变体，几乎都在回答同一个问题——如何在不牺牲太多效果的前提下，压低推理时的 KV 缓存。
+
+### 一切的起点：KV Cache
+
+自回归生成是逐 token 进行的：模型吐出一个 token，再把它读回去算下一个。问题在于，每生成一个新 token，注意力都要用它的 $Q$ 去和<strong>前面所有 token 的 $K$、$V$</strong> 交互。如果每步都重算历史 token 的 $K$、$V$，计算量会随序列长度平方增长。
+
+KV Cache 的做法很直接：<strong>把历史 token 的 $K$、$V$ 算一次就存起来</strong>，后续步骤直接复用，只为新 token 计算 $K$、$V$。这把生成从"平方重算"变成"线性增量"。代价是显存——缓存量正比于 `层数 × 头数 × 头维度 × 序列长度`，长上下文、大 batch 下会迅速吃满显存。<strong>后面的 MQA、GQA、MLA，本质都是在压这个缓存。</strong>
+
+### MQA / GQA：共享 K、V，砍掉冗余
+
+![MHA / MQA / GQA / MLA 对比](/static/blog/cs336-transformer-architecture-variants/attention-kv-variants.svg)
+
+标准多头注意力（MHA）给每个头各配一套独立的 $Q$、$K$、$V$。<strong>MQA（多查询注意力）</strong> 的观察是：$Q$ 必须各头独立（这才有多视角），但 $K$、$V$ 不必——让<strong>所有头共享同一套 $K$、$V$</strong>，缓存量直接降到 $1/h$。代价是表达力略降，因为所有头被迫"看同一份键值"。
+
+<strong>GQA（分组查询注意力）</strong> 是两者的折中：把头分成若干组，<strong>组内共享 $K$、$V$，组间独立</strong>。它已是开源模型（LLaMA、Qwen 等）的事实标准——Qwen2 用 GQA 把 KV 缓存压到标准 MHA 的约六成，效果几乎不掉。
+
+三者其实是同一机制的连续谱，只差一个参数：每组 $K/V$ 要复制几份去对齐查询头。一行 `repeat_kv` 就能统一表达：
+
+```python
+def repeat_kv(kv, n_rep):  # kv: [batch, n_kv_heads, seq, head_dim]
+    # n_rep = n_q_heads // n_kv_heads
+    #   = 1          → 每头一套 K/V，即 MHA
+    #   = n_q_heads  → 全部头共享一套，即 MQA
+    #   介于两者之间  → GQA
+    if n_rep == 1:
+        return kv
+    b, n_kv, seq, d = kv.shape
+    kv = kv[:, :, None, :, :].expand(b, n_kv, n_rep, seq, d)
+    return kv.reshape(b, n_kv * n_rep, seq, d)
+```
+
+### 稀疏 / 滑动窗口注意力：不看全局，只看邻居
+
+另一条路不动 $K$、$V$ 的数量，而是<strong>减少每个 token 要关注的范围</strong>。2019 年 OpenAI 的 Sparse Transformer 提出稀疏注意力模式：不再关注整个序列，而是聚焦局部分块，再辅以跨步（strided）、固定列（fixed）等模式跨块传信息；GPT-3 早期就用它撑更大的窗口。
+
+![稀疏 / 结构化注意力模式：(a) 完整注意力，(b) Sparse Transformer（strided），(c) Sparse Transformer（fixed）](/static/blog/cs336-transformer-architecture-variants/sparse-attention.png)
+
+<strong>滑动窗口注意力</strong>是同一思想的简化——每层只关注当前位置邻近的一段窗口。单层视野有限，但<strong>有效感受野 = 窗口大小 × 层数</strong>，叠加多层后依然能覆盖长距离。
+
+![滑动窗口注意力：完整注意力 vs 滑动窗口，以及"窗口 × 层数"如何叠出有效上下文长度](/static/blog/cs336-transformer-architecture-variants/sliding-window-attention.png)
+
+LLaMA4、Gemma、Cohere Command A 等把这一思想推进了一步：每四个 Transformer 块为一组，<strong>三个用带 RoPE 的滑动窗口注意力</strong>（管局部、可外推），<strong>一个用完整自注意力但不加任何位置编码</strong>（管全局长程依赖）。完整注意力只偶尔出现，系统开销可控；长程依赖交给无位置编码的全局层，反而能实现激进的长度外推。
+
+### MLA：把 KV 压进低维潜在空间
+
+DeepSeek 给出了另一个思路——<strong>MLA（多头潜在注意力）</strong>。MQA/GQA 是"减少 $K$、$V$ 的份数"，MLA 是"压缩 $K$、$V$ 的维度"：用一个下投影矩阵把所有头的 $K$、$V$ <strong>联合压缩到一个低维潜在向量</strong> $c$，推理时只缓存这个潜在向量，用到时再上投影回原始空间。
+
+$$
+c_{KV} = x\,W^{down}, \qquad K = c_{KV}\,W_K^{up}, \quad V = c_{KV}\,W_V^{up}
+$$
+
+![DeepSeek-V2 架构：RMSNorm + MLA + DeepSeekMoE。MLA 推理时只缓存低维潜向量 $c_t^{KV}$，$Q/K$ 还分出独立的 RoPE 分量以保留位置信息](/static/blog/cs336-transformer-architecture-variants/mla-arch.png)
+
+缓存复杂度从 $O(L\cdot h\cdot d)$ 降到 $O(L\cdot r)$（$r \ll d$），DeepSeek-V2 报告<strong>KV 缓存减少约 93%</strong>。代价是每次注意力多一次解压缩，但显存比算力金贵，这笔权衡是值得的。更难得的是，DeepSeek-V2 实测 MLA 效果<strong>反而略胜 MHA</strong>，打破了"压缩必掉点"的惯例。它目前主要见于 DeepSeek 系，但已用模型表现证明了这条路的潜力。
+
+![MLA 与 MHA 对比：每 token 的 KV 缓存从 110.6K / 860.2K 大幅降到 15.6K / 34.6K，而多数基准分数反而更高](/static/blog/cs336-transformer-architecture-variants/mla-exp.png)
+
+### DSA / CSA / HCA：先筛选，再计算
+
+DeepSeek 后续把稀疏思想推得更彻底。<strong>DSA（DeepSeek 稀疏注意力，V3.2-Exp 引入）</strong> 的核心是"<strong>先筛选后计算</strong>"：一个轻量的 <strong>Lightning Indexer</strong>（以 FP8 低精度、极少的头）快速给所有历史 token 打"重要性分数"，再用 <strong>Top-k 选择器</strong>只挑分数最高的 $k$ 个（如 $k=2048$）参与注意力。复杂度从 $O(L^2)$ 强制降到 $O(L\cdot k)$，长上下文推理成本降低 60–70% 而几乎不掉质量。它还能作为插件，给未用 DSA 训练的模型轻量改造。
+
+![DeepSeek 稀疏注意力的三路结构：压缩（Compression）、Top-k 选择（Selection）与滑动窗口（Sliding），门控融合后输出](/static/blog/cs336-transformer-architecture-variants/dsa-arch.png)
+
+更新的 <strong>DeepSeek-V4</strong> 用 <strong>CSA + HCA 的混合交替架构</strong>（均以 MQA 为底）做分工：
+
+- <strong>CSA（压缩稀疏注意力）</strong>：先把每 $m$ 个 token 的 KV 用可学习权重压成一个块（$m=4$，缓存降到 $1/m$），再用闪电索引器只挑 Top-k 个块做注意力——压缩与稀疏双管齐下，保留对关键细节的高分辨率。
+- <strong>HCA（重度压缩注意力）</strong>：只压缩、不稀疏，但压缩率远高于 CSA。序列被压得极短后直接做密集注意力，以极低成本维护十万级 token 的全局背景视野。
+
+CSA 管精细局部，HCA 管廉价全局，再配滑动窗口抓最近邻——三者交替，把 KV 缓存和算力压到远低于 V3.2 的水平。
+
+![DeepSeek-V4 评测与资源占用：效果基本追平顶尖闭源模型，但单 token FLOPs 与累计 KV 缓存较 V3.2 大幅降低](/static/blog/cs336-transformer-architecture-variants/deepseekv4-eval.png)
+
+把这条线收成一张对照表：
+
+| 变体 | 核心手段 | KV 缓存 | 代表模型 |
+|------|---------|---------|---------|
+| MHA | 每头独立 $Q/K/V$ | 基准（最大） | 原始 Transformer、GPT-2/3 |
+| MQA | 所有头共享 $K/V$ | ↓ 至 $1/h$ | PaLM、Falcon |
+| GQA | 分组共享 $K/V$ | 居中可调 | LLaMA2/3、Qwen |
+| MLA | $K/V$ 低秩压缩到潜空间 | ↓ ~93% | DeepSeek-V2/V3 |
+| DSA / CSA / HCA | 动态稀疏 + 压缩 | 进一步压低 | DeepSeek-V3.2 / V4 |
+
+## 第四部分：超参数与训练稳定性
+
+架构定下来后，还有一堆数字要填：FFN 该多宽？多少个头？模型该深还是宽？好消息是，业界已沉淀出一套相当稳定的经验法则——真正需要调的超参数其实没几个。
+
+### 几条久经验证的比例法则
+
+<strong>FFN 宽度。</strong> 不用门控的普通 FFN，几乎清一色把中间维度设为 $d_{ff}=4\,d_{model}$；用了 GLU 类门控的，因为多了一组权重矩阵，按等参数量折算约为 $d_{ff}=\tfrac{8}{3}d_{model}\approx 2.67\,d_{model}$（LLaMA、Qwen、DeepSeek 大多遵循）。Kaplan 的缩放定律论文显示这个比例有个<strong>很宽的最优区间</strong>（约 1～10 倍损失都接近最优），不必抠死。T5-11B 是著名例外，把比例做到 64 倍，证明规则可破；但其改进版 T5 v1.1 又回到了更常规的 GeGLU 设定。
+
+![前馈比例 $d_{ff}/d_{model}$ 与损失增幅：从约 1 到 4–8 倍损失几乎不变，过大才显著恶化（Kaplan 等 2020）](/static/blog/cs336-transformer-architecture-variants/ffn-ratio.png)
+
+<strong>头数与维度。</strong> 主流做法是固定每个头的维度、靠增加头数来扩注意力，使得 $(\text{头数}\times\text{头维度})/d_{model}\approx 1$。GPT-3、PaLM、LLaMA2 等几乎都精确等于 1，T5 又是唯一的例外（16 倍）。头太多会让单头维度过小、注意力秩偏低（Bhojanapalli 等 2020），但实践中 1:1 很少触发这个瓶颈。
+
+![各模型的头数 × 头维度 / 模型维度之比：多数等于 1，仅 T5 高达 16](/static/blog/cs336-transformer-architecture-variants/numhead-ratio.png)
+
+<strong>深度 vs 宽度。</strong> 经验准则是<strong>每层约 128 个隐藏维度</strong>，对应宽深比的最优区间在 100 附近（Kaplan 的实验在不同规模下都指向这里）。值得注意的是：只看 loss，深度几乎不重要、参数量才是关键；但若看下游任务准确率，同等算力下更深的模型可能略占优。宽深比还牵动并行策略——宽模型适合张量并行（需高速网络），深模型适合流水线并行（对网络要求略低）。
+
+![宽深比与性能：不同规模下损失最小值都落在约 10–100 区间，"很宽的一段架构都表现接近"（左 Kaplan 2020，右 Tay 2021）](/static/blog/cs336-transformer-architecture-variants/wide-deep-exp.png)
+
+<strong>词表大小。</strong> 趋势是持续变大。早期单语模型（早期 GPT、LLaMA）多在 3 万～5 万；而面向多语言和生产部署的模型（GPT-4、Command）已普遍来到 10 万～25 万。大词表对英语、中文这类高资源语言<strong>收益有限</strong>，真正的价值在于让低资源小语种用更少 token 表示，从而降低推理成本。
+
+<strong>正则化。</strong> 预训练通常只过一遍数据，几乎不会过拟合，所以 <strong>dropout 已基本退场</strong>；但<strong>权重衰减仍被广泛保留</strong>——有意思的是，它的作用并非防过拟合（去掉它也不过拟合），而是和学习率调度（尤其训练末期学习率趋零时）产生微妙交互，反而能带来<strong>更低的训练损失</strong>。
+
+![各模型的 dropout 与 weight decay 设置：较新的模型普遍弃用 dropout，但保留权重衰减](/static/blog/cs336-transformer-architecture-variants/dropout-ratio.png)
+
+### 稳定性：所有麻烦几乎都来自 softmax
+
+模型越大、训得越久，稳定性问题越突出。OLMo2 论文里那张梯度范数图很有代表性：loss 看着正常，梯度范数却布满尖峰、最终爆炸。Transformer 里最容易出问题的"问题儿童"是 <strong>softmax</strong>——指数运算容易数值爆炸。而 Transformer 恰好有两个 softmax：<strong>输出层的</strong>和<strong>注意力里的</strong>。三种主流干预手段分别对症下药：
+
+![OLMo2 的训练曲线：蓝色模型 loss 看似正常，梯度范数（下图）却布满尖峰——"别训练出像蓝线那样的模型"](/static/blog/cs336-transformer-architecture-variants/olmo2-gradnorm.png)
+
+![softmax 稳定性三招](/static/blog/cs336-transformer-architecture-variants/softmax-stability.svg)
+
+<strong>① z-loss——管输出层 softmax。</strong> 给损失加一项惩罚，约束 softmax 的归一化因子 $Z=\sum_i e^{z_i}$ 不要过大或过小：
+
+$$
+\mathcal{L}_{\text{total}} = \mathcal{L}_{\text{CE}} + \lambda\,\log^2 Z, \qquad \lambda = 10^{-4}\ (\text{PaLM})
+$$
+
+让 $\log Z$ 贴近 $0$，softmax 就处在健康区间。PaLM 首创，Baichuan2、DCLM、OLMo2 等纷纷跟进，是个优雅实用的稳定器。
+
+<strong>② QK-Norm——管注意力 softmax。</strong> 不去约束归一化因子，而是从源头控制输入数值：在算 $QK^\top$ 之前，先给 $Q$、$K$ 各过一层 LayerNorm。
+
+$$
+\text{logits} = \frac{\text{LayerNorm}(Q)\,\text{LayerNorm}(K)^\top}{\sqrt{d_k}}
+$$
+
+这招最初来自视觉大模型（Dehghani 等 2023），如今 Gemma2、DCLM、OLMo2 都在用。它的有效性令人惊讶——层归一化从"只放模块前端"一路扩张到 $Q$、$K$ 分量，几乎不损性能就换来稳定，还能支撑更激进的学习率。注意它在推理时<strong>也要保留</strong>（参数已学进去了）。
+
+<strong>③ 软截断（logit soft-cap）——直接夹住极端值。</strong> 在 softmax 前用 $\tanh$ 把 logits 压到有界区间：
+
+$$
+\text{logits}_{\text{capped}} = \text{cap}\cdot\tanh\!\left(\frac{\text{logits}}{\text{cap}}\right), \qquad \text{cap}=30
+$$
+
+logits 远超 cap 时 $\tanh$ 饱和到 $1$，自然被夹在 $(-\text{cap}, +\text{cap})$。Gemma2、OLMo2 采用过，但不算流行——英伟达团队的对比显示软截断反而让困惑度变差，而 QK-Norm 才是更优解。
+
 ## 总结：从原始设计到现代范式
 
 把全文的演进收敛成一张对照图：
@@ -219,3 +389,9 @@ $$
 - [GLU Variants Improve Transformer（Noam Shazeer, arXiv:2002.05202）](https://arxiv.org/abs/2002.05202)
 - [Root Mean Square Layer Normalization（arXiv:1910.07467）](https://arxiv.org/abs/1910.07467)
 - [Train Short, Test Long: ALiBi（arXiv:2108.12409）](https://arxiv.org/abs/2108.12409)
+- [Fast Transformer Decoding: One Write-Head is All You Need（MQA, arXiv:1911.02150）](https://arxiv.org/abs/1911.02150)
+- [GQA: Training Generalized Multi-Query Transformer Models（arXiv:2305.13245）](https://arxiv.org/abs/2305.13245)
+- [Generating Long Sequences with Sparse Transformers（arXiv:1904.10509）](https://arxiv.org/abs/1904.10509)
+- [DeepSeek-V2: A Strong, Economical, and Efficient MoE Language Model（MLA, arXiv:2405.04434）](https://arxiv.org/abs/2405.04434)
+- [PaLM: Scaling Language Modeling with Pathways（z-loss, arXiv:2204.02311）](https://arxiv.org/abs/2204.02311)
+- [OLMo 2: Furthering the Frontier of Fully Open Language Models（arXiv:2501.00656）](https://arxiv.org/abs/2501.00656)

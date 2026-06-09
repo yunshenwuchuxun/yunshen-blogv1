@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" fill="none" role="img" aria-labelledby="stitle sdesc">
+	<title id="stitle">softmax 稳定性三招</title>
+	<desc id="sdesc">Transformer 有两个 softmax 隐患——注意力 softmax 与输出层 softmax。z-loss 约束输出层归一化因子，QK-Norm 和软截断控制注意力 logits 的数值范围。</desc>
+	<rect width="1200" height="520" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="472" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="78" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="700">稳定性的"问题儿童"：softmax</text>
+	<text x="56" y="112" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="18">指数运算易数值爆炸。三种主流干预分别对症两处 softmax。</text>
+
+	<defs>
+		<marker id="arrow" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#94A3B8" /></marker>
+	</defs>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<!-- two softmax hazards (left) -->
+		<rect x="56" y="156" width="320" height="300" rx="16" fill="#FFFEF7" stroke="#E2E8F0" />
+		<text x="76" y="190" fill="#111827" font-size="20" font-weight="700">两处 softmax 隐患</text>
+
+		<rect x="76" y="214" width="280" height="96" rx="12" fill="#FEF2F2" stroke="#FECACA" />
+		<text x="92" y="244" fill="#B91C1C" font-size="17" font-weight="700">① 注意力 softmax</text>
+		<text x="92" y="272" fill="#7F1D1D" font-size="14">QKᵀ 过大 → softmax 饱和</text>
+		<text x="92" y="294" fill="#7F1D1D" font-size="14">→ 梯度消失</text>
+
+		<rect x="76" y="328" width="280" height="96" rx="12" fill="#FEF2F2" stroke="#FECACA" />
+		<text x="92" y="358" fill="#B91C1C" font-size="17" font-weight="700">② 输出层 softmax</text>
+		<text x="92" y="386" fill="#7F1D1D" font-size="14">logits 爆炸 / 归一化因子失控</text>
+		<text x="92" y="408" fill="#7F1D1D" font-size="14">→ 交叉熵损失不稳</text>
+
+		<!-- three fixes (right) -->
+		<rect x="700" y="150" width="436" height="96" rx="14" fill="#F0FDF4" stroke="#86EFAC" />
+		<text x="720" y="182" fill="#15803D" font-size="18" font-weight="700">QK-Norm</text>
+		<text x="720" y="210" fill="#166534" font-family="ui-monospace, Menlo, monospace" font-size="14">logits = LN(Q)·LN(K)ᵀ / √dₖ</text>
+		<text x="720" y="232" fill="#15803D" font-size="13">Q、K 先过 LayerNorm，控输入范围 · Gemma2/OLMo2</text>
+
+		<rect x="700" y="260" width="436" height="96" rx="14" fill="#EFF6FF" stroke="#BFDBFE" />
+		<text x="720" y="292" fill="#1D4ED8" font-size="18" font-weight="700">软截断 logit soft-cap</text>
+		<text x="720" y="320" fill="#1E40AF" font-family="ui-monospace, Menlo, monospace" font-size="14">cap·tanh(logits / cap)，cap=30</text>
+		<text x="720" y="342" fill="#1D4ED8" font-size="13">tanh 夹住极端值 · 效果一般，不算流行</text>
+
+		<rect x="700" y="370" width="436" height="96" rx="14" fill="#FAF5FF" stroke="#E9D5FF" />
+		<text x="720" y="402" fill="#7E22CE" font-size="18" font-weight="700">z-loss</text>
+		<text x="720" y="430" fill="#6B21A8" font-family="ui-monospace, Menlo, monospace" font-size="14">L += λ·log²Z，λ=1e-4</text>
+		<text x="720" y="452" fill="#7E22CE" font-size="13">约束归一化因子 Z · PaLM/Baichuan2/OLMo2</text>
+
+		<!-- arrows: QK-Norm & soft-cap -> attention softmax ; z-loss -> output softmax -->
+		<path d="M700,198 C520,210 470,250 360,260" stroke="#94A3B8" stroke-width="2" fill="none" marker-end="url(#arrow)" />
+		<path d="M700,308 C540,300 470,280 360,272" stroke="#94A3B8" stroke-width="2" fill="none" marker-end="url(#arrow)" />
+		<path d="M700,418 C540,420 470,390 360,376" stroke="#94A3B8" stroke-width="2" fill="none" marker-end="url(#arrow)" />
+	</g>
+</svg>

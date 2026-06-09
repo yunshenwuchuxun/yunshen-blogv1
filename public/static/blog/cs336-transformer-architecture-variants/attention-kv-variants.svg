@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" fill="none" role="img" aria-labelledby="atitle adesc">
+	<title id="atitle">MHA / MQA / GQA / MLA 对比</title>
+	<desc id="adesc">从 MHA 到 MQA、GQA 再到 MLA，注意力变体一路压低推理时的 KV 缓存：MQA 让所有头共享一套 K/V，GQA 按组共享，MLA 把 K/V 联合压缩到低维潜在空间。</desc>
+	<rect width="1200" height="560" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="512" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="78" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="700">同一个目标：压低推理时的 KV 缓存</text>
+	<text x="56" y="112" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="18">Q 必须各头独立（多视角），可省的是 K/V——从"减份数"到"压维度"。</text>
+
+	<!-- legend -->
+	<g font-family="Inter, Arial, sans-serif" font-size="15">
+		<rect x="820" y="58" width="22" height="18" rx="4" fill="#EDE9FE" stroke="#A78BFA" /><text x="850" y="73" fill="#5B21B6">Q 头</text>
+		<rect x="910" y="58" width="22" height="18" rx="4" fill="#DBEAFE" stroke="#60A5FA" /><text x="940" y="73" fill="#1D4ED8">K/V</text>
+		<rect x="1000" y="58" width="22" height="18" rx="4" fill="#DCFCE7" stroke="#34D399" /><text x="1030" y="73" fill="#047857">压缩潜向量</text>
+	</g>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<!-- MHA -->
+		<rect x="56" y="150" width="252" height="320" rx="16" fill="#FFFFFF" stroke="#D0D5DD" />
+		<text x="182" y="184" text-anchor="middle" fill="#111827" font-size="22" font-weight="700">MHA</text>
+		<text x="182" y="210" text-anchor="middle" fill="#94A3B8" font-size="14">每头独立 Q/K/V</text>
+		<g>
+			<rect x="80" y="232" width="38" height="30" rx="6" fill="#EDE9FE" stroke="#A78BFA" /><rect x="138" y="232" width="38" height="30" rx="6" fill="#EDE9FE" stroke="#A78BFA" /><rect x="196" y="232" width="38" height="30" rx="6" fill="#EDE9FE" stroke="#A78BFA" /><rect x="254" y="232" width="38" height="30" rx="6" fill="#EDE9FE" stroke="#A78BFA" />
+			<line x1="99" y1="262" x2="99" y2="316" stroke="#CBD5E1" /><line x1="157" y1="262" x2="157" y2="316" stroke="#CBD5E1" /><line x1="215" y1="262" x2="215" y2="316" stroke="#CBD5E1" /><line x1="273" y1="262" x2="273" y2="316" stroke="#CBD5E1" />
+			<rect x="80" y="316" width="38" height="30" rx="6" fill="#DBEAFE" stroke="#60A5FA" /><rect x="138" y="316" width="38" height="30" rx="6" fill="#DBEAFE" stroke="#60A5FA" /><rect x="196" y="316" width="38" height="30" rx="6" fill="#DBEAFE" stroke="#60A5FA" /><rect x="254" y="316" width="38" height="30" rx="6" fill="#DBEAFE" stroke="#60A5FA" />
+		</g>
+		<rect x="92" y="408" width="180" height="40" rx="20" fill="#FEF2F2" stroke="#FECACA" /><text x="182" y="433" text-anchor="middle" fill="#B91C1C" font-size="16" font-weight="700">缓存 = h 份（最大）</text>
+
+		<!-- MQA -->
+		<rect x="332" y="150" width="252" height="320" rx="16" fill="#FFFFFF" stroke="#D0D5DD" />
+		<text x="458" y="184" text-anchor="middle" fill="#111827" font-size="22" font-weight="700">MQA</text>
+		<text x="458" y="210" text-anchor="middle" fill="#94A3B8" font-size="14">所有头共享一套 K/V</text>
+		<g>
+			<rect x="356" y="232" width="38" height="30" rx="6" fill="#EDE9FE" stroke="#A78BFA" /><rect x="414" y="232" width="38" height="30" rx="6" fill="#EDE9FE" stroke="#A78BFA" /><rect x="472" y="232" width="38" height="30" rx="6" fill="#EDE9FE" stroke="#A78BFA" /><rect x="530" y="232" width="38" height="30" rx="6" fill="#EDE9FE" stroke="#A78BFA" />
+			<line x1="375" y1="262" x2="439" y2="316" stroke="#CBD5E1" /><line x1="433" y1="262" x2="448" y2="316" stroke="#CBD5E1" /><line x1="491" y1="262" x2="468" y2="316" stroke="#CBD5E1" /><line x1="549" y1="262" x2="477" y2="316" stroke="#CBD5E1" />
+			<rect x="439" y="316" width="38" height="30" rx="6" fill="#DBEAFE" stroke="#60A5FA" />
+		</g>
+		<rect x="368" y="408" width="180" height="40" rx="20" fill="#FFFBEB" stroke="#FDE68A" /><text x="458" y="433" text-anchor="middle" fill="#B45309" font-size="16" font-weight="700">缓存 = 1 份（最省）</text>
+
+		<!-- GQA -->
+		<rect x="608" y="150" width="252" height="320" rx="16" fill="#FFFFFF" stroke="#D0D5DD" />
+		<text x="734" y="184" text-anchor="middle" fill="#111827" font-size="22" font-weight="700">GQA</text>
+		<text x="734" y="210" text-anchor="middle" fill="#94A3B8" font-size="14">按组共享 K/V（折中）</text>
+		<g>
+			<rect x="632" y="232" width="38" height="30" rx="6" fill="#EDE9FE" stroke="#A78BFA" /><rect x="690" y="232" width="38" height="30" rx="6" fill="#EDE9FE" stroke="#A78BFA" /><rect x="748" y="232" width="38" height="30" rx="6" fill="#EDE9FE" stroke="#A78BFA" /><rect x="806" y="232" width="38" height="30" rx="6" fill="#EDE9FE" stroke="#A78BFA" />
+			<line x1="651" y1="262" x2="686" y2="316" stroke="#CBD5E1" /><line x1="709" y1="262" x2="695" y2="316" stroke="#CBD5E1" /><line x1="767" y1="262" x2="782" y2="316" stroke="#CBD5E1" /><line x1="825" y1="262" x2="791" y2="316" stroke="#CBD5E1" />
+			<rect x="676" y="316" width="38" height="30" rx="6" fill="#DBEAFE" stroke="#60A5FA" /><rect x="772" y="316" width="38" height="30" rx="6" fill="#DBEAFE" stroke="#60A5FA" />
+		</g>
+		<rect x="644" y="408" width="180" height="40" rx="20" fill="#F0FDF4" stroke="#86EFAC" /><text x="734" y="433" text-anchor="middle" fill="#15803D" font-size="16" font-weight="700">缓存 = g 组（可调）</text>
+
+		<!-- MLA -->
+		<rect x="884" y="150" width="252" height="320" rx="16" fill="#FFFFFF" stroke="#D0D5DD" />
+		<text x="1010" y="184" text-anchor="middle" fill="#111827" font-size="22" font-weight="700">MLA</text>
+		<text x="1010" y="210" text-anchor="middle" fill="#94A3B8" font-size="14">K/V 压到低维潜空间</text>
+		<g>
+			<rect x="908" y="232" width="38" height="30" rx="6" fill="#EDE9FE" stroke="#A78BFA" /><rect x="966" y="232" width="38" height="30" rx="6" fill="#EDE9FE" stroke="#A78BFA" /><rect x="1024" y="232" width="38" height="30" rx="6" fill="#EDE9FE" stroke="#A78BFA" /><rect x="1082" y="232" width="38" height="30" rx="6" fill="#EDE9FE" stroke="#A78BFA" />
+			<line x1="927" y1="262" x2="1003" y2="318" stroke="#CBD5E1" /><line x1="985" y1="262" x2="1007" y2="318" stroke="#CBD5E1" /><line x1="1043" y1="262" x2="1013" y2="318" stroke="#CBD5E1" /><line x1="1101" y1="262" x2="1017" y2="318" stroke="#CBD5E1" />
+			<rect x="993" y="318" width="34" height="26" rx="6" fill="#DCFCE7" stroke="#34D399" /><text x="1010" y="336" text-anchor="middle" fill="#047857" font-size="14" font-weight="700">c</text>
+			<text x="1010" y="372" text-anchor="middle" fill="#94A3B8" font-size="13">用时再上投影还原</text>
+		</g>
+		<rect x="920" y="408" width="180" height="40" rx="20" fill="#F0FDF4" stroke="#86EFAC" /><text x="1010" y="433" text-anchor="middle" fill="#15803D" font-size="16" font-weight="700">缓存 ↓ ~93%</text>
+	</g>
+</svg>
