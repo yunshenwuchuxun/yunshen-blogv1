@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+	<title id="title">GPU 高性能编程封面</title>
+	<desc id="desc">CS336 第六讲：GPU 优化不能靠猜，要靠测——基准测试、性能剖析、算子融合三步闭环。</desc>
+	<defs>
+		<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0" stop-color="#0b1120" />
+			<stop offset="0.5" stop-color="#0f172a" />
+			<stop offset="1" stop-color="#1e293b" />
+		</linearGradient>
+		<linearGradient id="accentA" x1="0" y1="0" x2="1" y2="0">
+			<stop offset="0" stop-color="#22d3ee" />
+			<stop offset="1" stop-color="#a78bfa" />
+		</linearGradient>
+		<linearGradient id="accentB" x1="0" y1="0" x2="1" y2="0">
+			<stop offset="0" stop-color="#f472b6" />
+			<stop offset="1" stop-color="#fb923c" />
+		</linearGradient>
+		<filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+			<feGaussianBlur stdDeviation="5" result="blur" />
+			<feMerge>
+				<feMergeNode in="blur" />
+				<feMergeNode in="SourceGraphic" />
+			</feMerge>
+		</filter>
+	</defs>
+	<rect width="1200" height="630" fill="url(#bg)" />
+
+	<text x="80" y="112" fill="#7dd3fc" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="600" letter-spacing="3">CS336 · LECTURE 6 · KERNELS</text>
+	<text x="80" y="184" fill="#f8fafc" font-family="Inter, Arial, sans-serif" font-size="62" font-weight="800">GPU 高性能编程</text>
+	<text x="80" y="234" fill="#cbd5e1" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="500">优化不能靠猜，要靠测：测准 → 定位 → 改对</text>
+
+	<!-- 三步闭环 -->
+	<g transform="translate(80,300)" font-family="Inter, Arial, sans-serif">
+		<g>
+			<rect width="300" height="120" rx="18" fill="#0b1120" fill-opacity="0.6" stroke="#334155" />
+			<text x="24" y="44" fill="#22d3ee" font-size="20" font-weight="700">① 基准测试</text>
+			<text x="24" y="76" fill="#cbd5e1" font-size="16">Benchmark · 测得准</text>
+			<text x="24" y="100" fill="#64748b" font-size="14">warmup + 同步 + 多次取均值</text>
+		</g>
+		<g transform="translate(330,0)">
+			<rect width="300" height="120" rx="18" fill="#0b1120" fill-opacity="0.6" stroke="#334155" />
+			<text x="24" y="44" fill="#a78bfa" font-size="20" font-weight="700">② 性能剖析</text>
+			<text x="24" y="76" fill="#cbd5e1" font-size="16">Profile · 找得到</text>
+			<text x="24" y="100" fill="#64748b" font-size="14">时间到底花在哪个 kernel</text>
+		</g>
+		<g transform="translate(660,0)">
+			<rect width="300" height="120" rx="18" fill="#0b1120" fill-opacity="0.6" stroke="#334155" />
+			<text x="24" y="44" fill="#fb923c" font-size="20" font-weight="700">③ 算子融合</text>
+			<text x="24" y="76" fill="#cbd5e1" font-size="16">Fuse · 改得对</text>
+			<text x="24" y="100" fill="#64748b" font-size="14">Triton / torch.compile</text>
+		</g>
+		<!-- 箭头 -->
+		<g stroke="#475569" stroke-width="2.5" fill="none">
+			<path d="M300 60 L330 60" marker-end="url(#cv)" />
+			<path d="M630 60 L660 60" marker-end="url(#cv)" />
+		</g>
+	</g>
+	<defs>
+		<marker id="cv" markerWidth="10" markerHeight="10" refX="7" refY="5" orient="auto"><path d="M0 0 L8 5 L0 10 z" fill="#475569" /></marker>
+	</defs>
+
+	<!-- 重点数据 -->
+	<g transform="translate(80,470)">
+		<text x="0" y="40" fill="#94a3b8" font-family="Inter, Arial, sans-serif" font-size="20">同一个 GELU，融合前后：</text>
+		<text x="248" y="44" fill="#f87171" font-family="ui-monospace, Menlo, monospace" font-size="34" font-weight="800">8.1 ms</text>
+		<text x="392" y="40" fill="#94a3b8" font-family="Inter, Arial, sans-serif" font-size="24">→</text>
+		<text x="430" y="44" fill="#34d399" font-family="ui-monospace, Menlo, monospace" font-size="34" font-weight="800" filter="url(#glow)">1.1 ms</text>
+		<text x="568" y="42" fill="#7dd3fc" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">≈ 7× 提速，只因少跑了几趟 HBM</text>
+	</g>
+
+	<rect x="80" y="582" width="60" height="6" rx="3" fill="url(#accentA)" />
+	<rect x="150" y="582" width="36" height="6" rx="3" fill="url(#accentB)" />
+	<text x="1120" y="600" text-anchor="end" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="18">Benchmark · Profile · Fusion · Triton · torch.compile</text>
+</svg>

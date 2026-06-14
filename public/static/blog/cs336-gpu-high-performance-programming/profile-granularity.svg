@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="540" viewBox="0 0 1200 540" fill="none" role="img" aria-labelledby="pgtitle pgdesc">
+	<title id="pgtitle">基准测试 vs 性能剖析</title>
+	<desc id="pgdesc">基准测试只给一个总时间，告诉你"多久"；性能剖析把时间拆到每个 kernel，告诉你"花在哪"。底部提示：小算子常常是 CPU 下发开销受限而非 GPU 受限。</desc>
+	<rect width="1200" height="540" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="492" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+
+	<text x="56" y="76" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="700">从"多久"到"花在哪"</text>
+	<text x="56" y="110" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="19">基准测试是体温计，性能剖析是 CT：前者给一个总数，后者拆出每个 kernel 的占比。</text>
+
+	<!-- 左：基准测试 -->
+	<rect x="56" y="140" width="500" height="248" rx="18" fill="#F9FAFB" stroke="#D0D5DD" />
+	<text x="80" y="178" fill="#334155" font-family="Inter, Arial, sans-serif" font-size="21" font-weight="700">基准测试 · 一个总数</text>
+	<rect x="120" y="208" width="120" height="150" rx="10" fill="#64748B" />
+	<text x="180" y="290" text-anchor="middle" fill="#fff" font-family="ui-monospace, Menlo, monospace" font-size="24" font-weight="800">8.1</text>
+	<text x="180" y="316" text-anchor="middle" fill="#E2E8F0" font-family="ui-monospace, monospace" font-size="14">ms 总耗时</text>
+	<text x="300" y="250" fill="#475467" font-family="Inter, Arial, sans-serif" font-size="16">✓ 知道"多久"</text>
+	<text x="300" y="282" fill="#B91C1C" font-family="Inter, Arial, sans-serif" font-size="16">✗ 不知道"为什么"</text>
+	<text x="300" y="314" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="14">整段代码是一个黑盒</text>
+
+	<!-- 右：性能剖析 -->
+	<rect x="588" y="140" width="556" height="248" rx="18" fill="#F5F3FF" stroke="#C4B5FD" />
+	<text x="612" y="178" fill="#6D28D9" font-family="Inter, Arial, sans-serif" font-size="21" font-weight="700">性能剖析 · 拆到每个 kernel</text>
+	<text x="612" y="204" fill="#7C3AED" font-family="Inter, Arial, sans-serif" font-size="14">以 torch.cdist 为例，剖析器把它拆成三个算子：</text>
+	<!-- 横向堆叠条 -->
+	<g font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700">
+		<rect x="612" y="224" width="390" height="40" rx="8" fill="#7C3AED" /><text x="807" y="249" text-anchor="middle" fill="#fff">GEMM（矩阵乘）· 78%</text>
+		<rect x="612" y="272" width="80" height="40" rx="8" fill="#A78BFA" /><text x="652" y="297" text-anchor="middle" fill="#fff" font-size="13">pow 12%</text>
+		<rect x="700" y="272" width="68" height="40" rx="8" fill="#C4B5FD" /><text x="734" y="297" text-anchor="middle" fill="#3730A3" font-size="13">sum 10%</text>
+	</g>
+	<text x="612" y="346" fill="#5B21B6" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="600">→ 想提速，先盯住占 78% 的那个 GEMM</text>
+	<text x="612" y="370" fill="#7C3AED" font-family="Inter, Arial, sans-serif" font-size="13">PyTorch Profiler 按 cuda_time_total 排序即可一眼看出</text>
+
+	<!-- 底部洞见 -->
+	<rect x="56" y="408" width="1088" height="84" rx="16" fill="#FFFBEB" stroke="#FCD34D" />
+	<text x="80" y="442" fill="#92400E" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700">⚠ 小算子的反直觉真相</text>
+	<text x="80" y="472" fill="#78350F" font-family="Inter, Arial, sans-serif" font-size="16">一次矩阵加法 GPU 上仅 <tspan font-family="ui-monospace, monospace" font-weight="700">17 μs</tspan>，但 Python/CUDA 的下发包装开销高达 <tspan font-family="ui-monospace, monospace" font-weight="700">1.4 ms</tspan> —— 小算子往往是"启动受限"，不是"GPU 受限"。</text>
+</svg>

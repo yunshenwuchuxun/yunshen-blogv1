@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" fill="none" role="img" aria-labelledby="bptitle bpdesc">
+	<title id="bptitle">基准测试的陷阱：异步执行</title>
+	<desc id="bpdesc">CUDA kernel 是异步下发的，CPU 调用后立刻返回。不加同步会测到极短的下发时间而非真实执行时间。正确做法是先预热、计时区间内调用 cuda.synchronize 等待 GPU 完成、并多次取均值。</desc>
+	<defs>
+		<marker id="bp" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0 L9 5 L0 10 z" fill="#64748B" /></marker>
+	</defs>
+	<rect width="1200" height="560" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="512" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+
+	<text x="56" y="76" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="700">为什么 time.time() 量不准 GPU</text>
+	<text x="56" y="110" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="19">CUDA kernel 异步下发：CPU 喊一声"开始算"就立刻返回，GPU 还在后台埋头干。</text>
+
+	<!-- 错误计时 -->
+	<rect x="56" y="140" width="1088" height="160" rx="16" fill="#FEF2F2" stroke="#FCA5A5" />
+	<text x="80" y="176" fill="#B91C1C" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="700">❌ 朴素计时：测到的是"下发时间"</text>
+	<!-- CPU 轨道 -->
+	<text x="80" y="222" fill="#475467" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="600">CPU</text>
+	<line x1="140" y1="216" x2="1110" y2="216" stroke="#CBD5E1" stroke-width="2" />
+	<g font-family="ui-monospace, Menlo, monospace" font-size="13">
+		<rect x="150" y="204" width="26" height="24" rx="5" fill="#94A3B8" /><text x="163" y="221" text-anchor="middle" fill="#fff" font-size="12">t0</text>
+		<rect x="190" y="204" width="120" height="24" rx="5" fill="#FCA5A5" /><text x="250" y="221" text-anchor="middle" fill="#7F1D1D" font-size="12" font-weight="700">launch kernel</text>
+		<rect x="324" y="204" width="26" height="24" rx="5" fill="#94A3B8" /><text x="337" y="221" text-anchor="middle" fill="#fff" font-size="12">t1</text>
+	</g>
+	<path d="M163 234 L337 234" stroke="#DC2626" stroke-width="2" marker-end="url(#bp)" />
+	<text x="250" y="252" text-anchor="middle" fill="#B91C1C" font-family="ui-monospace, monospace" font-size="13" font-weight="700">测到 ≈ 几十 μs（假的）</text>
+	<!-- GPU 轨道 -->
+	<text x="400" y="222" fill="#475467" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="600">GPU</text>
+	<line x1="460" y1="216" x2="1110" y2="216" stroke="#CBD5E1" stroke-width="2" />
+	<rect x="470" y="204" width="600" height="24" rx="5" fill="#FB923C" fill-opacity="0.55" stroke="#EA580C" />
+	<text x="770" y="221" text-anchor="middle" fill="#7C2D12" font-family="ui-monospace, monospace" font-size="13" font-weight="700">kernel 还在执行……（真实耗时）</text>
+
+	<!-- 正确计时 -->
+	<rect x="56" y="320" width="1088" height="160" rx="16" fill="#ECFDF5" stroke="#6EE7B7" />
+	<text x="80" y="356" fill="#047857" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="700">✓ 正确计时：synchronize 等 GPU 真正算完</text>
+	<text x="80" y="400" fill="#475467" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="600">CPU</text>
+	<line x1="140" y1="396" x2="1110" y2="396" stroke="#CBD5E1" stroke-width="2" />
+	<g font-family="ui-monospace, Menlo, monospace" font-size="13">
+		<rect x="150" y="384" width="26" height="24" rx="5" fill="#94A3B8" /><text x="163" y="401" text-anchor="middle" fill="#fff" font-size="12">t0</text>
+		<rect x="190" y="384" width="120" height="24" rx="5" fill="#A7F3D0" stroke="#059669" /><text x="250" y="401" text-anchor="middle" fill="#065F46" font-size="12" font-weight="700">launch kernel</text>
+		<rect x="324" y="384" width="640" height="24" rx="5" fill="#D1FAE5" stroke="#10B981" stroke-dasharray="4 3" /><text x="644" y="401" text-anchor="middle" fill="#047857" font-size="12" font-weight="700">cuda.synchronize() 阻塞等待 GPU</text>
+		<rect x="978" y="384" width="26" height="24" rx="5" fill="#94A3B8" /><text x="991" y="401" text-anchor="middle" fill="#fff" font-size="12">t1</text>
+	</g>
+	<rect x="324" y="384" width="640" height="24" rx="5" fill="#34D399" fill-opacity="0.35" stroke="#059669" />
+	<path d="M163 414 L991 414" stroke="#059669" stroke-width="2" marker-end="url(#bp)" />
+	<text x="577" y="432" text-anchor="middle" fill="#047857" font-family="ui-monospace, monospace" font-size="13" font-weight="700">测到 = CPU 下发 + GPU 真实执行（准确）</text>
+
+	<!-- 三件套 -->
+	<g font-family="Inter, Arial, sans-serif">
+		<text x="80" y="514" fill="#111827" font-size="17" font-weight="700">可靠基准测试三件套：</text>
+		<rect x="298" y="496" width="190" height="30" rx="15" fill="#EFF6FF" stroke="#93C5FD" /><text x="393" y="516" text-anchor="middle" fill="#1D4ED8" font-size="14" font-weight="600">① 预热 warmup（丢首次）</text>
+		<rect x="504" y="496" width="200" height="30" rx="15" fill="#EFF6FF" stroke="#93C5FD" /><text x="604" y="516" text-anchor="middle" fill="#1D4ED8" font-size="14" font-weight="600">② cuda.synchronize()</text>
+		<rect x="720" y="496" width="180" height="30" rx="15" fill="#EFF6FF" stroke="#93C5FD" /><text x="810" y="516" text-anchor="middle" fill="#1D4ED8" font-size="14" font-weight="600">③ 多次取均值</text>
+	</g>
+</svg>

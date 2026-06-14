@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" fill="none" role="img" aria-labelledby="dttitle dtdesc">
+	<title id="dttitle">该用 torch.compile、Triton 还是 CUDA？</title>
+	<desc id="dtdesc">决策流程：标准算子直接交给 torch.compile；访存模式复杂或全新架构模块才上 Triton；只有要榨干特定硬件特性时才手写 CUDA。默认不要给每个小算子手写 kernel。</desc>
+	<defs>
+		<marker id="dt" markerWidth="11" markerHeight="11" refX="8" refY="5" orient="auto"><path d="M0 0 L9 5 L0 10 z" fill="#64748B" /></marker>
+	</defs>
+	<rect width="1200" height="520" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="472" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+
+	<text x="56" y="76" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="700">什么时候才值得亲自写 kernel？</text>
+	<text x="56" y="110" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="19">默认答案是"不写"。先让编译器尽力，撞到墙了再逐级下沉。</text>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<!-- 起点 -->
+		<rect x="56" y="150" width="200" height="64" rx="14" fill="#0F172A" />
+		<text x="156" y="180" text-anchor="middle" fill="#fff" font-size="16" font-weight="700">想优化一个</text>
+		<text x="156" y="202" text-anchor="middle" fill="#cbd5e1" font-size="16" font-weight="700">算子 / 模块</text>
+
+		<!-- 判定1 -->
+		<polygon points="430,120 560,182 430,244 300,182" fill="#ECFEFF" stroke="#22D3EE" stroke-width="2" />
+		<text x="430" y="172" text-anchor="middle" fill="#0E7490" font-size="14" font-weight="700">是标准算子吗？</text>
+		<text x="430" y="194" text-anchor="middle" fill="#155E75" font-size="12">GELU/softmax/matmul…</text>
+
+		<!-- 判定2 -->
+		<polygon points="740,120 880,182 740,244 600,182" fill="#F5F3FF" stroke="#A78BFA" stroke-width="2" />
+		<text x="740" y="166" text-anchor="middle" fill="#6D28D9" font-size="14" font-weight="700">访存模式复杂 /</text>
+		<text x="740" y="186" text-anchor="middle" fill="#6D28D9" font-size="14" font-weight="700">全新架构模块？</text>
+		<text x="740" y="208" text-anchor="middle" fill="#7C3AED" font-size="12">如 FlashAttention</text>
+
+		<!-- 终点 torch.compile -->
+		<rect x="350" y="300" width="240" height="86" rx="14" fill="#ECFEFF" stroke="#22D3EE" stroke-width="2" />
+		<text x="470" y="334" text-anchor="middle" fill="#0E7490" font-size="18" font-weight="800">torch.compile</text>
+		<text x="470" y="360" text-anchor="middle" fill="#155E75" font-size="13">一行接入，自动融合</text>
+		<text x="470" y="378" text-anchor="middle" fill="#0891B2" font-size="13">标准算子上人工难超越</text>
+
+		<!-- 终点 Triton -->
+		<rect x="640" y="300" width="240" height="86" rx="14" fill="#F5F3FF" stroke="#A78BFA" stroke-width="2.5" />
+		<text x="760" y="334" text-anchor="middle" fill="#6D28D9" font-size="18" font-weight="800">Triton</text>
+		<text x="760" y="360" text-anchor="middle" fill="#5B21B6" font-size="13">写 block 级 kernel</text>
+		<text x="760" y="378" text-anchor="middle" fill="#7C3AED" font-size="13">兼顾控制力与开发效率</text>
+
+		<!-- 终点 CUDA -->
+		<rect x="930" y="300" width="214" height="86" rx="14" fill="#FFF7ED" stroke="#FB923C" stroke-width="2" />
+		<text x="1037" y="334" text-anchor="middle" fill="#C2410C" font-size="18" font-weight="800">CUDA C++ / 厂商库</text>
+		<text x="1037" y="360" text-anchor="middle" fill="#9A3412" font-size="13">榨干特定硬件特性</text>
+		<text x="1037" y="378" text-anchor="middle" fill="#EA580C" font-size="13">WGMMA / FP8 / 异步拷贝</text>
+
+		<!-- 连线 -->
+		<g stroke="#64748B" stroke-width="2.4" fill="none" marker-end="url(#dt)">
+			<path d="M256 182 L298 182" />
+			<path d="M560 182 L598 182" />
+			<path d="M430 244 L470 298" />
+			<path d="M740 244 L760 298" />
+			<path d="M880 182 C 1000 182, 1037 220, 1037 298" />
+		</g>
+		<!-- 标签 -->
+		<text x="450" y="276" fill="#16A34A" font-size="14" font-weight="700">是</text>
+		<text x="540" y="166" fill="#DC2626" font-size="14" font-weight="700">否</text>
+		<text x="772" y="276" fill="#16A34A" font-size="14" font-weight="700">是</text>
+		<text x="950" y="166" fill="#DC2626" font-size="14" font-weight="700">否 / 还不够</text>
+	</g>
+
+	<!-- 底部金句 -->
+	<rect x="56" y="420" width="1088" height="56" rx="14" fill="#FFFBEB" stroke="#FCD34D" />
+	<text x="600" y="455" text-anchor="middle" fill="#92400E" font-family="Inter, Arial, sans-serif" font-size="17" font-weight="700">别给每个小算子手写 kernel——那多半是浪费时间。把手写的力气，留给真正复杂的新模块。</text>
+</svg>

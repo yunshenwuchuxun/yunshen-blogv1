@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="500" viewBox="0 0 1200 500" fill="none" role="img" aria-labelledby="oltitle oldesc">
+	<title id="oltitle">GPU 优化三步闭环</title>
+	<desc id="oldesc">GPU 性能工程是一个闭环：先基准测试测得准，再性能剖析定位瓶颈，然后算子融合改得对，改完再回到测量验证。</desc>
+	<defs>
+		<marker id="ol" markerWidth="12" markerHeight="12" refX="9" refY="5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#64748B" /></marker>
+	</defs>
+	<rect width="1200" height="500" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="452" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+
+	<text x="56" y="80" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="700">优化是一个闭环，而不是一次性动作</text>
+	<text x="56" y="114" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="19">每一轮"测准 → 定位 → 改对"之后，都要回到测量去验证改动是否真的有效。</text>
+
+	<!-- 三个节点 -->
+	<g font-family="Inter, Arial, sans-serif" text-anchor="middle">
+		<!-- ① 基准测试 -->
+		<circle cx="280" cy="320" r="92" fill="#ECFEFF" stroke="#22D3EE" stroke-width="2.5" />
+		<text x="280" y="300" fill="#0E7490" font-size="22" font-weight="800">① 基准测试</text>
+		<text x="280" y="330" fill="#155E75" font-size="16">Benchmark</text>
+		<text x="280" y="356" fill="#0891B2" font-size="14">这段代码到底多快？</text>
+
+		<!-- ② 性能剖析 -->
+		<circle cx="600" cy="200" r="92" fill="#F5F3FF" stroke="#A78BFA" stroke-width="2.5" />
+		<text x="600" y="180" fill="#6D28D9" font-size="22" font-weight="800">② 性能剖析</text>
+		<text x="600" y="210" fill="#5B21B6" font-size="16">Profile</text>
+		<text x="600" y="236" fill="#7C3AED" font-size="14">时间花在哪个 kernel？</text>
+
+		<!-- ③ 算子融合 -->
+		<circle cx="920" cy="320" r="92" fill="#FFF7ED" stroke="#FB923C" stroke-width="2.5" />
+		<text x="920" y="300" fill="#C2410C" font-size="22" font-weight="800">③ 算子融合</text>
+		<text x="920" y="330" fill="#9A3412" font-size="16">Fuse / Compile</text>
+		<text x="920" y="356" fill="#EA580C" font-size="14">把瓶颈 kernel 改掉</text>
+	</g>
+
+	<!-- 闭环箭头 -->
+	<g stroke="#64748B" stroke-width="2.8" fill="none" marker-end="url(#ol)">
+		<path d="M362 268 C 430 220, 490 200, 506 200" />
+		<path d="M694 200 C 760 200, 800 240, 838 268" />
+		<path d="M828 360 C 700 430, 500 430, 372 360" />
+	</g>
+	<text x="600" y="455" text-anchor="middle" fill="#475467" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="600">改完再测：验证提速是否真实存在 ↺</text>
+</svg>

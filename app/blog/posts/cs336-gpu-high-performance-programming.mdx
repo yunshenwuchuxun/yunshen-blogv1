@@ -1,0 +1,188 @@
+---
+title: 'CS336 第六讲 · GPU 高性能编程：基准测试、性能剖析与算子融合'
+publishedAt: '2026-06-14'
+summary: '上一讲讲清了 GPU 优化的靶心——减少访存、提高复用；这一讲是动手篇：你怎么知道自己打中了？答案只有一个——测量。全文沿一条工程闭环展开：先用基准测试"测得准"（绕开异步执行的计时陷阱），再用性能剖析"找得到"瓶颈 kernel，最后用算子融合"改得对"，并把 CUDA C++、Triton、torch.compile 三条落地路径放到同一个 GELU 上对比，最后给出"什么时候才值得亲自写 kernel"的决策框架。'
+draft: false
+image: '/static/blog/cs336-gpu-high-performance-programming/cover.svg'
+tags: [Deep Learning, GPU, LLM, Triton, Tech Blog]
+---
+
+[上一讲](/blog/cs336-gpu-optimization)我们建立了一条主线：**GPU 算得太快，喂不饱数据**，所以几乎所有优化都收敛到同一个目标——减少对慢速显存的访问、让数据在片上反复复用。那一讲回答的是「**该往哪儿优化**」。
+
+但工程上还差最关键的一环：你怎么知道自己真的打中了靶心？凭直觉改了一通代码，到底是变快了还是变慢了？这一讲就是 GPU 优化的**动手篇**，对应斯坦福 CS336 第六讲（Kernels），也对应 Datawhale diy-llm 第七章。原文把基准测试、性能剖析、Triton、`torch.compile` 讲得非常细，也夹了大量工具截图与重复代码。这里把它压成**一条工程闭环 + 一个贯穿案例**：所有方法都服务于一句话——**优化不能靠猜，要靠测**。
+
+## 承上启下：优化是一个闭环，不是一锤子买卖
+
+新手最常见的错误，是把优化当成「灵机一动改一行」。真正的 GPU 性能工程是一个不断转圈的闭环：先**测得准**，再**找得到**瓶颈，然后**改得对**，改完立刻回到测量去验证——任何没有被测量证实的「提速」，都只是错觉。
+
+![GPU 优化三步闭环：基准测试 → 性能剖析 → 算子融合，再回到测量验证](/static/blog/cs336-gpu-high-performance-programming/optimize-loop.svg)
+
+本讲就沿这三步走：基准测试（Benchmark）回答「这段代码多快」，性能剖析（Profile）回答「时间花在哪个 kernel」，算子融合（Fuse）则把上一讲「减少访存」的原则真正落到代码里。下面逐个拆开。
+
+## 第一步 · 基准测试：先学会「测得准」
+
+听起来最简单的一步，恰恰最容易翻车。直接拿 `time.time()` 去夹住一段 GPU 代码，量出来的数字几乎一定是错的。根源在于 **CUDA kernel 是异步下发的**：CPU 调用一句 kernel 后并不会等它算完，而是立刻返回去执行下一行。于是你以为在测「GPU 算了多久」，其实只测到了「CPU 把任务扔出去用了多久」。
+
+![基准测试的陷阱：异步执行让朴素计时只测到下发时间，必须用 synchronize 等 GPU 真正算完](/static/blog/cs336-gpu-high-performance-programming/benchmark-pitfalls.svg)
+
+要量准，必须凑齐**三件套**：
+
+- **预热（warmup）**：首次运行往往夹带一次性的编译、kernel 加载、缓存预热等开销，慢得离谱。先空跑几次，丢掉首次结果，测的才是稳态速度。
+- **同步（`torch.cuda.synchronize()`）**：在计时区间结束前强制 CPU 阻塞，直到 GPU 把活儿真正干完，时间戳才对得上 GPU 的实际执行。
+- **多次取均值**：单次测量受频率波动、调度抖动影响很大，跑多轮取平均才稳定。
+
+把三件套写进一个小工具，后面所有实验都靠它：
+
+```python
+def benchmark(description, run, num_warmups=1, num_trials=3):
+    # ① 预热：把一次性开销甩掉
+    for _ in range(num_warmups):
+        run()
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
+
+    times = []
+    for _ in range(num_trials):
+        start = time.time()
+        run()
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()   # ② 同步：等 GPU 真正算完再停表
+        times.append((time.time() - start) * 1000)
+
+    return mean(times)                  # ③ 多次取均值（毫秒）
+```
+
+有了它，做几组规模实验就能看出门道：矩阵运算在**小尺寸**时耗时几乎不随规模变化——因为时间全被固定的启动开销吃掉了；尺寸一大，耗时才随计算量超线性增长。而一个 MLP 的训练耗时，则随**步数、层数、batch size 基本呈线性**叠加。结论很朴素：**先把测量做对，趋势才有意义**。
+
+## 第二步 · 性能剖析：从「多久」到「花在哪」
+
+基准测试给的是一个总数——它像体温计，告诉你「发烧了」，却不告诉你「哪儿发炎」。要定位瓶颈，需要**性能剖析（Profiling）**：把这段时间拆解到每一个具体的 kernel 上，看清谁才是真正的耗时大户。
+
+![基准测试只给总时间，性能剖析把时间拆到每个 kernel；小算子常是 CPU 下发开销受限](/static/blog/cs336-gpu-high-performance-programming/profile-granularity.svg)
+
+PyTorch 自带的 Profiler 几行就能用起来，按 GPU 时间排序，立刻看出时间都喂给了谁：
+
+```python
+from torch.profiler import profile, ProfilerActivity
+
+with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
+    run()
+    torch.cuda.synchronize()
+
+print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10))
+```
+
+把它扫过几个典型算子，会撞见不少反直觉的结论：
+
+| 被剖析对象 | 剖析发现 | 它告诉你什么 |
+|------|------|------|
+| `time.sleep()` | 100% 时间花在 `cudaDeviceSynchronize` | 印证「同步」才是计时的对齐点 |
+| 矩阵加法（小张量） | GPU 仅 ~17 μs，CPU 端下发包装却 ~1.4 ms | 小算子常是**启动受限**，不是 GPU 受限 |
+| 矩阵乘法 | 按尺寸/硬件**动态分派**到不同 kernel（Cutlass、`xmma_gemm`…） | matmul 不是「一个」kernel，而是一族 |
+| `torch.cdist` | 拆成 GEMM(78%) + pow + sum | 抓住占大头的 GEMM 才有意义 |
+| GELU / softmax | PyTorch 已调用**融合 kernel** | 标准算子别重造轮子 |
+
+两条最值得记住：其一，**小算子的瓶颈往往在 CPU 侧的下发开销，而非 GPU 算力**——这时候堆算力毫无用处，该做的是减少 kernel 启动次数（也就是融合）。其二，像 matmul 这样的核心算子会**根据维度和硬件动态分派**到完全不同的底层实现，所以同一行代码在不同形状下性能可能天差地别。
+
+当 PyTorch Profiler 的表格不够用时——比如要看 CPU 与 GPU 时间线如何交错、kernel 之间有没有空隙——就上更专业的 **Nsight Systems**：它把 CUDA 硬件时间线和 CPU 线程画在同一张图上，配合 NVTX 给代码段打标注，连「程序启动花了 7.5 秒在初始化」这种藏在角落的瓶颈都能一眼揪出。
+
+## 第三步 · 算子融合：把「减少访存」落到代码
+
+测准了、也定位到瓶颈，终于到了动手改的环节。上一讲讲过算子融合的原理：未融合时，每个逐元素算子都要把整张中间张量写回 HBM 再读出来，纯属浪费带宽。这一讲我们把它**具体到一个算子**——GELU，看看「逐算子写法」到底浪费在哪。
+
+GELU 的公式 `0.5·x·(1 + tanh(0.798·(x + 0.0447·x³)))` 全是逐元素运算。如果老老实实用 PyTorch 一步步写出来，框架会把它拆成**六七个独立 kernel**，每个 kernel 都把整张张量在 HBM 上读一遍、写一遍：
+
+![GELU 逐算子写法会拆成 6+ 个 kernel 反复进出 HBM；融合成单 kernel 后只在首尾各读写一次](/static/blog/cs336-gpu-high-performance-programming/gelu-fusion.svg)
+
+**算子融合**就是把这一长串逐元素运算合并成**一个 kernel**：数据从 HBM 读进寄存器后，所有中间运算在片上一气呵成，只在最后把结果写回一次。访存从「每算子一趟」压缩到「首尾各一趟」。落到数字上，这一招在 16384×16384 的 GELU 上把耗时从 **8.1 ms 砍到 1.1 ms，约 7× 提速**。
+
+那么，怎么把算子融合出来？有三条路径，难度和控制力递增。把它们放到**同一个 GELU** 上对比，结论很清晰：
+
+![同一个 GELU 的五种实现：逐算子 8.1ms，而四种单 kernel 写法都落在 1.1~1.85ms 区间](/static/blog/cs336-gpu-high-performance-programming/fusion-approaches.svg)
+
+只要压成单个 kernel，无论用哪条路径，性能都进入 1~2 ms 区间、彼此相差无几——这再次印证：**瓶颈是 kernel 数量（访存往返），不是用哪种语言写**。
+
+### 路径一：手写 CUDA C++ kernel
+
+最底层的方式，是直接写一个 `__global__` 函数，自己算线程索引、判边界，把整条 GELU 计算塞进去。控制力最强，但 coalescing、共享内存、线程同步全得自己操心：
+
+```cpp
+__global__ void gelu_kernel(float* in, float* out, int n) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < n) {
+        float x = in[i];
+        out[i] = 0.5f * x * (1.0f + tanhf(0.79788456f * (x + 0.044715f * x * x * x)));
+    }
+}
+```
+
+写得对，单 kernel 跑到 ~1.8 ms。但为了一个逐元素算子写这么多样板代码、还要管编译链路，性价比并不高。
+
+### 路径二：Triton —— 卡在甜点位
+
+Triton 让你**在 Python 里写 GPU kernel**，但抽象层级比 CUDA 高一档：你只描述**一个 block 该干什么**（load 一段、计算、store 回去），而**访存合并、共享内存、线程调度这些苦活交给编译器**。写得像 Python，跑得接近手写。
+
+![GPU 编程抽象阶梯：PyTorch 最省心、CUDA 控制最细，Triton 卡在写得像 Python、跑得接近手写的甜点位](/static/blog/cs336-gpu-high-performance-programming/triton-stack.svg)
+
+```python
+@triton.jit
+def gelu_kernel(x_ptr, y_ptr, n, BLOCK_SIZE: tl.constexpr):
+    pid = tl.program_id(axis=0)
+    offs = pid * BLOCK_SIZE + tl.arange(0, BLOCK_SIZE)
+    mask = offs < n
+    x = tl.load(x_ptr + offs, mask=mask)          # 一次性 load 一个 block
+    a = 0.79788456 * (x + 0.044715 * x * x * x)   # 全在片上算
+    t = (tl.exp(2 * a) - 1) / (tl.exp(2 * a) + 1) # 手算 tanh
+    y = 0.5 * x * (1 + t)
+    tl.store(y_ptr + offs, y, mask=mask)          # 一次性 store 回去
+```
+
+整段就是「load 一块 → 片上连算 → store 回去」，天然就是融合的，性能 ~1.85 ms。FlashAttention 这类复杂 kernel 之所以能被广泛复现，很大程度就靠 Triton 把门槛拉了下来。
+
+### 路径三：torch.compile —— 一行自动融合
+
+最省心的一条：什么 kernel 都不用写，给原函数包一层 `torch.compile`，它会在运行时把多个算子**自动 JIT 融合**、并自动挑选最优 matmul kernel。
+
+```python
+compiled_gelu = torch.compile(manual_gelu)   # 就这一行
+y = compiled_gelu(x)                          # 逐算子写法被自动融合
+```
+
+效果惊人：同一个原本 8.1 ms 的逐算子 GELU，编译后直接 **1.47 ms**，甚至略快于手写 CUDA。对绝大多数标准算子，`torch.compile` 已经做得足够好，人工很难再榨出明显收益。
+
+## 决策框架：什么时候才值得亲自写 kernel？
+
+三条路径摆在面前，到底用哪个？答案不是「越底层越好」，而是**默认不写，撞墙了再逐级下沉**：
+
+![决策树：标准算子用 torch.compile；访存复杂或新架构用 Triton；榨干硬件特性才上 CUDA](/static/blog/cs336-gpu-high-performance-programming/decision-tree.svg)
+
+- **标准算子（GELU、softmax、matmul 及常见组合）** → 直接 `torch.compile`。它的自动融合和 kernel 选择已经很强，手写大概率白费功夫。
+- **访存模式复杂 / 全新架构模块** → 上 Triton。当一个算子的访问模式无法被自动融合（典型如 FlashAttention 的分块 + online softmax），Triton 给你足够的控制力，又不至于陷进 CUDA 的样板地狱。
+- **要榨干特定硬件特性** → 才动用 CUDA C++ 或厂商库。比如 H100 的异步 WGMMA、原生 FP8、异步拷贝，这些前沿特性往往只有手写或专用库才能完全发挥。
+
+一句话收尾：**别给每个小算子手写 kernel，那多半是在浪费时间；把手写的力气，留给真正复杂、且编译器搞不定的新模块。**
+
+## 总结：GPU 高性能编程速查表
+
+把全文压成一张表——三步闭环，每一步都对着「优化不能靠猜，要靠测」这条主线：
+
+| 步骤 | 工具 | 核心要点 | 一句话 |
+|------|------|------|------|
+| ① 基准测试 | `benchmark` 小工具 | 预热 + `synchronize` + 多次取均值 | 异步执行下，不同步就量不准 |
+| ② 性能剖析 | PyTorch Profiler / Nsight | 按 GPU 时间排序，找占大头的 kernel | 小算子常是启动受限，不是算力受限 |
+| ③ 算子融合 | — | 多 kernel → 单 kernel，少跑几趟 HBM | GELU 8.1ms → 1.1ms，约 7× |
+| ｜ 落地 a | `torch.compile` | 一行自动 JIT 融合 | 标准算子的默认选择 |
+| ｜ 落地 b | Triton | block 级 kernel，自动管访存细节 | 复杂访存 / 新架构的甜点位 |
+| ｜ 落地 c | CUDA C++ / 厂商库 | thread 级全手动 | 只为榨干特定硬件特性 |
+
+把这张表和上一讲连起来看，整条线索就完整了：**上一讲告诉你该往哪儿优化（减少访存），这一讲告诉你怎么测量、定位并真正落地。** 而无论工具怎么更新换代，第一性原理始终没变——少跑几趟那个又慢又远的 HBM。
+
+## 参考资料
+
+- [CS336: Language Modeling from Scratch（Stanford）](https://stanford-cs336.github.io/)
+- [Datawhale diy-llm · 第七章 GPU 高性能编程](https://datawhalechina.github.io/diy-llm/)
+- [上一讲 · GPU 与 GPU 优化：从硬件模型到 FlashAttention 与 PagedAttention](/blog/cs336-gpu-optimization)
+- [Triton 官方文档](https://triton-lang.org/)
+- [PyTorch Profiler 教程](https://pytorch.org/tutorials/recipes/recipes/profiler_recipe.html)
+- [torch.compile 入门](https://pytorch.org/docs/stable/torch.compiler.html)
+- [NVIDIA Nsight Systems](https://developer.nvidia.com/nsight-systems)
