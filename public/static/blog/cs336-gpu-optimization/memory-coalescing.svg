@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" fill="none" role="img" aria-labelledby="mctitle mcdesc">
+	<title id="mctitle">内存合并与突发传输</title>
+	<desc id="mcdesc">合并访问时一个 warp 的线程访问同一突发段内的连续地址，一次突发传输全部命中；未合并时线程访问散落在多个段，需多次突发且大量取回的数据被浪费。</desc>
+	<defs>
+		<marker id="acoal" markerWidth="11" markerHeight="11" refX="8" refY="5" orient="auto">
+			<path d="M0 0 L9 5 L0 10 z" fill="#64748B" />
+		</marker>
+	</defs>
+	<rect width="1200" height="520" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="472" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+
+	<text x="56" y="80" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="700">内存合并：凑成一次突发传输</text>
+	<text x="56" y="114" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="19">DRAM 按突发段整块返回数据。让 warp 的访问落在同一段内，吞吐可提升约 4 倍。</text>
+
+	<!-- 左：合并 -->
+	<rect x="56" y="148" width="540" height="330" rx="18" fill="#ECFDF5" stroke="#6EE7B7" />
+	<text x="80" y="188" fill="#047857" font-family="Inter, Arial, sans-serif" font-size="21" font-weight="700">合并：连续访问</text>
+	<g font-family="Inter, Arial, sans-serif" text-anchor="middle">
+		<text x="190" y="210" fill="#475467" font-size="14">Warp 线程</text>
+		<rect x="95" y="216" width="40" height="38" rx="6" fill="#60A5FA" fill-opacity="0.5" stroke="#2563EB" /><text x="115" y="240" fill="#1D4ED8" font-size="12">T0</text>
+		<rect x="143" y="216" width="40" height="38" rx="6" fill="#60A5FA" fill-opacity="0.5" stroke="#2563EB" /><text x="163" y="240" fill="#1D4ED8" font-size="12">T1</text>
+		<rect x="191" y="216" width="40" height="38" rx="6" fill="#60A5FA" fill-opacity="0.5" stroke="#2563EB" /><text x="211" y="240" fill="#1D4ED8" font-size="12">T2</text>
+		<rect x="239" y="216" width="40" height="38" rx="6" fill="#60A5FA" fill-opacity="0.5" stroke="#2563EB" /><text x="259" y="240" fill="#1D4ED8" font-size="12">T3</text>
+
+		<!-- 突发段背景 -->
+		<rect x="88" y="312" width="202" height="68" rx="10" fill="#34D399" fill-opacity="0.16" stroke="#059669" />
+		<rect x="314" y="312" width="202" height="68" rx="10" fill="#E5E7EB" fill-opacity="0.5" stroke="#9CA3AF" />
+		<!-- 段 A 单元（命中） -->
+		<rect x="96" y="322" width="42" height="48" rx="5" fill="#34D399" fill-opacity="0.6" stroke="#059669" />
+		<rect x="144" y="322" width="42" height="48" rx="5" fill="#34D399" fill-opacity="0.6" stroke="#059669" />
+		<rect x="192" y="322" width="42" height="48" rx="5" fill="#34D399" fill-opacity="0.6" stroke="#059669" />
+		<rect x="240" y="322" width="42" height="48" rx="5" fill="#34D399" fill-opacity="0.6" stroke="#059669" />
+		<!-- 段 B 单元（未读取） -->
+		<rect x="322" y="322" width="42" height="48" rx="5" fill="#F3F4F6" stroke="#D1D5DB" />
+		<rect x="370" y="322" width="42" height="48" rx="5" fill="#F3F4F6" stroke="#D1D5DB" />
+		<rect x="418" y="322" width="42" height="48" rx="5" fill="#F3F4F6" stroke="#D1D5DB" />
+		<rect x="466" y="322" width="42" height="48" rx="5" fill="#F3F4F6" stroke="#D1D5DB" />
+		<text x="189" y="398" fill="#047857" font-size="13" font-weight="600">突发段 A · 命中 4/4</text>
+		<text x="415" y="398" fill="#9CA3AF" font-size="13">突发段 B · 无需读取</text>
+		<g stroke="#64748B" stroke-width="2" marker-end="url(#acoal)">
+			<line x1="115" y1="256" x2="116" y2="318" /><line x1="163" y1="256" x2="164" y2="318" />
+			<line x1="211" y1="256" x2="212" y2="318" /><line x1="259" y1="256" x2="260" y2="318" />
+		</g>
+	</g>
+	<rect x="80" y="432" width="430" height="34" rx="17" fill="#047857" />
+	<text x="295" y="455" text-anchor="middle" fill="#FFFFFF" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="600">1 次突发传输 · 带宽全部用上</text>
+
+	<!-- 右：未合并 -->
+	<rect x="604" y="148" width="540" height="330" rx="18" fill="#FEF2F2" stroke="#FCA5A5" />
+	<text x="628" y="188" fill="#B91C1C" font-family="Inter, Arial, sans-serif" font-size="21" font-weight="700">未合并：散落访问</text>
+	<g font-family="Inter, Arial, sans-serif" text-anchor="middle">
+		<text x="828" y="210" fill="#475467" font-size="14">Warp 线程</text>
+		<rect x="648" y="216" width="40" height="38" rx="6" fill="#60A5FA" fill-opacity="0.5" stroke="#2563EB" /><text x="668" y="240" fill="#1D4ED8" font-size="12">T0</text>
+		<rect x="760" y="216" width="40" height="38" rx="6" fill="#60A5FA" fill-opacity="0.5" stroke="#2563EB" /><text x="780" y="240" fill="#1D4ED8" font-size="12">T1</text>
+		<rect x="872" y="216" width="40" height="38" rx="6" fill="#60A5FA" fill-opacity="0.5" stroke="#2563EB" /><text x="892" y="240" fill="#1D4ED8" font-size="12">T2</text>
+		<rect x="984" y="216" width="40" height="38" rx="6" fill="#60A5FA" fill-opacity="0.5" stroke="#2563EB" /><text x="1004" y="240" fill="#1D4ED8" font-size="12">T3</text>
+
+		<rect x="636" y="312" width="202" height="68" rx="10" fill="#FCD34D" fill-opacity="0.18" stroke="#D97706" />
+		<rect x="862" y="312" width="202" height="68" rx="10" fill="#FCD34D" fill-opacity="0.18" stroke="#D97706" />
+		<!-- 段 A：A0,A2 命中；A1,A3 浪费 -->
+		<rect x="644" y="322" width="42" height="48" rx="5" fill="#34D399" fill-opacity="0.6" stroke="#059669" />
+		<rect x="692" y="322" width="42" height="48" rx="5" fill="#E5E7EB" stroke="#9CA3AF" /><text x="713" y="352" fill="#9CA3AF" font-size="16">×</text>
+		<rect x="740" y="322" width="42" height="48" rx="5" fill="#34D399" fill-opacity="0.6" stroke="#059669" />
+		<rect x="788" y="322" width="42" height="48" rx="5" fill="#E5E7EB" stroke="#9CA3AF" /><text x="809" y="352" fill="#9CA3AF" font-size="16">×</text>
+		<!-- 段 B：B0,B2 命中；B1,B3 浪费 -->
+		<rect x="870" y="322" width="42" height="48" rx="5" fill="#34D399" fill-opacity="0.6" stroke="#059669" />
+		<rect x="918" y="322" width="42" height="48" rx="5" fill="#E5E7EB" stroke="#9CA3AF" /><text x="939" y="352" fill="#9CA3AF" font-size="16">×</text>
+		<rect x="966" y="322" width="42" height="48" rx="5" fill="#34D399" fill-opacity="0.6" stroke="#059669" />
+		<rect x="1014" y="322" width="42" height="48" rx="5" fill="#E5E7EB" stroke="#9CA3AF" /><text x="1035" y="352" fill="#9CA3AF" font-size="16">×</text>
+		<text x="737" y="398" fill="#B45309" font-size="13" font-weight="600">突发段 A · 浪费一半</text>
+		<text x="963" y="398" fill="#B45309" font-size="13" font-weight="600">突发段 B · 浪费一半</text>
+		<g stroke="#64748B" stroke-width="2" marker-end="url(#acoal)">
+			<line x1="668" y1="256" x2="665" y2="318" /><line x1="780" y1="256" x2="891" y2="318" />
+			<line x1="892" y1="256" x2="761" y2="318" /><line x1="1004" y1="256" x2="987" y2="318" />
+		</g>
+	</g>
+	<rect x="690" y="432" width="430" height="34" rx="17" fill="#B91C1C" />
+	<text x="905" y="455" text-anchor="middle" fill="#FFFFFF" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="600">多次突发 · 一半带宽被浪费</text>
+</svg>

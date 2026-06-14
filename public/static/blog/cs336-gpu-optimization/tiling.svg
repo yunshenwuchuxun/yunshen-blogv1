@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" fill="none" role="img" aria-labelledby="ttitle tdesc">
+	<title id="ttitle">分块 Tiling 的访存优化</title>
+	<desc id="tdesc">朴素矩阵乘法中每个元素从全局显存反复读取约 N 次；Tiling 把 T×T 分块载入共享内存后反复复用，每个元素的全局读取次数从 N 降到 N/T，全局访存量减少约 T 倍。</desc>
+	<defs>
+		<marker id="atil" markerWidth="10" markerHeight="10" refX="7" refY="5" orient="auto">
+			<path d="M0 0 L8 5 L0 10 z" fill="#94A3B8" />
+		</marker>
+		<marker id="atilg" markerWidth="10" markerHeight="10" refX="7" refY="5" orient="auto">
+			<path d="M0 0 L8 5 L0 10 z" fill="#059669" />
+		</marker>
+	</defs>
+	<rect width="1200" height="520" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="472" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+
+	<text x="56" y="80" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="700">分块 Tiling：搬进共享内存反复复用</text>
+	<text x="56" y="114" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="19">把数据从慢速 HBM 搬进快速共享内存一次，块内反复取数，抬高算术强度。</text>
+
+	<!-- 左：朴素 -->
+	<rect x="56" y="148" width="540" height="330" rx="18" fill="#FEF2F2" stroke="#FCA5A5" />
+	<text x="80" y="188" fill="#B91C1C" font-family="Inter, Arial, sans-serif" font-size="21" font-weight="700">朴素：直接从 HBM 取数</text>
+	<rect x="80" y="206" width="440" height="46" rx="10" fill="#E5E7EB" stroke="#9CA3AF" />
+	<text x="300" y="235" text-anchor="middle" fill="#374151" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="600">全局显存 HBM（慢）</text>
+	<rect x="232" y="378" width="136" height="48" rx="10" fill="#60A5FA" fill-opacity="0.4" stroke="#2563EB" />
+	<text x="300" y="407" text-anchor="middle" fill="#1D4ED8" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="600">计算 C 分块</text>
+	<g stroke="#94A3B8" stroke-width="2" marker-end="url(#atil)">
+		<line x1="120" y1="252" x2="270" y2="376" /><line x1="170" y1="252" x2="280" y2="376" />
+		<line x1="220" y1="252" x2="290" y2="376" /><line x1="270" y1="252" x2="300" y2="376" />
+		<line x1="330" y1="252" x2="310" y2="376" /><line x1="390" y1="252" x2="320" y2="376" />
+		<line x1="440" y1="252" x2="330" y2="376" /><line x1="480" y1="252" x2="340" y2="376" />
+	</g>
+	<text x="455" y="320" fill="#B91C1C" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="600">每元素读 N 次</text>
+	<rect x="80" y="438" width="440" height="32" rx="16" fill="#B91C1C" />
+	<text x="300" y="460" text-anchor="middle" fill="#FFFFFF" font-family="ui-monospace, monospace" font-size="15" font-weight="700">全局访存量 ∝ N（无复用）</text>
+
+	<!-- 右：Tiling -->
+	<rect x="604" y="148" width="540" height="330" rx="18" fill="#ECFDF5" stroke="#6EE7B7" />
+	<text x="628" y="188" fill="#047857" font-family="Inter, Arial, sans-serif" font-size="21" font-weight="700">Tiling：先进共享内存</text>
+	<rect x="628" y="206" width="440" height="46" rx="10" fill="#E5E7EB" stroke="#9CA3AF" />
+	<text x="848" y="235" text-anchor="middle" fill="#374151" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="600">全局显存 HBM（慢）</text>
+	<rect x="752" y="294" width="192" height="48" rx="10" fill="#34D399" fill-opacity="0.3" stroke="#059669" />
+	<text x="848" y="323" text-anchor="middle" fill="#047857" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="600">共享内存（T×T 块）</text>
+	<rect x="780" y="396" width="136" height="48" rx="10" fill="#60A5FA" fill-opacity="0.4" stroke="#2563EB" />
+	<text x="848" y="425" text-anchor="middle" fill="#1D4ED8" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="600">计算 C 分块</text>
+	<g stroke="#94A3B8" stroke-width="2.5" marker-end="url(#atil)">
+		<line x1="820" y1="252" x2="828" y2="292" /><line x1="876" y1="252" x2="868" y2="292" />
+	</g>
+	<text x="958" y="278" fill="#475467" font-family="Inter, Arial, sans-serif" font-size="13">载入 1 次</text>
+	<g stroke="#059669" stroke-width="2" marker-end="url(#atilg)">
+		<line x1="800" y1="342" x2="812" y2="394" /><line x1="828" y1="342" x2="834" y2="394" />
+		<line x1="856" y1="342" x2="856" y2="394" /><line x1="884" y1="342" x2="878" y2="394" />
+		<line x1="912" y1="342" x2="900" y2="394" />
+	</g>
+	<text x="958" y="372" fill="#047857" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="600">复用 T 次（快）</text>
+	<rect x="628" y="438" width="440" height="32" rx="16" fill="#047857" />
+	<text x="848" y="460" text-anchor="middle" fill="#FFFFFF" font-family="ui-monospace, monospace" font-size="15" font-weight="700">全局访存 ↓ T 倍（N → N/T）</text>
+</svg>

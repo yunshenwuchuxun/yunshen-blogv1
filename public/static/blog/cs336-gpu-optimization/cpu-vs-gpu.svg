@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="540" viewBox="0 0 1200 540" fill="none" role="img" aria-labelledby="ctitle cdesc">
+	<title id="ctitle">CPU 与 GPU 的设计哲学对比</title>
+	<desc id="cdesc">CPU 把大量晶体管投给控制逻辑与缓存以优化延迟，只配少量强核；GPU 把绝大部分晶体管投给计算单元以优化吞吐，配备数千个简单核心。</desc>
+	<defs>
+		<pattern id="alu" width="30" height="26" patternUnits="userSpaceOnUse">
+			<rect x="2" y="2" width="24" height="20" rx="3" fill="#34D399" fill-opacity="0.6" stroke="#059669" stroke-width="1" />
+		</pattern>
+	</defs>
+	<rect width="1200" height="540" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="492" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+
+	<text x="56" y="80" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="700">CPU 与 GPU：两种设计哲学</text>
+	<text x="56" y="114" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="19">CPU 把晶体管给了控制与缓存（优化延迟）；GPU 把晶体管给了计算单元（优化吞吐）。</text>
+
+	<!-- CPU 面板 -->
+	<rect x="56" y="148" width="520" height="340" rx="20" fill="#EFF6FF" stroke="#93C5FD" />
+	<text x="80" y="190" fill="#1D4ED8" font-family="Inter, Arial, sans-serif" font-size="23" font-weight="700">CPU · 延迟优化</text>
+	<rect x="80" y="208" width="472" height="42" rx="8" fill="#FCD34D" fill-opacity="0.55" stroke="#D97706" />
+	<text x="316" y="235" text-anchor="middle" fill="#92400E" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="600">控制 Control（大）</text>
+	<rect x="80" y="258" width="472" height="42" rx="8" fill="#FCA5A5" fill-opacity="0.45" stroke="#DC2626" />
+	<text x="316" y="285" text-anchor="middle" fill="#991B1B" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="600">缓存 Cache（大）</text>
+	<g font-family="Inter, Arial, sans-serif" text-anchor="middle">
+		<rect x="80" y="314" width="110" height="120" rx="10" fill="#60A5FA" fill-opacity="0.35" stroke="#2563EB" />
+		<rect x="200" y="314" width="110" height="120" rx="10" fill="#60A5FA" fill-opacity="0.35" stroke="#2563EB" />
+		<rect x="320" y="314" width="110" height="120" rx="10" fill="#60A5FA" fill-opacity="0.35" stroke="#2563EB" />
+		<rect x="440" y="314" width="112" height="120" rx="10" fill="#60A5FA" fill-opacity="0.35" stroke="#2563EB" />
+		<text x="135" y="380" fill="#1D4ED8" font-size="17" font-weight="700">ALU</text>
+		<text x="255" y="380" fill="#1D4ED8" font-size="17" font-weight="700">ALU</text>
+		<text x="375" y="380" fill="#1D4ED8" font-size="17" font-weight="700">ALU</text>
+		<text x="496" y="380" fill="#1D4ED8" font-size="17" font-weight="700">ALU</text>
+	</g>
+	<text x="316" y="468" text-anchor="middle" fill="#475467" font-family="Inter, Arial, sans-serif" font-size="17">少量强核 · 单任务最快完成</text>
+
+	<!-- GPU 面板 -->
+	<rect x="624" y="148" width="520" height="340" rx="20" fill="#ECFDF5" stroke="#6EE7B7" />
+	<text x="648" y="190" fill="#047857" font-family="Inter, Arial, sans-serif" font-size="23" font-weight="700">GPU · 吞吐优化</text>
+	<rect x="648" y="208" width="472" height="20" rx="5" fill="#FCD34D" fill-opacity="0.55" stroke="#D97706" />
+	<text x="884" y="223" text-anchor="middle" fill="#92400E" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="600">控制（小）</text>
+	<rect x="648" y="232" width="472" height="20" rx="5" fill="#FCA5A5" fill-opacity="0.45" stroke="#DC2626" />
+	<text x="884" y="247" text-anchor="middle" fill="#991B1B" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="600">缓存（小）</text>
+	<rect x="648" y="262" width="472" height="172" rx="8" fill="url(#alu)" />
+	<text x="884" y="468" text-anchor="middle" fill="#475467" font-family="Inter, Arial, sans-serif" font-size="17">数千计算单元 · 所有任务整体最快</text>
+</svg>

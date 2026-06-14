@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="500" viewBox="0 0 1200 500" fill="none" role="img" aria-labelledby="oftitle ofdesc">
+	<title id="oftitle">算子融合对比</title>
+	<desc id="ofdesc">未融合时每个算子都要把中间结果写回 HBM 再读出，往返约 6 次；算子融合后数据从 HBM 读入片上后所有运算一气呵成，只在首尾各访存一次，约 2 次。</desc>
+	<defs>
+		<marker id="afus" markerWidth="11" markerHeight="11" refX="8" refY="5" orient="auto">
+			<path d="M0 0 L9 5 L0 10 z" fill="#94A3B8" />
+		</marker>
+	</defs>
+	<rect width="1200" height="500" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="452" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+
+	<text x="56" y="80" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="700">算子融合：别让中间结果反复往返显存</text>
+	<text x="56" y="114" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="19">把一连串运算合并成一个 kernel，中间结果留在片上，访存次数大幅压缩。</text>
+
+	<!-- 左：未融合 -->
+	<rect x="56" y="148" width="540" height="312" rx="18" fill="#FEF2F2" stroke="#FCA5A5" />
+	<text x="80" y="188" fill="#B91C1C" font-family="Inter, Arial, sans-serif" font-size="21" font-weight="700">未融合：每步都往返 HBM</text>
+	<g font-family="Inter, Arial, sans-serif" text-anchor="middle">
+		<g>
+			<rect x="84" y="208" width="74" height="44" rx="8" fill="#E5E7EB" stroke="#9CA3AF" />
+			<text x="121" y="235" fill="#374151" font-size="15" font-weight="600">HBM</text>
+			<rect x="224" y="208" width="120" height="44" rx="8" fill="#FCA5A5" fill-opacity="0.45" stroke="#DC2626" />
+			<text x="284" y="235" fill="#991B1B" font-size="15" font-weight="600">算子 1</text>
+			<rect x="410" y="208" width="74" height="44" rx="8" fill="#E5E7EB" stroke="#9CA3AF" />
+			<text x="447" y="235" fill="#374151" font-size="15" font-weight="600">HBM</text>
+		</g>
+		<g>
+			<rect x="84" y="278" width="74" height="44" rx="8" fill="#E5E7EB" stroke="#9CA3AF" />
+			<text x="121" y="305" fill="#374151" font-size="15" font-weight="600">HBM</text>
+			<rect x="224" y="278" width="120" height="44" rx="8" fill="#FCA5A5" fill-opacity="0.45" stroke="#DC2626" />
+			<text x="284" y="305" fill="#991B1B" font-size="15" font-weight="600">算子 2</text>
+			<rect x="410" y="278" width="74" height="44" rx="8" fill="#E5E7EB" stroke="#9CA3AF" />
+			<text x="447" y="305" fill="#374151" font-size="15" font-weight="600">HBM</text>
+		</g>
+		<g>
+			<rect x="84" y="348" width="74" height="44" rx="8" fill="#E5E7EB" stroke="#9CA3AF" />
+			<text x="121" y="375" fill="#374151" font-size="15" font-weight="600">HBM</text>
+			<rect x="224" y="348" width="120" height="44" rx="8" fill="#FCA5A5" fill-opacity="0.45" stroke="#DC2626" />
+			<text x="284" y="375" fill="#991B1B" font-size="15" font-weight="600">算子 3</text>
+			<rect x="410" y="348" width="74" height="44" rx="8" fill="#E5E7EB" stroke="#9CA3AF" />
+			<text x="447" y="375" fill="#374151" font-size="15" font-weight="600">HBM</text>
+		</g>
+		<g stroke="#94A3B8" stroke-width="2" marker-end="url(#afus)">
+			<line x1="160" y1="230" x2="222" y2="230" /><line x1="346" y1="230" x2="408" y2="230" />
+			<line x1="160" y1="300" x2="222" y2="300" /><line x1="346" y1="300" x2="408" y2="300" />
+			<line x1="160" y1="370" x2="222" y2="370" /><line x1="346" y1="370" x2="408" y2="370" />
+		</g>
+	</g>
+	<rect x="500" y="420" width="78" height="30" rx="15" fill="#B91C1C" />
+	<text x="539" y="440" text-anchor="middle" fill="#FFFFFF" font-family="ui-monospace, monospace" font-size="15" font-weight="700">~6 次</text>
+
+	<!-- 右：融合 -->
+	<rect x="604" y="148" width="540" height="312" rx="18" fill="#ECFDF5" stroke="#6EE7B7" />
+	<text x="628" y="188" fill="#047857" font-family="Inter, Arial, sans-serif" font-size="21" font-weight="700">融合：中间结果驻留片上</text>
+	<g font-family="Inter, Arial, sans-serif" text-anchor="middle">
+		<rect x="630" y="258" width="74" height="44" rx="8" fill="#E5E7EB" stroke="#9CA3AF" />
+		<text x="667" y="285" fill="#374151" font-size="15" font-weight="600">HBM</text>
+		<rect x="760" y="234" width="248" height="92" rx="12" fill="#34D399" fill-opacity="0.18" stroke="#059669" />
+		<text x="884" y="258" fill="#047857" font-size="14" font-weight="700">融合 kernel（片上）</text>
+		<rect x="772" y="270" width="64" height="40" rx="7" fill="#34D399" fill-opacity="0.5" stroke="#059669" />
+		<text x="804" y="294" fill="#065F46" font-size="13" font-weight="600">算子1</text>
+		<rect x="852" y="270" width="64" height="40" rx="7" fill="#34D399" fill-opacity="0.5" stroke="#059669" />
+		<text x="884" y="294" fill="#065F46" font-size="13" font-weight="600">算子2</text>
+		<rect x="932" y="270" width="64" height="40" rx="7" fill="#34D399" fill-opacity="0.5" stroke="#059669" />
+		<text x="964" y="294" fill="#065F46" font-size="13" font-weight="600">算子3</text>
+		<rect x="1056" y="258" width="74" height="44" rx="8" fill="#E5E7EB" stroke="#9CA3AF" />
+		<text x="1093" y="285" fill="#374151" font-size="15" font-weight="600">HBM</text>
+		<g stroke="#94A3B8" stroke-width="2" marker-end="url(#afus)">
+			<line x1="706" y1="280" x2="758" y2="280" />
+			<line x1="1010" y1="280" x2="1054" y2="280" />
+		</g>
+		<g stroke="#059669" stroke-width="1.5" marker-end="url(#afus)">
+			<line x1="836" y1="290" x2="850" y2="290" />
+			<line x1="916" y1="290" x2="930" y2="290" />
+		</g>
+	</g>
+	<text x="884" y="362" text-anchor="middle" fill="#475467" font-family="Inter, Arial, sans-serif" font-size="14">读入 → 片上连算 → 只写回一次</text>
+	<rect x="1052" y="420" width="78" height="30" rx="15" fill="#047857" />
+	<text x="1091" y="440" text-anchor="middle" fill="#FFFFFF" font-family="ui-monospace, monospace" font-size="15" font-weight="700">~2 次</text>
+</svg>

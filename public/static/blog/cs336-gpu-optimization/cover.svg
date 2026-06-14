@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+	<title id="title">GPU 与 GPU 优化封面</title>
+	<desc id="desc">CS336 第五讲：GPU 算力增长约 10 万倍而显存带宽只增长约 100 倍，一切优化都是减少访存、提高复用。</desc>
+	<defs>
+		<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0" stop-color="#0b1120" />
+			<stop offset="0.5" stop-color="#0f172a" />
+			<stop offset="1" stop-color="#1e293b" />
+		</linearGradient>
+		<linearGradient id="accentA" x1="0" y1="0" x2="1" y2="0">
+			<stop offset="0" stop-color="#22d3ee" />
+			<stop offset="1" stop-color="#a78bfa" />
+		</linearGradient>
+		<linearGradient id="accentB" x1="0" y1="0" x2="1" y2="0">
+			<stop offset="0" stop-color="#f472b6" />
+			<stop offset="1" stop-color="#fb923c" />
+		</linearGradient>
+		<filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+			<feGaussianBlur stdDeviation="5" result="blur" />
+			<feMerge>
+				<feMergeNode in="blur" />
+				<feMergeNode in="SourceGraphic" />
+			</feMerge>
+		</filter>
+	</defs>
+	<rect width="1200" height="630" fill="url(#bg)" />
+
+	<text x="80" y="118" fill="#7dd3fc" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="600" letter-spacing="3">CS336 · LECTURE 5</text>
+	<text x="80" y="190" fill="#f8fafc" font-family="Inter, Arial, sans-serif" font-size="62" font-weight="800">GPU 与 GPU 优化</text>
+	<text x="80" y="240" fill="#cbd5e1" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="500">算得快，喂不饱：一切优化都是减少访存</text>
+
+	<!-- 算力卡 -->
+	<g transform="translate(80,310)">
+		<rect width="480" height="230" rx="22" fill="#0b1120" fill-opacity="0.6" stroke="#334155" />
+		<text x="32" y="56" fill="#22d3ee" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">计算性能（K20 → H100）</text>
+		<text x="32" y="132" fill="#f8fafc" font-family="ui-monospace, Menlo, monospace" font-size="46" font-weight="800" filter="url(#glow)">↑ 约 100000×</text>
+		<text x="32" y="178" fill="#94a3b8" font-family="Inter, Arial, sans-serif" font-size="19">算力一路狂奔，近乎超指数增长</text>
+		<text x="32" y="208" fill="#94a3b8" font-family="Inter, Arial, sans-serif" font-size="19">大量算力买回来却喂不饱</text>
+	</g>
+
+	<!-- 带宽卡 -->
+	<g transform="translate(640,310)">
+		<rect width="480" height="230" rx="22" fill="#0b1120" fill-opacity="0.6" stroke="#334155" />
+		<text x="32" y="56" fill="#fb923c" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">显存带宽（同期）</text>
+		<text x="32" y="132" fill="#f8fafc" font-family="ui-monospace, Menlo, monospace" font-size="46" font-weight="800" filter="url(#glow)">↑ 约 100×</text>
+		<text x="32" y="178" fill="#94a3b8" font-family="Inter, Arial, sans-serif" font-size="19">访存原地踏步，鸿沟越拉越大</text>
+		<text x="32" y="208" fill="#94a3b8" font-family="Inter, Arial, sans-serif" font-size="19">这才是优化真正的敌人</text>
+	</g>
+
+	<rect x="80" y="582" width="60" height="6" rx="3" fill="url(#accentA)" />
+	<rect x="150" y="582" width="36" height="6" rx="3" fill="url(#accentB)" />
+	<text x="1120" y="600" text-anchor="end" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="18">Execution · Memory · Roofline · FlashAttention</text>
+</svg>

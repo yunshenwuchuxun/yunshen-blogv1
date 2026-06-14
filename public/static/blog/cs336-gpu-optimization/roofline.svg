@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" fill="none" role="img" aria-labelledby="rtitle rdesc">
+	<title id="rtitle">屋顶线模型</title>
+	<desc id="rdesc">屋顶线模型：横轴算术强度、纵轴可达算力。左侧斜坡为访存受限区，右侧平台为计算受限区，优化目标是通过提高数据复用把程序从斜坡推到平台。</desc>
+	<defs>
+		<marker id="arrow" markerWidth="12" markerHeight="12" refX="9" refY="5" orient="auto">
+			<path d="M0 0 L10 5 L0 10 z" fill="#111827" />
+		</marker>
+	</defs>
+	<rect width="1200" height="520" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="472" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+
+	<text x="56" y="80" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="700">屋顶线模型：你卡在算力还是访存？</text>
+	<text x="56" y="114" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="19">优化目标——通过提高数据复用，把程序从左侧斜坡推上右侧平台。</text>
+
+	<!-- 区域填充 -->
+	<polygon points="140,430 430,190 430,430" fill="#FB923C" fill-opacity="0.14" />
+	<rect x="430" y="190" width="450" height="240" fill="#34D399" fill-opacity="0.14" />
+
+	<!-- 坐标轴 -->
+	<g stroke="#94A3B8" stroke-width="2">
+		<line x1="140" y1="150" x2="140" y2="430" />
+		<line x1="140" y1="430" x2="900" y2="430" />
+	</g>
+
+	<!-- 峰值虚线 -->
+	<line x1="140" y1="190" x2="880" y2="190" stroke="#94A3B8" stroke-width="1.5" stroke-dasharray="6 6" />
+	<text x="150" y="182" fill="#64748B" font-family="Inter, Arial, sans-serif" font-size="14">峰值算力（硬件上限）</text>
+
+	<!-- 屋顶线 -->
+	<polyline points="140,430 430,190 880,190" fill="none" stroke="#1E293B" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" />
+
+	<!-- 轴标签 -->
+	<text x="510" y="466" text-anchor="middle" fill="#475467" font-family="Inter, Arial, sans-serif" font-size="17">算术强度（FLOPs / Byte）→</text>
+	<text x="92" y="290" fill="#475467" font-family="Inter, Arial, sans-serif" font-size="17" transform="rotate(-90 92 290)" text-anchor="middle">可达算力（FLOP/s）→</text>
+
+	<!-- 区域标注 -->
+	<text x="275" y="405" text-anchor="middle" fill="#C2410C" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700">访存受限</text>
+	<text x="275" y="426" text-anchor="middle" fill="#C2410C" font-family="Inter, Arial, sans-serif" font-size="13">Memory-bound</text>
+	<text x="660" y="405" text-anchor="middle" fill="#047857" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700">计算受限</text>
+	<text x="660" y="426" text-anchor="middle" fill="#047857" font-family="Inter, Arial, sans-serif" font-size="13">Compute-bound</text>
+
+	<!-- 拐点 -->
+	<circle cx="430" cy="190" r="6" fill="#1E293B" />
+	<text x="430" y="172" text-anchor="middle" fill="#475467" font-family="Inter, Arial, sans-serif" font-size="13">拐点</text>
+
+	<!-- 标记点与优化箭头 -->
+	<circle cx="250" cy="339" r="7" fill="#EA580C" />
+	<text x="262" y="333" fill="#9A3412" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="600">朴素实现（低复用）</text>
+	<circle cx="680" cy="190" r="7" fill="#059669" />
+	<text x="680" y="232" text-anchor="middle" fill="#047857" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="600">Tiling / FlashAttention</text>
+	<path d="M275 332 C 420 300, 520 220, 660 196" fill="none" stroke="#111827" stroke-width="2.5" marker-end="url(#arrow)" />
+	<text x="470" y="268" text-anchor="middle" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700">提高数据复用</text>
+
+	<!-- 右侧说明卡 -->
+	<g transform="translate(940,168)" font-family="Inter, Arial, sans-serif">
+		<rect x="0" y="0" width="208" height="262" rx="14" fill="#F9FAFB" stroke="#D0D5DD" />
+		<text x="20" y="36" fill="#111827" font-size="17" font-weight="700">怎么读这张图</text>
+		<circle cx="26" cy="74" r="5" fill="#EA580C" />
+		<text x="40" y="79" fill="#475467" font-size="14">斜坡：读 1 字节只</text>
+		<text x="40" y="99" fill="#475467" font-size="14">算几下，被带宽卡住</text>
+		<circle cx="26" cy="138" r="5" fill="#059669" />
+		<text x="40" y="143" fill="#475467" font-size="14">平台：数据反复复</text>
+		<text x="40" y="163" fill="#475467" font-size="14">用，算力终于跑满</text>
+		<circle cx="26" cy="202" r="5" fill="#2563EB" />
+		<text x="40" y="207" fill="#475467" font-size="14">目标：抬高算术强</text>
+		<text x="40" y="227" fill="#475467" font-size="14">度，从斜坡上平台</text>
+	</g>
+</svg>

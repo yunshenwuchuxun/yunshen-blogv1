@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" fill="none" role="img" aria-labelledby="etitle edesc">
+	<title id="etitle">GPU 的四层执行模型</title>
+	<desc id="edesc">从 Grid 逐层放大：Grid 包含所有 Block，每个 Block 映射到一个 SM，Block 内由 32 线程组成的 Warp 以 SIMT 方式同步执行同一条指令，Thread 是最细粒度执行单元并拥有私有寄存器。</desc>
+	<defs>
+		<pattern id="blocks" width="56" height="44" patternUnits="userSpaceOnUse">
+			<rect x="6" y="6" width="44" height="32" rx="4" fill="#A78BFA" fill-opacity="0.45" stroke="#6D28D9" stroke-width="1" />
+		</pattern>
+		<pattern id="lanes" width="13" height="40" patternUnits="userSpaceOnUse">
+			<rect x="1.5" y="3" width="10" height="15" rx="2" fill="#34D399" fill-opacity="0.6" stroke="#059669" stroke-width="1" />
+			<rect x="1.5" y="22" width="10" height="15" rx="2" fill="#34D399" fill-opacity="0.6" stroke="#059669" stroke-width="1" />
+		</pattern>
+	</defs>
+	<rect width="1200" height="560" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="512" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+
+	<text x="56" y="80" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="700">GPU 的四层执行模型：逐层放大</text>
+	<text x="56" y="114" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="19">把任务切碎、铺满硬件：Grid → Block → Warp → Thread。</text>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<!-- Panel 1: Grid -->
+		<rect x="56" y="150" width="248" height="290" rx="16" fill="#F9FAFB" stroke="#D0D5DD" />
+		<text x="180" y="188" text-anchor="middle" fill="#6D28D9" font-size="22" font-weight="700">Grid</text>
+		<rect x="76" y="208" width="208" height="160" rx="8" fill="url(#blocks)" />
+		<text x="180" y="402" text-anchor="middle" fill="#475467" font-size="16">所有 Block 铺满全部 SM</text>
+
+		<!-- Panel 2: Block -> SM -->
+		<rect x="334" y="150" width="248" height="290" rx="16" fill="#F9FAFB" stroke="#D0D5DD" />
+		<text x="458" y="188" text-anchor="middle" fill="#2563EB" font-size="22" font-weight="700">Block → SM</text>
+		<rect x="354" y="206" width="208" height="160" rx="8" fill="#EFF6FF" stroke="#2563EB" />
+		<rect x="366" y="218" width="184" height="38" rx="6" fill="#60A5FA" fill-opacity="0.5" stroke="#2563EB" />
+		<text x="458" y="242" text-anchor="middle" fill="#1D4ED8" font-size="15" font-weight="600">Warp</text>
+		<rect x="366" y="262" width="184" height="38" rx="6" fill="#60A5FA" fill-opacity="0.5" stroke="#2563EB" />
+		<text x="458" y="286" text-anchor="middle" fill="#1D4ED8" font-size="15" font-weight="600">Warp</text>
+		<rect x="366" y="306" width="184" height="38" rx="6" fill="#60A5FA" fill-opacity="0.5" stroke="#2563EB" />
+		<text x="458" y="330" text-anchor="middle" fill="#1D4ED8" font-size="15" font-weight="600">Warp</text>
+		<text x="458" y="402" text-anchor="middle" fill="#475467" font-size="16">独占该 SM 的共享内存 + 寄存器</text>
+
+		<!-- Panel 3: Warp -->
+		<rect x="612" y="150" width="248" height="290" rx="16" fill="#F9FAFB" stroke="#D0D5DD" />
+		<text x="736" y="188" text-anchor="middle" fill="#059669" font-size="22" font-weight="700">Warp = 32 线程</text>
+		<rect x="632" y="206" width="208" height="28" rx="8" fill="#111827" />
+		<text x="736" y="225" text-anchor="middle" fill="#F9FAFB" font-size="15" font-weight="600">同一条指令 · SIMT</text>
+		<rect x="632" y="248" width="208" height="80" rx="6" fill="url(#lanes)" />
+		<text x="736" y="402" text-anchor="middle" fill="#475467" font-size="16">SM 调度的最小单位</text>
+
+		<!-- Panel 4: Thread -->
+		<rect x="890" y="150" width="248" height="290" rx="16" fill="#F9FAFB" stroke="#D0D5DD" />
+		<text x="1014" y="188" text-anchor="middle" fill="#C2410C" font-size="22" font-weight="700">Thread</text>
+		<rect x="959" y="232" width="110" height="96" rx="10" fill="#FB923C" fill-opacity="0.35" stroke="#EA580C" />
+		<text x="1014" y="278" text-anchor="middle" fill="#C2410C" font-size="17" font-weight="700">线程</text>
+		<text x="1014" y="302" text-anchor="middle" fill="#9A3412" font-size="13">私有寄存器</text>
+		<text x="1014" y="402" text-anchor="middle" fill="#475467" font-size="16">最细粒度执行单元</text>
+
+		<!-- 放大箭头 -->
+		<g fill="#94A3B8">
+			<path d="M308 295 l22 0 l0 -8 l16 13 l-16 13 l0 -8 l-22 0 z" />
+			<path d="M586 295 l22 0 l0 -8 l16 13 l-16 13 l0 -8 l-22 0 z" />
+			<path d="M864 295 l22 0 l0 -8 l16 13 l-16 13 l0 -8 l-22 0 z" />
+		</g>
+	</g>
+
+	<g transform="translate(56,458)">
+		<rect x="0" y="0" width="1088" height="54" rx="14" fill="#111827" />
+		<text x="28" y="34" fill="#E5E7EB" font-family="Inter, Arial, sans-serif" font-size="18">执行层级　Grid → Block（映射到 1 个 SM）→ Warp（32 线程，SIMT 同步执行）→ Thread（私有寄存器）</text>
+	</g>
+</svg>

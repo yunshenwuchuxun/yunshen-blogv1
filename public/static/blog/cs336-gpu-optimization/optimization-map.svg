@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="500" viewBox="0 0 1200 500" fill="none" role="img" aria-labelledby="ottitle otdesc">
+	<title id="ottitle">五种优化技术的共同目标</title>
+	<desc id="otdesc">低精度计算、算子融合、重计算、内存合并、分块 Tiling 五种技术，最终都指向同一目标：减少对慢速 HBM 的访问、让数据在快速片上存储里反复复用。</desc>
+	<defs>
+		<marker id="amap" markerWidth="11" markerHeight="11" refX="8" refY="5" orient="auto">
+			<path d="M0 0 L9 5 L0 10 z" fill="#64748B" />
+		</marker>
+	</defs>
+	<rect width="1200" height="500" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="452" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+
+	<text x="56" y="80" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="700">五种技术，一个圆心</text>
+	<text x="56" y="114" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="19">听起来各不相干，本质都在和"访存"这个敌人作战。</text>
+
+	<!-- 汇聚线 -->
+	<g stroke="#64748B" stroke-width="2" marker-end="url(#amap)">
+		<line x1="166" y1="290" x2="540" y2="378" />
+		<line x1="384" y1="290" x2="570" y2="376" />
+		<line x1="602" y1="290" x2="600" y2="376" />
+		<line x1="820" y1="290" x2="630" y2="376" />
+		<line x1="1038" y1="290" x2="660" y2="378" />
+	</g>
+
+	<!-- 五张技术卡 -->
+	<g font-family="Inter, Arial, sans-serif" text-anchor="middle">
+		<rect x="68" y="158" width="196" height="130" rx="14" fill="#EFF6FF" stroke="#2563EB" />
+		<rect x="68" y="158" width="196" height="10" rx="5" fill="#2563EB" />
+		<text x="166" y="210" fill="#1D4ED8" font-size="19" font-weight="700">低精度计算</text>
+		<text x="166" y="244" fill="#475467" font-size="14">更少比特 → 更小</text>
+		<text x="166" y="264" fill="#475467" font-size="14">占用 + 更快吞吐</text>
+
+		<rect x="286" y="158" width="196" height="130" rx="14" fill="#ECFDF5" stroke="#059669" />
+		<rect x="286" y="158" width="196" height="10" rx="5" fill="#059669" />
+		<text x="384" y="210" fill="#047857" font-size="19" font-weight="700">算子融合</text>
+		<text x="384" y="244" fill="#475467" font-size="14">中间结果驻留片上</text>
+		<text x="384" y="264" fill="#475467" font-size="14">只首尾各访存一次</text>
+
+		<rect x="504" y="158" width="196" height="130" rx="14" fill="#FFF7ED" stroke="#EA580C" />
+		<rect x="504" y="158" width="196" height="10" rx="5" fill="#EA580C" />
+		<text x="602" y="210" fill="#C2410C" font-size="19" font-weight="700">重计算</text>
+		<text x="602" y="244" fill="#475467" font-size="14">用过剩算力</text>
+		<text x="602" y="264" fill="#475467" font-size="14">赎回紧缺带宽</text>
+
+		<rect x="722" y="158" width="196" height="130" rx="14" fill="#F5F3FF" stroke="#7C3AED" />
+		<rect x="722" y="158" width="196" height="10" rx="5" fill="#7C3AED" />
+		<text x="820" y="210" fill="#6D28D9" font-size="19" font-weight="700">内存合并</text>
+		<text x="820" y="244" fill="#475467" font-size="14">一个 warp 凑成</text>
+		<text x="820" y="264" fill="#475467" font-size="14">一次突发传输</text>
+
+		<rect x="940" y="158" width="196" height="130" rx="14" fill="#FEF2F2" stroke="#DC2626" />
+		<rect x="940" y="158" width="196" height="10" rx="5" fill="#DC2626" />
+		<text x="1038" y="210" fill="#B91C1C" font-size="19" font-weight="700">分块 Tiling</text>
+		<text x="1038" y="244" fill="#475467" font-size="14">搬进共享内存</text>
+		<text x="1038" y="264" fill="#475467" font-size="14">反复复用</text>
+	</g>
+
+	<!-- 目标横幅 -->
+	<g transform="translate(300,378)">
+		<rect x="0" y="0" width="600" height="74" rx="16" fill="#111827" />
+		<text x="300" y="34" text-anchor="middle" fill="#F9FAFB" font-family="Inter, Arial, sans-serif" font-size="19" font-weight="700">共同目标</text>
+		<text x="300" y="60" text-anchor="middle" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="16">减少 HBM 访问 · 让数据在快速片上存储反复复用</text>
+	</g>
+</svg>
