@@ -1,0 +1,181 @@
+---
+title: 'CS336 第七讲 · 分布式训练：数据、张量、流水线、序列并行全景'
+publishedAt: '2026-06-15'
+summary: '前两讲都在单张卡上做文章——可当模型大到一张卡根本装不下，故事就变了。这一讲把战场搬到多卡多机：先看清新瓶颈不再是 HBM 访存，而是慢得多的"卡间通信"；再用一条恒等式（All-Reduce = Reduce-Scatter + All-Gather）讲透集合通信的成本；然后把数据、张量、流水线、序列四种并行统一到"一份负载、四种切法"的框架里，逐一拆解 ZeRO/FSDP 如何把单卡显存从 120GB 压到 1.9GB、张量并行为何只能关在节点内、流水线的气泡怎么挤掉；最后落到"先快后慢、由内向外"的组合法则。'
+draft: false
+image: '/static/blog/cs336-distributed-training/cover.svg'
+tags: [Deep Learning, GPU, LLM, Distributed Training, Tech Blog]
+---
+
+[第五讲](/blog/cs336-gpu-optimization)和[第六讲](/blog/cs336-gpu-high-performance-programming)我们一直在一张卡上较劲：GPU 算得太快、喂不饱数据，于是所有优化都收敛到「减少对慢速 HBM 的访问」。但有一个前提被悄悄假设了——<strong>模型能装进一张卡</strong>。
+
+这个前提正在崩塌。今天的前沿模型动辄几千亿参数（DeepSeek-V3 高达 671B），光是参数加上训练所需的梯度与优化器状态，就要 TB 级显存，而单卡 HBM 不过 80–192 GB。一张卡装不下，就只能<strong>把模型摊到很多张卡、很多台机器上</strong>——这就是分布式训练。
+
+本文对应斯坦福 CS336 第七讲（Parallelism），也对应 Datawhale diy-llm 第八章。原文把硬件、通信、四种并行、PyTorch 实现讲得非常完整，但也铺得很长。这里把它压成<strong>一条主线 + 一个框架</strong>：先看清多卡时代的新敌人，再用「一份负载、四种切法」把所有并行策略串成一棵决策树。
+
+## 一条新主线：敌人从「访存」换成了「通信」
+
+整个 CS336 的 GPU 三讲，其实在反复讲同一件事：<strong>算力一直在疯涨，真正的瓶颈永远是「喂数据」</strong>。只是到了多卡场景，"喂"的对象变了：
+
+- <strong>单卡（第五、六讲）</strong>：计算单元喂不饱，瓶颈是 GPU 内部的 HBM 访存带宽。
+- <strong>多卡（本讲）</strong>：每张卡都要等别人的中间结果，瓶颈变成了<strong>卡与卡之间的通信带宽</strong>。
+
+而卡间通信，比 HBM 还要慢得多、还要分层。要理解所有并行策略的取舍，先得看清这座新的「延迟金字塔」。
+
+![通信带宽金字塔：从片内 HBM 到节点内 NVLink 再到跨节点网络，带宽逐级暴跌](/static/blog/cs336-distributed-training/comm-hierarchy.svg)
+
+关键不在某一个具体数字，而在<strong>每跨一层边界，带宽就掉一个量级</strong>：片内 HBM 有约 3.9 TB/s，同一台机器里 GPU 之间走 NVLink 还有约 900 GB/s，可一旦跨出机器、走以太网或 InfiniBand，就只剩几十 GB/s 甚至更低。
+
+这条金字塔直接决定了后面所有策略的「摆放位置」：<strong>通信越频繁的策略，越要关进越快的硬件层级</strong>。需要每层都同步的张量并行，只能挤在一台机器的 8 张卡里吃 NVLink；而只在每步同步一次的数据并行，才敢放到跨节点的慢速网络上。记住这一点，本文后半段的所有结论都会顺理成章。
+
+## 通信的语言：一条恒等式讲透集合通信
+
+多卡之间怎么"对话"？靠的是一组标准化的<strong>集合通信原语（Collective Communication）</strong>——Broadcast（广播）、Scatter（分发）、Gather（汇聚）、Reduce（归约）、All-Gather（全收集）、Reduce-Scatter（归约分散）、All-Reduce（全归约）。名字一大串，但真正撑起分布式训练的，是其中一条恒等式：
+
+![集合通信原语：All-Reduce 等价于 Reduce-Scatter 加 All-Gather](/static/blog/cs336-distributed-training/collective-ops.svg)
+
+$$
+\text{All-Reduce} = \text{Reduce-Scatter} + \text{All-Gather}
+$$
+
+把它拆开看就一目了然：每张卡都有一份完整向量（比如各自算出的梯度），<strong>第一步 Reduce-Scatter</strong> 让每张卡只负责把"自己那一段"在所有卡上求和、其余丢弃；<strong>第二步 All-Gather</strong> 再把这些求好和的分片广播回所有卡。两步下来，人人都拿到了完整的全局求和结果。
+
+这条恒等式之所以重要，是因为它点破了通信成本：两步各传输约 1× 的数据量，<strong>一次 All-Reduce 的通信量约等于 2× 数据量</strong>，与卡的数量基本无关。这正是数据并行"每步同步一次梯度"的成本来源；而把这两步拆开单独使用，又恰好是 FSDP 的核心手法——后面马上会用到。
+
+工程上，这些原语由 NVIDIA 的 <strong>NCCL</strong> 库实现：它自动探测硬件拓扑、规划最优传输路径，PyTorch 的 `torch.distributed` 再在其上包一层更易用的接口（GPU 用 NCCL 后端，CPU 用 Gloo）。
+
+## 一份负载，四种切法：所有并行策略的总框架
+
+理解了通信成本，现在可以俯瞰全局了。一次训练负载，本质是<strong>一批序列，流过一摞层，每层都是一堆大矩阵</strong>。要把它摊到多卡上，无非是沿某个维度"切一刀"——而切哪个维度，就对应哪种并行策略：
+
+![一份负载，四种切法：数据、宽度、深度、序列四个维度分别对应四种并行](/static/blog/cs336-distributed-training/parallel-dimensions.svg)
+
+- <strong>切数据维度（批次）</strong> → 数据并行（DP）：模型整份复制，每卡喂不同批次。
+- <strong>切宽度维度（矩阵）</strong> → 张量并行（TP）：把每层的大矩阵沿宽度切给多卡同算。
+- <strong>切深度维度（层）</strong> → 流水线并行（PP）：把层摞成的栈切成前段、后段。
+- <strong>切序列维度（token）</strong> → 序列并行（SP）：把一条长序列切成几段。
+
+这四刀彼此正交，可以叠加使用（即所谓 3D / 4D 并行）。下面就按"最常用、最先考虑"的顺序，逐一拆开。
+
+## 数据并行与 ZeRO：把重复的状态切掉
+
+<strong>数据并行（Data Parallelism, DDP）</strong>是最朴素、也最常用的一招：每张卡放一份完整模型副本，把一个大批次切成若干小份各算各的，反向传播后用一次 All-Reduce 把梯度取平均同步，然后各卡用<strong>相同</strong>的梯度独立更新——更新后所有副本依然一致。
+
+![数据并行 DDP 流程：复制模型、切分批次、All-Reduce 同步梯度、独立更新](/static/blog/cs336-distributed-training/data-parallel.svg)
+
+它的优点是逻辑简单、通信少（每步只在反向后同步一次）。但它有个致命的浪费：<strong>每张卡都存了一份完整的「参数 + 梯度 + 优化器状态」</strong>。以混合精度 Adam 为例，每个参数要占约 16 字节（2 字节 FP16 参数 + 2 字节梯度 + 12 字节 FP32 的主权重和一二阶动量），一个 7.5B 的模型单卡就要 120 GB——而且 N 张卡上存的是 N 份一模一样的东西，纯属冗余。
+
+<strong>ZeRO（Zero Redundancy Optimizer）</strong>的洞见是：既然这些状态在所有卡上都一样，何必每张卡都存全份？不如<strong>切片分摊</strong>，每张卡只存 1/N，要用时再临时取回。它分三个阶段，逐级把更多状态切开：
+
+![ZeRO 三阶段：从基线 120GB 逐级切到 31.4GB、16.6GB、1.9GB](/static/blog/cs336-distributed-training/zero-stages.svg)
+
+- <strong>Stage 1（切优化器状态）</strong>：占大头的 12 字节 FP32 状态最先切片。120 GB → 31.4 GB。
+- <strong>Stage 2（再切梯度）</strong>：梯度也按分片只保留自己那段。31.4 GB → 16.6 GB。
+- <strong>Stage 3（再切参数）</strong>：连参数本身都切片，这就是 <strong>FSDP（Fully Sharded Data Parallel）</strong>。16.6 GB → 1.9 GB，约 <strong>64× 收缩</strong>。
+
+天下没有免费的午餐：参数被切开后，每层前向/反向都得先 All-Gather 把这一层的完整参数临时拼回来用，用完即弃；梯度则用 Reduce-Scatter 更新回各自的分片。算下来通信量约是 DDP 的 1.5 倍（理论 3× vs 2×）。FSDP 靠一个关键技巧把这笔开销藏了起来——<strong>预取（prefetch）与计算重叠</strong>：在算当前层时，提前异步把下一层的参数 All-Gather 过来，让通信悄悄发生在计算的"阴影"里。实测下来，实际性能损耗只有 10%–20%，却换回了几十倍的显存。
+
+> 一句话记住数据并行这一节：<strong>DDP 用通信换简单，ZeRO/FSDP 用通信换显存</strong>。当模型的「参数+状态」单卡装不下时，FSDP 几乎是第一选择。
+
+不过数据并行有个天花板：它的并行度受<strong>批大小</strong>约束（再多的卡也不能让每卡分到的样本少于 1），而且批大小过了某个临界点后，梯度更新的次数会变少，收益递减。要继续扩展，就得动模型本身了。
+
+## 张量并行：把一层矩阵切给多卡同算
+
+如果说数据并行切的是"数据"，<strong>张量并行（Tensor Parallelism, TP）</strong>切的就是"模型本身"——它把<strong>每一层内部的大矩阵</strong>沿宽度维度劈开，分给多张卡同时算同一层。
+
+以 Transformer 里的 MLP 块 $Y = \text{GELU}(X A) B$ 为例，Megatron 的经典切法巧妙地让通信降到最低：
+
+![张量并行：A 按列切分无需通信，B 按行切分后用 All-Reduce 求和](/static/blog/cs336-distributed-training/tensor-parallel.svg)
+
+第一个矩阵 $A$ <strong>按列切分</strong>，每张卡拿一部分列，各自算出一段隐藏向量。由于 GELU 是逐元素的、列与列互不影响，<strong>这一整段计算全程无需通信</strong>。第二个矩阵 $B$ 则<strong>按行切分</strong>，每张卡用自己那段隐藏向量算出一个"部分和"，最后一次 <strong>All-Reduce</strong> 把各卡的部分和加起来，就拼回了完整输出。
+
+代价非常直白：<strong>每一层的前向、反向都各要一次 All-Reduce</strong>。模型有几十层，一步就是几十上百次同步——这是所有并行里通信最频繁的。回到开头那座金字塔：如此高频的同步只有 NVLink 那个量级的带宽扛得住。所以张量并行有一条铁律：<strong>只在单节点内用（通常 ≤ 8 卡）</strong>。一旦跨出节点走慢速网络，性能就会断崖式下跌——经验数据是 8 卡损耗约 10%，16 卡骤降 42%，32 卡再降 65%。
+
+## 流水线并行：气泡，与如何挤掉它
+
+<strong>流水线并行（Pipeline Parallelism, PP）</strong>换了个维度：它按<strong>层的边界</strong>把模型切成几段，每张卡负责连续的几层，像工厂流水线一样，前一张卡算完把激活值传给下一张卡。
+
+听起来很美，但朴素实现有个致命缺陷——<strong>气泡（bubble）</strong>：
+
+![流水线气泡：朴素流水线利用率约 1/n，微批次填充后气泡只剩首尾小三角](/static/blog/cs336-distributed-training/pipeline-bubble.svg)
+
+如果只丢一个批次进去，那么 GPU0 算第一段时，后面三张卡全在干等；轮到 GPU3 时，前三张又闲下来了。任意时刻只有一张卡在干活，<strong>利用率仅约 1/n</strong>，其余全是空转的气泡。
+
+解法是<strong>微批次（micro-batching）</strong>：把一个大批次拆成 m 个小微批次，像流水一样连续送进管道。前一个微批次往下游走的同时，后一个紧跟着进入上游，很快所有卡就都忙起来了，气泡只剩开头"灌注"和结尾"排空"的两个小三角。气泡占比由一个简洁的公式刻画：
+
+$$
+\text{气泡占比} = \frac{n-1}{m + n - 1}
+$$
+
+其中 $n$ 是流水线段数、$m$ 是微批次数。<strong>微批次越多，气泡越小</strong>。更进一步的<strong>零气泡（zero-bubble）</strong>调度，则把反向传播拆成"算激活梯度（B）"和"算权重梯度（W）"两部分，用不急的 W 计算去填补流水线里的空隙，把气泡压到接近于零。
+
+流水线并行的通信很轻（只在段与段的边界点对点传一次激活值，约 1× 激活量），所以它可以跨节点。但调度复杂、实现繁琐，经验法则是：<strong>只有当模型大到单卡（哪怕用了 TP 和 FSDP）仍然装不下时，才动用 PP</strong>。
+
+## 序列并行：顺手再省一笔激活值显存
+
+张量并行已经把矩阵乘法切开了，但 Transformer 里还有 LayerNorm、Dropout 这类<strong>逐点运算</strong>没被并行——它们会在每张卡上完整地重复一遍，对应的激活值也得完整存一份。<strong>序列并行（Sequence Parallelism, SP）</strong>补上了这一刀：既然这些运算沿序列维度是独立的，那就把激活值<strong>沿序列长度切开</strong>，每张卡只处理一段 token。
+
+它常与张量并行配合，在两者交界处用 All-Gather（前向）和 Reduce-Scatter（反向）切换数据布局——注意这两步合起来恰好就是一次 All-Reduce，<strong>所以序列并行几乎没有增加额外通信量</strong>，却把激活值显存又除以了张量并行度 $t$。单层激活内存大致是：
+
+$$
+\text{每层激活内存} \approx \frac{s\,b\,h\,(34 + 5\,a\,s/h)}{t}
+$$
+
+（$s$ 序列长度，$b$ 微批大小，$h$ 隐藏维，$a$ 注意力头数，$t$ 张量并行度。）当序列长到 LayerNorm 的激活也成为显存负担时，这一刀很划算。处理超长上下文还有它的近亲——<strong>上下文并行 / 环形注意力（Ring Attention）</strong>：把 Q、K、V 沿序列切块，在卡间"环形"传递 K/V 来增量计算注意力，让单条序列的长度也能横向扩展。
+
+## 怎么组合：先快后慢，由内向外
+
+四种并行不是单选题，真实的大规模训练是把它们<strong>叠起来用</strong>。怎么叠？答案全写在开头那座通信金字塔里——<strong>通信越频繁的策略，越要放进越快的硬件层级</strong>：
+
+![并行策略的组合与放置：TP 在节点内吃 NVLink，DP/PP 跨节点](/static/blog/cs336-distributed-training/strategy-decision.svg)
+
+一个常用的加挂顺序是：① 先在<strong>节点内</strong>开张量并行（≤ 8 卡，吃满 NVLink）；② 需要长序列就叠上序列 / 上下文并行；③ 模型仍然装不下，才按层切<strong>流水线并行</strong>（可跨节点）；④ 最后用<strong>数据并行 / FSDP</strong> 横向扩展吞吐（跨节点）。落到硬件上，就是把高频的 TP 关进每台机器内部，把低频的 DP/PP 留给机器之间的慢速网络。
+
+把四种策略的取舍并到一张表，一眼看清它们在"批大小、显存、通信"三角里的不同站位：
+
+| 策略 | 主要切什么 | 省显存 | 通信成本 | 通信频率 | 放在哪 |
+|------|------|------|------|------|------|
+| 数据并行 DDP | 批次 | 不省 | 2× 参数 | 每步 1 次 | 跨节点 |
+| FSDP（ZeRO-3） | 批次 + 全部状态 | 线性下降 | ~3× 参数 | 每层 | 跨节点 |
+| 张量并行 TP | 矩阵宽度 | 省（参数+激活） | 2× 激活 | <strong>每层 2 次，最频繁</strong> | 节点内 ≤8 卡 |
+| 流水线并行 PP | 层（深度） | 线性下降 | 1× 激活 | 段边界点对点 | 可跨节点 |
+| 序列并行 SP | 序列长度 | 省激活 | ≈ 0（并入 TP） | 随 TP | 节点内 |
+
+## 别忘了「先测准」：基准测试通信
+
+最后呼应第六讲的那条铁律——<strong>优化不能靠猜，要靠测</strong>，对分布式同样成立。理论带宽和实测带宽往往差得离谱：在 4 卡上对一亿元素的张量做 All-Reduce，理论有 900 GB/s，实测往往只有约 <strong>277 GB/s</strong>；而 Reduce-Scatter 由于产生更多同步开销，实测可能只有约 <strong>70 GB/s</strong>。
+
+这提醒我们两件事：其一，<strong>通信的真实成本严重依赖张量大小、卡数和硬件拓扑</strong>，必须在自己的集群上实测才算数；其二，并行策略的选择从来不是纯理论题——同一套策略在 NVLink 全互联的机器和普通以太网集群上，最优配置可能完全不同。
+
+## 尾声：硬件在变，第一性原理不变
+
+GPU 之外，Google 的 <strong>TPU</strong> 走了另一条路：它用环面网格（torus）拓扑把芯片连起来，相邻芯片通信极快，特别适合超大规模；配套的 <strong>JAX</strong> 则让你用声明式的方式描述分片策略，由编译器自动生成底层通信原语，把 PyTorch 里要手写的集合操作藏进了编译器。生态在演进，但物理限制（散热、带宽、片上内存）始终都在。
+
+回到 CS336 GPU 三讲的总主线：<strong>从单卡到万卡，算力始终在涨，瓶颈始终是"喂数据"</strong>。第五讲我们对抗 HBM 访存，第六讲学会测量与落地，这一讲对抗的则是卡间通信。所有花哨的并行策略，剥开外壳都在回答同一个问题——<strong>怎么切，才能在把模型摊开的同时，让卡与卡之间少说话、说得快</strong>。
+
+## 总结：分布式训练速查表
+
+| 关键点 | 一句话核心 |
+|------|------|
+| 新瓶颈 | 单卡对抗 HBM，多卡对抗卡间通信——每跨一层边界，带宽掉一个量级 |
+| 集合通信 | All-Reduce = Reduce-Scatter + All-Gather，通信量 ≈ 2× 数据 |
+| 数据并行 | 复制模型、切批次、All-Reduce 梯度；简单但状态重复存储 |
+| ZeRO / FSDP | 把参数/梯度/状态切片分摊，单卡显存 120GB → 1.9GB，靠预取重叠藏通信 |
+| 张量并行 | 切矩阵宽度，每层两次 All-Reduce，最频繁→只在节点内 ≤8 卡 |
+| 流水线并行 | 切层传激活，气泡占比 (n−1)/(m+n−1)，微批次/零气泡来填 |
+| 序列并行 | 切序列省激活值，并入 TP 几乎不增通信 |
+| 组合法则 | 先快后慢、由内向外：TP 关节点内，DP/PP 才跨节点 |
+
+记住这张表背后的那条主线，再看任何一种新的并行方案，你都能一眼判断它在和"通信"的哪一面较劲——是省了显存却多了同步，还是少了同步却限了扩展。权衡，永远在"存储、传输、重算"这个三角里打转。
+
+## 参考资料
+
+- [CS336: Language Modeling from Scratch（Stanford）](https://stanford-cs336.github.io/)
+- [Datawhale diy-llm · 第八章 分布式训练](https://datawhalechina.github.io/diy-llm/)
+- [上一讲 · GPU 高性能编程：基准测试、性能剖析与算子融合](/blog/cs336-gpu-high-performance-programming)
+- [ZeRO: Memory Optimizations Toward Training Trillion Parameter Models（arXiv:1910.02054）](https://arxiv.org/abs/1910.02054)
+- [Megatron-LM: 张量并行（arXiv:1909.08053）](https://arxiv.org/abs/1909.08053)
+- [GPipe: 微批次流水线并行（arXiv:1811.06965）](https://arxiv.org/abs/1811.06965)
+- [PyTorch FSDP（arXiv:2304.11277）](https://arxiv.org/abs/2304.11277)
+- [Reducing Activation Recomputation · 序列并行（arXiv:2205.05198）](https://arxiv.org/abs/2205.05198)
+- [Ring Attention · 上下文并行（arXiv:2310.01889）](https://arxiv.org/abs/2310.01889)

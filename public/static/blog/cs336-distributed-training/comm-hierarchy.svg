@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" fill="none" role="img" aria-labelledby="chtitle chdesc">
+	<title id="chtitle">通信带宽金字塔</title>
+	<desc id="chdesc">从片内 HBM 到节点内 NVLink 再到跨节点网络，带宽逐级暴跌。高频通信的策略要关在节点内，低频通信才放到跨节点。</desc>
+	<rect width="1200" height="560" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="512" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+
+	<text x="56" y="80" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="700">通信带宽金字塔：每跨一层边界，带宽掉一个量级</text>
+	<text x="56" y="114" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="19">单卡优化对抗 HBM 访存；多卡优化对抗「卡间通信」——离得越远，越慢越贵（条形为对数尺度）。</text>
+
+	<!-- 第 1 层 · HBM -->
+	<g font-family="Inter, Arial, sans-serif">
+		<text x="56" y="184" fill="#475467" font-size="17" font-weight="600">片内 · HBM 显存</text>
+		<text x="56" y="206" fill="#94A3B8" font-size="13">GPU 内部，上一讲的敌人</text>
+		<rect x="320" y="164" width="820" height="44" rx="8" fill="#34D399" fill-opacity="0.85" stroke="#059669" />
+		<text x="340" y="192" fill="#064E3B" font-size="20" font-weight="700">≈ 3.9 TB/s</text>
+	</g>
+
+	<!-- 第 2 层 · NVLink -->
+	<g font-family="Inter, Arial, sans-serif">
+		<text x="56" y="264" fill="#475467" font-size="17" font-weight="600">节点内 · NVLink / NVSwitch</text>
+		<text x="56" y="286" fill="#94A3B8" font-size="13">同一机器的 GPU↔GPU</text>
+		<rect x="320" y="244" width="611" height="44" rx="8" fill="#60A5FA" fill-opacity="0.85" stroke="#2563EB" />
+		<text x="340" y="272" fill="#1E3A8A" font-size="20" font-weight="700">≈ 900 GB/s</text>
+	</g>
+
+	<!-- 第 3 层 · PCIe -->
+	<g font-family="Inter, Arial, sans-serif">
+		<text x="56" y="344" fill="#475467" font-size="17" font-weight="600">主机内 · PCIe 5.0</text>
+		<text x="56" y="366" fill="#94A3B8" font-size="13">CPU↔GPU 旁路</text>
+		<rect x="320" y="324" width="235" height="44" rx="8" fill="#FBBF24" fill-opacity="0.85" stroke="#D97706" />
+		<text x="340" y="352" fill="#92400E" font-size="20" font-weight="700">≈ 64 GB/s</text>
+	</g>
+
+	<!-- 第 4 层 · 跨节点 -->
+	<g font-family="Inter, Arial, sans-serif">
+		<text x="56" y="424" fill="#475467" font-size="17" font-weight="600">跨节点 · InfiniBand / 以太网</text>
+		<text x="56" y="446" fill="#94A3B8" font-size="13">机器与机器之间，新的敌人</text>
+		<rect x="320" y="404" width="200" height="44" rx="8" fill="#F87171" fill-opacity="0.85" stroke="#DC2626" />
+		<text x="340" y="432" fill="#7F1D1D" font-size="20" font-weight="700">≈ 25–50 GB/s</text>
+		<text x="532" y="432" fill="#94A3B8" font-size="13">（普通以太网更低）</text>
+	</g>
+
+	<!-- 节点边界提示 -->
+	<line x1="600" y1="300" x2="1140" y2="300" stroke="#CBD5E1" stroke-width="1.5" stroke-dasharray="5 6" />
+	<text x="1132" y="318" text-anchor="end" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="13">↑ 节点内　|　跨节点 ↓ 这道坎最陡</text>
+
+	<!-- 策略放置说明 -->
+	<g transform="translate(600,460)" font-family="Inter, Arial, sans-serif">
+		<rect x="0" y="0" width="540" height="60" rx="12" fill="#EFF6FF" stroke="#BFDBFE" />
+		<text x="20" y="28" fill="#1E40AF" font-size="15" font-weight="700">策略放置法则：</text>
+		<text x="20" y="50" fill="#475467" font-size="14">高频通信（张量并行）关进节点内；低频通信（数据/流水线并行）才跨节点。</text>
+	</g>
+</svg>

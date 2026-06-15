@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" fill="none" role="img" aria-labelledby="tptitle tpdesc">
+	<title id="tptitle">张量并行的 MLP 切分</title>
+	<desc id="tpdesc">MLP 中第一个权重矩阵 A 按列切分，GELU 各自独立计算无需通信；第二个矩阵 B 按行切分，得到部分和后用 All-Reduce 求和。每层前向、反向各一次 All-Reduce。</desc>
+	<defs>
+		<marker id="tparr" markerWidth="10" markerHeight="10" refX="7" refY="5" orient="auto"><path d="M0 0 L8 5 L0 10 z" fill="#94A3B8" /></marker>
+	</defs>
+	<rect width="1200" height="560" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="512" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+
+	<text x="56" y="80" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="700">张量并行：把一层的大矩阵切给多卡同算</text>
+	<text x="56" y="114" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="19">以 MLP 的 <tspan font-style="italic">Y = GELU(X·A)·B</tspan> 为例：A 按列切、B 按行切，末尾一次 All-Reduce 拼回结果。</text>
+
+	<!-- 阶段标题 -->
+	<g font-family="Inter, Arial, sans-serif" font-size="14" text-anchor="middle">
+		<text x="370" y="168" fill="#7C3AED" font-weight="700">① A 按列切分</text>
+		<text x="560" y="168" fill="#64748B">GELU（各自独立）</text>
+		<text x="740" y="168" fill="#7C3AED" font-weight="700">② B 按行切分</text>
+		<text x="930" y="168" fill="#7C3AED" font-weight="700">③ All-Reduce 求和</text>
+	</g>
+	<text x="465" y="450" text-anchor="middle" fill="#059669" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="600">↑ 这一段全程无需通信 ↑</text>
+
+	<!-- 输入 X（复制到两卡） -->
+	<rect x="150" y="250" width="74" height="74" rx="10" fill="#E2E8F0" stroke="#94A3B8" />
+	<text x="187" y="285" text-anchor="middle" fill="#475467" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700">X</text>
+	<text x="187" y="306" text-anchor="middle" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="11">复制到两卡</text>
+
+	<!-- GPU 0 通道（蓝） -->
+	<text x="80" y="210" fill="#2563EB" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700">GPU 0</text>
+	<g font-family="Inter, Arial, sans-serif" text-anchor="middle">
+		<rect x="310" y="196" width="120" height="50" rx="8" fill="#DBEAFE" stroke="#2563EB" /><text x="370" y="226" fill="#1E40AF" font-size="15" font-weight="600">H₀ = X·A₁</text>
+		<rect x="500" y="196" width="120" height="50" rx="8" fill="#DBEAFE" stroke="#2563EB" /><text x="560" y="226" fill="#1E40AF" font-size="15" font-weight="600">GELU(H₀)</text>
+		<rect x="680" y="196" width="120" height="50" rx="8" fill="#DBEAFE" stroke="#2563EB" /><text x="740" y="226" fill="#1E40AF" font-size="15" font-weight="600">Z₀ = ·B₁</text>
+	</g>
+
+	<!-- GPU 1 通道（绿） -->
+	<text x="80" y="360" fill="#059669" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700">GPU 1</text>
+	<g font-family="Inter, Arial, sans-serif" text-anchor="middle">
+		<rect x="310" y="330" width="120" height="50" rx="8" fill="#D1FAE5" stroke="#059669" /><text x="370" y="360" fill="#065F46" font-size="15" font-weight="600">H₁ = X·A₂</text>
+		<rect x="500" y="330" width="120" height="50" rx="8" fill="#D1FAE5" stroke="#059669" /><text x="560" y="360" fill="#065F46" font-size="15" font-weight="600">GELU(H₁)</text>
+		<rect x="680" y="330" width="120" height="50" rx="8" fill="#D1FAE5" stroke="#059669" /><text x="740" y="360" fill="#065F46" font-size="15" font-weight="600">Z₁ = ·B₂</text>
+	</g>
+
+	<!-- 连接箭头 -->
+	<g stroke="#94A3B8" stroke-width="2" fill="none" marker-end="url(#tparr)">
+		<path d="M224 270 C 260 250, 270 221, 306 221" />
+		<path d="M224 304 C 260 324, 270 355, 306 355" />
+		<line x1="430" y1="221" x2="496" y2="221" /><line x1="620" y1="221" x2="676" y2="221" />
+		<line x1="430" y1="355" x2="496" y2="355" /><line x1="620" y1="355" x2="676" y2="355" />
+		<path d="M800 221 C 840 221, 850 270, 886 282" />
+		<path d="M800 355 C 840 355, 850 306, 886 294" />
+	</g>
+
+	<!-- All-Reduce + 输出 -->
+	<rect x="888" y="250" width="74" height="74" rx="10" fill="#EDE9FE" stroke="#7C3AED" />
+	<text x="925" y="282" text-anchor="middle" fill="#5B21B6" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700">All-</text>
+	<text x="925" y="302" text-anchor="middle" fill="#5B21B6" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700">Reduce</text>
+	<line x1="962" y1="287" x2="1010" y2="287" stroke="#94A3B8" stroke-width="2" marker-end="url(#tparr)" />
+	<rect x="1012" y="255" width="64" height="64" rx="10" fill="#E2E8F0" stroke="#94A3B8" />
+	<text x="1044" y="293" text-anchor="middle" fill="#475467" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700">Y</text>
+
+	<!-- 无通信区底线 -->
+	<line x1="300" y1="420" x2="630" y2="420" stroke="#34D399" stroke-width="2" stroke-dasharray="4 4" />
+
+	<!-- 结论 -->
+	<g transform="translate(56,470)" font-family="Inter, Arial, sans-serif">
+		<rect x="0" y="0" width="1088" height="46" rx="10" fill="#FEF2F2" stroke="#FECACA" />
+		<text x="20" y="30" fill="#B91C1C" font-size="15">每一层前向、反向各一次 All-Reduce → 通信极频繁，只适合<tspan font-weight="700">节点内高速互联（≤ 8 卡）</tspan>：8 卡损耗约 10%，16 卡骤降 42%，32 卡再降 65%。</text>
+	</g>
+</svg>

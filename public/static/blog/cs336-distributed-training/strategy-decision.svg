@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" fill="none" role="img" aria-labelledby="sdtitle sddesc">
+	<title id="sdtitle">并行策略的组合与放置</title>
+	<desc id="sddesc">优先级由内向外：先在节点内开张量并行吃 NVLink，再用序列并行，模型仍装不下用流水线并行，最后用数据并行横向扩展。通信越频繁越要放进越快的硬件层级。</desc>
+	<defs>
+		<marker id="sdarr" markerWidth="10" markerHeight="10" refX="7" refY="5" orient="auto"><path d="M0 0 L8 5 L0 10 z" fill="#94A3B8" /></marker>
+	</defs>
+	<rect width="1200" height="560" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="512" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+
+	<text x="56" y="80" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="700">怎么组合：先快后慢，由内向外</text>
+	<text x="56" y="114" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="19">通信越频繁的策略，越要放进越快的硬件层级。下面是常用的优先级与放置法。</text>
+
+	<!-- 左：优先级 -->
+	<text x="56" y="156" fill="#475467" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700">① → ④ 的加挂顺序</text>
+	<g font-family="Inter, Arial, sans-serif">
+		<rect x="56" y="166" width="470" height="64" rx="12" fill="#F5F3FF" stroke="#C4B5FD" />
+		<circle cx="92" cy="198" r="16" fill="#7C3AED" /><text x="92" y="204" text-anchor="middle" fill="#fff" font-size="16" font-weight="700">1</text>
+		<text x="122" y="194" fill="#5B21B6" font-size="17" font-weight="700">张量并行 TP</text>
+		<text x="122" y="216" fill="#64748B" font-size="13">节点内 ≤ 8 卡 · 通信最频繁，吃满 NVLink</text>
+
+		<rect x="56" y="246" width="470" height="64" rx="12" fill="#FDF2F8" stroke="#FBCFE8" />
+		<circle cx="92" cy="278" r="16" fill="#DB2777" /><text x="92" y="284" text-anchor="middle" fill="#fff" font-size="16" font-weight="700">2</text>
+		<text x="122" y="274" fill="#9D174D" font-size="17" font-weight="700">序列 / 上下文并行</text>
+		<text x="122" y="296" fill="#64748B" font-size="13">切长序列，进一步压低激活值显存</text>
+
+		<rect x="56" y="326" width="470" height="64" rx="12" fill="#FFF7ED" stroke="#FED7AA" />
+		<circle cx="92" cy="358" r="16" fill="#EA580C" /><text x="92" y="364" text-anchor="middle" fill="#fff" font-size="16" font-weight="700">3</text>
+		<text x="122" y="354" fill="#9A3412" font-size="17" font-weight="700">流水线并行 PP</text>
+		<text x="122" y="376" fill="#64748B" font-size="13">单卡仍装不下时才上，按层切（可跨节点）</text>
+
+		<rect x="56" y="406" width="470" height="64" rx="12" fill="#EFF6FF" stroke="#BFDBFE" />
+		<circle cx="92" cy="438" r="16" fill="#2563EB" /><text x="92" y="444" text-anchor="middle" fill="#fff" font-size="16" font-weight="700">4</text>
+		<text x="122" y="434" fill="#1E40AF" font-size="17" font-weight="700">数据并行 / FSDP</text>
+		<text x="122" y="456" fill="#64748B" font-size="13">最后用它横向扩展吞吐（跨节点）</text>
+	</g>
+	<g stroke="#94A3B8" stroke-width="2" marker-end="url(#sdarr)">
+		<line x1="291" y1="230" x2="291" y2="244" /><line x1="291" y1="310" x2="291" y2="324" /><line x1="291" y1="390" x2="291" y2="404" />
+	</g>
+
+	<!-- 右：硬件放置 -->
+	<text x="600" y="156" fill="#475467" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700">落到硬件上</text>
+
+	<!-- 节点 1 -->
+	<rect x="600" y="166" width="544" height="120" rx="14" fill="#ECFDF5" stroke="#6EE7B7" />
+	<text x="620" y="192" fill="#047857" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700">节点 1 · 张量并行（NVLink 快）</text>
+	<g>
+		<line x1="660" y1="244" x2="1084" y2="244" stroke="#34D399" stroke-width="3" />
+		<g fill="#D1FAE5" stroke="#059669" font-family="Inter, Arial, sans-serif" font-size="12" text-anchor="middle">
+			<rect x="640" y="222" width="80" height="44" rx="8"/><text x="680" y="248" fill="#065F46">GPU</text>
+			<rect x="746" y="222" width="80" height="44" rx="8"/><text x="786" y="248" fill="#065F46">GPU</text>
+			<rect x="852" y="222" width="80" height="44" rx="8"/><text x="892" y="248" fill="#065F46">GPU</text>
+			<rect x="958" y="222" width="80" height="44" rx="8"/><text x="998" y="248" fill="#065F46">GPU</text>
+		</g>
+	</g>
+
+	<!-- 节点 2 -->
+	<rect x="600" y="370" width="544" height="120" rx="14" fill="#ECFDF5" stroke="#6EE7B7" />
+	<text x="620" y="396" fill="#047857" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700">节点 2 · 张量并行（NVLink 快）</text>
+	<g>
+		<line x1="660" y1="448" x2="1084" y2="448" stroke="#34D399" stroke-width="3" />
+		<g fill="#D1FAE5" stroke="#059669" font-family="Inter, Arial, sans-serif" font-size="12" text-anchor="middle">
+			<rect x="640" y="426" width="80" height="44" rx="8"/><text x="680" y="452" fill="#065F46">GPU</text>
+			<rect x="746" y="426" width="80" height="44" rx="8"/><text x="786" y="452" fill="#065F46">GPU</text>
+			<rect x="852" y="426" width="80" height="44" rx="8"/><text x="892" y="452" fill="#065F46">GPU</text>
+			<rect x="958" y="426" width="80" height="44" rx="8"/><text x="998" y="452" fill="#065F46">GPU</text>
+		</g>
+	</g>
+
+	<!-- 节点间：DP/PP 跨节点网络（慢） -->
+	<g stroke="#DC2626" stroke-width="2.5" stroke-dasharray="6 6">
+		<line x1="760" y1="286" x2="760" y2="370" /><line x1="980" y1="286" x2="980" y2="370" />
+	</g>
+	<rect x="788" y="306" width="170" height="44" rx="10" fill="#FEF2F2" stroke="#FECACA" />
+	<text x="873" y="324" text-anchor="middle" fill="#B91C1C" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="700">数据 / 流水线并行</text>
+	<text x="873" y="342" text-anchor="middle" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="12">跨节点网络（慢）</text>
+</svg>

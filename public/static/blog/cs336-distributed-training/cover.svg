@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+	<title id="title">分布式训练封面</title>
+	<desc id="desc">CS336 第七讲：单卡装不下，就把模型切开——数据、张量、流水线、序列四种并行，代价是卡间通信。</desc>
+	<defs>
+		<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0" stop-color="#0b1120" />
+			<stop offset="0.5" stop-color="#0f172a" />
+			<stop offset="1" stop-color="#1e293b" />
+		</linearGradient>
+		<linearGradient id="accentA" x1="0" y1="0" x2="1" y2="0">
+			<stop offset="0" stop-color="#22d3ee" />
+			<stop offset="1" stop-color="#a78bfa" />
+		</linearGradient>
+		<linearGradient id="accentB" x1="0" y1="0" x2="1" y2="0">
+			<stop offset="0" stop-color="#f472b6" />
+			<stop offset="1" stop-color="#fb923c" />
+		</linearGradient>
+		<filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+			<feGaussianBlur stdDeviation="5" result="blur" />
+			<feMerge>
+				<feMergeNode in="blur" />
+				<feMergeNode in="SourceGraphic" />
+			</feMerge>
+		</filter>
+		<marker id="cv" markerWidth="10" markerHeight="10" refX="7" refY="5" orient="auto"><path d="M0 0 L8 5 L0 10 z" fill="#475569" /></marker>
+	</defs>
+	<rect width="1200" height="630" fill="url(#bg)" />
+
+	<text x="80" y="112" fill="#7dd3fc" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="600" letter-spacing="3">CS336 · LECTURE 7 · PARALLELISM</text>
+	<text x="80" y="184" fill="#f8fafc" font-family="Inter, Arial, sans-serif" font-size="62" font-weight="800">分布式训练</text>
+	<text x="80" y="234" fill="#cbd5e1" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="500">单卡装不下，就把模型切开——而切法的代价，是卡间通信</text>
+
+	<!-- 四种并行卡片 -->
+	<g transform="translate(80,300)" font-family="Inter, Arial, sans-serif">
+		<g>
+			<rect width="252" height="120" rx="18" fill="#0b1120" fill-opacity="0.6" stroke="#334155" />
+			<text x="22" y="44" fill="#22d3ee" font-size="20" font-weight="700">数据并行 DP</text>
+			<text x="22" y="74" fill="#cbd5e1" font-size="15">切批次，复制模型</text>
+			<text x="22" y="98" fill="#64748b" font-size="13">All-Reduce 同步梯度</text>
+		</g>
+		<g transform="translate(272,0)">
+			<rect width="252" height="120" rx="18" fill="#0b1120" fill-opacity="0.6" stroke="#334155" />
+			<text x="22" y="44" fill="#a78bfa" font-size="20" font-weight="700">张量并行 TP</text>
+			<text x="22" y="74" fill="#cbd5e1" font-size="15">切矩阵宽度</text>
+			<text x="22" y="98" fill="#64748b" font-size="13">每层都要同步激活</text>
+		</g>
+		<g transform="translate(544,0)">
+			<rect width="252" height="120" rx="18" fill="#0b1120" fill-opacity="0.6" stroke="#334155" />
+			<text x="22" y="44" fill="#fb923c" font-size="20" font-weight="700">流水线并行 PP</text>
+			<text x="22" y="74" fill="#cbd5e1" font-size="15">切层，传激活</text>
+			<text x="22" y="98" fill="#64748b" font-size="13">代价是流水线气泡</text>
+		</g>
+		<g transform="translate(816,0)">
+			<rect width="252" height="120" rx="18" fill="#0b1120" fill-opacity="0.6" stroke="#334155" />
+			<text x="22" y="44" fill="#f472b6" font-size="20" font-weight="700">序列并行 SP</text>
+			<text x="22" y="74" fill="#cbd5e1" font-size="15">切序列长度</text>
+			<text x="22" y="98" fill="#64748b" font-size="13">省下激活值显存</text>
+		</g>
+	</g>
+
+	<!-- 重点数据 -->
+	<g transform="translate(80,480)">
+		<text x="0" y="40" fill="#94a3b8" font-family="Inter, Arial, sans-serif" font-size="20">ZeRO-3 / FSDP，单卡显存：</text>
+		<text x="268" y="44" fill="#f87171" font-family="ui-monospace, Menlo, monospace" font-size="34" font-weight="800">120 GB</text>
+		<text x="430" y="40" fill="#94a3b8" font-family="Inter, Arial, sans-serif" font-size="24">→</text>
+		<text x="470" y="44" fill="#34d399" font-family="ui-monospace, Menlo, monospace" font-size="34" font-weight="800" filter="url(#glow)">1.9 GB</text>
+		<text x="610" y="42" fill="#7dd3fc" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700">≈ 64× 收缩，靠的是把状态切片分摊</text>
+	</g>
+
+	<rect x="80" y="582" width="60" height="6" rx="3" fill="url(#accentA)" />
+	<rect x="150" y="582" width="36" height="6" rx="3" fill="url(#accentB)" />
+	<text x="1120" y="600" text-anchor="end" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="18">Data · Tensor · Pipeline · Sequence · ZeRO/FSDP · NCCL</text>
+</svg>

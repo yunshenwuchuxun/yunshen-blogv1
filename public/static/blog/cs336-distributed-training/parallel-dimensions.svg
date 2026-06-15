@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" fill="none" role="img" aria-labelledby="pdtitle pddesc">
+	<title id="pdtitle">并行的四个切分维度</title>
+	<desc id="pddesc">同一份训练负载可以从四个维度切开：数据维度对应数据并行，宽度维度对应张量并行，深度维度对应流水线并行，序列维度对应序列并行。</desc>
+	<rect width="1200" height="560" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="512" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+
+	<text x="56" y="80" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="700">一份负载，四种切法：所有并行策略的总框架</text>
+	<text x="56" y="114" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="19">同样两张卡（<tspan fill="#2563EB" font-weight="700">■</tspan> GPU-A　<tspan fill="#059669" font-weight="700">■</tspan> GPU-B），沿不同维度切开，就得到不同的并行策略。</text>
+
+	<!-- 面板 1 · 数据并行 -->
+	<g transform="translate(56,148)" font-family="Inter, Arial, sans-serif">
+		<rect width="520" height="180" rx="16" fill="#FBFCFE" stroke="#E5E7EB" />
+		<text x="22" y="38" fill="#2563EB" font-size="20" font-weight="700">数据维度 → 数据并行 DP</text>
+		<text x="22" y="62" fill="#94A3B8" font-size="14">复制整份模型，每卡喂不同批次</text>
+		<!-- 两份相同模型 -->
+		<rect x="150" y="92" width="70" height="68" rx="8" fill="#E2E8F0" stroke="#94A3B8" />
+		<rect x="300" y="92" width="70" height="68" rx="8" fill="#E2E8F0" stroke="#94A3B8" />
+		<text x="185" y="132" text-anchor="middle" fill="#475467" font-size="12">模型(全)</text>
+		<text x="335" y="132" text-anchor="middle" fill="#475467" font-size="12">模型(全)</text>
+		<rect x="160" y="78" width="50" height="16" rx="4" fill="#60A5FA" stroke="#2563EB" />
+		<rect x="310" y="78" width="50" height="16" rx="4" fill="#34D399" stroke="#059669" />
+		<text x="430" y="120" fill="#475467" font-size="13">批次①</text>
+		<text x="430" y="142" fill="#475467" font-size="13">批次②</text>
+	</g>
+
+	<!-- 面板 2 · 张量并行 -->
+	<g transform="translate(606,148)" font-family="Inter, Arial, sans-serif">
+		<rect width="520" height="180" rx="16" fill="#FBFCFE" stroke="#E5E7EB" />
+		<text x="22" y="38" fill="#7C3AED" font-size="20" font-weight="700">宽度维度 → 张量并行 TP</text>
+		<text x="22" y="62" fill="#94A3B8" font-size="14">把每一层的大矩阵沿宽度切两半</text>
+		<rect x="170" y="84" width="180" height="76" rx="8" fill="none" stroke="#94A3B8" />
+		<rect x="172" y="86" width="86" height="72" rx="6" fill="#60A5FA" fill-opacity="0.55" stroke="#2563EB" />
+		<rect x="262" y="86" width="86" height="72" rx="6" fill="#34D399" fill-opacity="0.55" stroke="#059669" />
+		<line x1="260" y1="86" x2="260" y2="158" stroke="#475467" stroke-width="1.5" stroke-dasharray="4 4" />
+		<text x="215" y="128" text-anchor="middle" fill="#1E3A8A" font-size="12">半张</text>
+		<text x="305" y="128" text-anchor="middle" fill="#064E3B" font-size="12">半张</text>
+		<text x="430" y="126" fill="#475467" font-size="13">同一层</text>
+	</g>
+
+	<!-- 面板 3 · 流水线并行 -->
+	<g transform="translate(56,356)" font-family="Inter, Arial, sans-serif">
+		<rect width="520" height="180" rx="16" fill="#FBFCFE" stroke="#E5E7EB" />
+		<text x="22" y="38" fill="#EA580C" font-size="20" font-weight="700">深度维度 → 流水线并行 PP</text>
+		<text x="22" y="62" fill="#94A3B8" font-size="14">按层把模型切成前段、后段</text>
+		<g>
+			<rect x="200" y="78" width="120" height="20" rx="4" fill="#60A5FA" fill-opacity="0.55" stroke="#2563EB" />
+			<rect x="200" y="100" width="120" height="20" rx="4" fill="#60A5FA" fill-opacity="0.55" stroke="#2563EB" />
+			<rect x="200" y="122" width="120" height="20" rx="4" fill="#34D399" fill-opacity="0.55" stroke="#059669" />
+			<rect x="200" y="144" width="120" height="20" rx="4" fill="#34D399" fill-opacity="0.55" stroke="#059669" />
+		</g>
+		<text x="360" y="100" fill="#1E3A8A" font-size="13">前 2 层 → A</text>
+		<text x="360" y="146" fill="#064E3B" font-size="13">后 2 层 → B</text>
+	</g>
+
+	<!-- 面板 4 · 序列并行 -->
+	<g transform="translate(606,356)" font-family="Inter, Arial, sans-serif">
+		<rect width="520" height="180" rx="16" fill="#FBFCFE" stroke="#E5E7EB" />
+		<text x="22" y="38" fill="#DB2777" font-size="20" font-weight="700">序列维度 → 序列并行 SP</text>
+		<text x="22" y="62" fill="#94A3B8" font-size="14">把一条 token 序列切成两段</text>
+		<rect x="60" y="104" width="150" height="34" rx="6" fill="#60A5FA" fill-opacity="0.55" stroke="#2563EB" />
+		<rect x="212" y="104" width="150" height="34" rx="6" fill="#34D399" fill-opacity="0.55" stroke="#059669" />
+		<text x="135" y="126" text-anchor="middle" fill="#1E3A8A" font-size="12">token 1…n/2</text>
+		<text x="287" y="126" text-anchor="middle" fill="#064E3B" font-size="12">token n/2…n</text>
+		<text x="380" y="124" fill="#475467" font-size="22">→</text>
+		<rect x="410" y="100" width="56" height="42" rx="8" fill="#E2E8F0" stroke="#94A3B8" />
+		<text x="438" y="125" text-anchor="middle" fill="#475467" font-size="11">模型</text>
+	</g>
+</svg>

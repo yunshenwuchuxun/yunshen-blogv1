@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" fill="none" role="img" aria-labelledby="cotitle codesc">
+	<title id="cotitle">集合通信原语</title>
+	<desc id="codesc">All-Reduce 等价于 Reduce-Scatter 加 All-Gather。四个 GPU 各持完整向量，先归约分散保留一个分片，再全收集广播，最终人人持有完整的求和结果。</desc>
+	<defs>
+		<marker id="coarrow" markerWidth="12" markerHeight="12" refX="9" refY="5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#475569" /></marker>
+	</defs>
+	<rect width="1200" height="560" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="512" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+
+	<text x="56" y="80" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="700">集合通信原语：All-Reduce = Reduce-Scatter + All-Gather</text>
+	<text x="56" y="114" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="19">列 = 4 个 GPU，行 = 4 个数据分片。颜色相同代表同一份内容，紫色代表「已全局求和」。</text>
+
+	<!-- 列标题（GPU 编号），三块网格各画一次 -->
+	<g font-family="Inter, Arial, sans-serif" font-size="13" fill="#64748B" text-anchor="middle">
+		<text x="126" y="200">G0</text><text x="164" y="200">G1</text><text x="202" y="200">G2</text><text x="240" y="200">G3</text>
+		<text x="546" y="200">G0</text><text x="584" y="200">G1</text><text x="622" y="200">G2</text><text x="660" y="200">G3</text>
+		<text x="936" y="200">G0</text><text x="974" y="200">G1</text><text x="1012" y="200">G2</text><text x="1050" y="200">G3</text>
+	</g>
+
+	<!-- 网格 1：初始，每个 GPU 各持完整向量（各列一色） -->
+	<g transform="translate(110,212)">
+		<g fill="#60A5FA" fill-opacity="0.85" stroke="#2563EB"><rect x="0" y="0" width="32" height="24" rx="4"/><rect x="0" y="30" width="32" height="24" rx="4"/><rect x="0" y="60" width="32" height="24" rx="4"/><rect x="0" y="90" width="32" height="24" rx="4"/></g>
+		<g fill="#34D399" fill-opacity="0.85" stroke="#059669"><rect x="38" y="0" width="32" height="24" rx="4"/><rect x="38" y="30" width="32" height="24" rx="4"/><rect x="38" y="60" width="32" height="24" rx="4"/><rect x="38" y="90" width="32" height="24" rx="4"/></g>
+		<g fill="#FBBF24" fill-opacity="0.85" stroke="#D97706"><rect x="76" y="0" width="32" height="24" rx="4"/><rect x="76" y="30" width="32" height="24" rx="4"/><rect x="76" y="60" width="32" height="24" rx="4"/><rect x="76" y="90" width="32" height="24" rx="4"/></g>
+		<g fill="#F472B6" fill-opacity="0.85" stroke="#DB2777"><rect x="114" y="0" width="32" height="24" rx="4"/><rect x="114" y="30" width="32" height="24" rx="4"/><rect x="114" y="60" width="32" height="24" rx="4"/><rect x="114" y="90" width="32" height="24" rx="4"/></g>
+	</g>
+	<text x="183" y="356" text-anchor="middle" fill="#475467" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="600">初始</text>
+	<text x="183" y="378" text-anchor="middle" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="13">各 GPU 都有完整向量（值不同）</text>
+
+	<!-- 箭头 1 -->
+	<line x1="280" y1="258" x2="500" y2="258" stroke="#475569" stroke-width="2.5" marker-end="url(#coarrow)" />
+	<text x="390" y="248" text-anchor="middle" fill="#7C3AED" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="700">Reduce-Scatter</text>
+	<text x="390" y="278" text-anchor="middle" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="12">归约 + 分散</text>
+
+	<!-- 网格 2：reduce-scatter 后，仅对角线保留且已求和 -->
+	<g transform="translate(530,212)" stroke="#E2E8F0" fill="#F1F5F9">
+		<rect x="0" y="0" width="32" height="24" rx="4"/><rect x="38" y="0" width="32" height="24" rx="4"/><rect x="76" y="0" width="32" height="24" rx="4"/><rect x="114" y="0" width="32" height="24" rx="4"/>
+		<rect x="0" y="30" width="32" height="24" rx="4"/><rect x="38" y="30" width="32" height="24" rx="4"/><rect x="76" y="30" width="32" height="24" rx="4"/><rect x="114" y="30" width="32" height="24" rx="4"/>
+		<rect x="0" y="60" width="32" height="24" rx="4"/><rect x="38" y="60" width="32" height="24" rx="4"/><rect x="76" y="60" width="32" height="24" rx="4"/><rect x="114" y="60" width="32" height="24" rx="4"/>
+		<rect x="0" y="90" width="32" height="24" rx="4"/><rect x="38" y="90" width="32" height="24" rx="4"/><rect x="76" y="90" width="32" height="24" rx="4"/><rect x="114" y="90" width="32" height="24" rx="4"/>
+	</g>
+	<g transform="translate(530,212)" fill="#A78BFA" fill-opacity="0.9" stroke="#7C3AED" font-family="Inter, Arial, sans-serif">
+		<rect x="0" y="0" width="32" height="24" rx="4"/>
+		<rect x="38" y="30" width="32" height="24" rx="4"/>
+		<rect x="76" y="60" width="32" height="24" rx="4"/>
+		<rect x="114" y="90" width="32" height="24" rx="4"/>
+		<text x="16" y="17" text-anchor="middle" fill="#3B0764" font-size="13" font-weight="700">Σ</text>
+		<text x="54" y="47" text-anchor="middle" fill="#3B0764" font-size="13" font-weight="700">Σ</text>
+		<text x="92" y="77" text-anchor="middle" fill="#3B0764" font-size="13" font-weight="700">Σ</text>
+		<text x="130" y="107" text-anchor="middle" fill="#3B0764" font-size="13" font-weight="700">Σ</text>
+	</g>
+	<text x="603" y="356" text-anchor="middle" fill="#475467" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="600">Reduce-Scatter 后</text>
+	<text x="603" y="378" text-anchor="middle" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="13">各留 1 个分片，已是全局求和</text>
+
+	<!-- 箭头 2 -->
+	<line x1="690" y1="258" x2="890" y2="258" stroke="#475569" stroke-width="2.5" marker-end="url(#coarrow)" />
+	<text x="790" y="248" text-anchor="middle" fill="#7C3AED" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="700">All-Gather</text>
+	<text x="790" y="278" text-anchor="middle" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="12">广播分片</text>
+
+	<!-- 网格 3：all-gather 后，全部为已求和的完整结果 -->
+	<g transform="translate(920,212)" fill="#A78BFA" fill-opacity="0.9" stroke="#7C3AED">
+		<rect x="0" y="0" width="32" height="24" rx="4"/><rect x="38" y="0" width="32" height="24" rx="4"/><rect x="76" y="0" width="32" height="24" rx="4"/><rect x="114" y="0" width="32" height="24" rx="4"/>
+		<rect x="0" y="30" width="32" height="24" rx="4"/><rect x="38" y="30" width="32" height="24" rx="4"/><rect x="76" y="30" width="32" height="24" rx="4"/><rect x="114" y="30" width="32" height="24" rx="4"/>
+		<rect x="0" y="60" width="32" height="24" rx="4"/><rect x="38" y="60" width="32" height="24" rx="4"/><rect x="76" y="60" width="32" height="24" rx="4"/><rect x="114" y="60" width="32" height="24" rx="4"/>
+		<rect x="0" y="90" width="32" height="24" rx="4"/><rect x="38" y="90" width="32" height="24" rx="4"/><rect x="76" y="90" width="32" height="24" rx="4"/><rect x="114" y="90" width="32" height="24" rx="4"/>
+	</g>
+	<text x="993" y="356" text-anchor="middle" fill="#475467" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="600">All-Gather 后 = All-Reduce</text>
+	<text x="993" y="378" text-anchor="middle" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="13">人人持有完整的求和结果</text>
+
+	<!-- 底部结论 -->
+	<g transform="translate(56,418)" font-family="Inter, Arial, sans-serif">
+		<rect x="0" y="0" width="1088" height="92" rx="14" fill="#F5F3FF" stroke="#DDD6FE" />
+		<text x="24" y="36" fill="#5B21B6" font-size="17" font-weight="700">为什么这条恒等式重要？</text>
+		<text x="24" y="66" fill="#475467" font-size="15">两步各传约 1× 数据，合计 <tspan font-weight="700" fill="#5B21B6">≈ 2× 数据量</tspan>——这正是数据并行「同步一次梯度」的通信成本。</text>
+		<text x="24" y="86" fill="#94A3B8" font-size="13">FSDP 也正是把这两步拆开复用：用 All-Gather 临时取回参数、用 Reduce-Scatter 更新梯度分片。</text>
+	</g>
+</svg>

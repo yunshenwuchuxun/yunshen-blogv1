@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" fill="none" role="img" aria-labelledby="pbtitle pbdesc">
+	<title id="pbtitle">流水线并行的气泡问题</title>
+	<desc id="pbdesc">朴素流水线一次只跑一个批次，利用率约为 1/n，大量时间在空转形成气泡；把批次拆成多个微批次填进流水线后，气泡只剩首尾的小三角。</desc>
+	<rect width="1200" height="560" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="512" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+
+	<text x="56" y="80" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="700">流水线并行：气泡，与如何挤掉它</text>
+	<text x="56" y="114" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="19">横轴是时间。<tspan fill="#2563EB" font-weight="700">■</tspan> 前向　<tspan fill="#EA580C" font-weight="700">■</tspan> 反向　<tspan fill="#94A3B8" font-weight="700">■</tspan> 空转（气泡）。</text>
+
+	<!-- ===== 朴素流水线 ===== -->
+	<text x="56" y="156" fill="#B91C1C" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700">朴素流水线 · 只跑 1 个批次 → 利用率 ≈ 1/n</text>
+	<g font-family="Inter, Arial, sans-serif" font-size="13" fill="#64748B" text-anchor="end">
+		<text x="196" y="197">GPU0</text><text x="196" y="229">GPU1</text><text x="196" y="261">GPU2</text><text x="196" y="293">GPU3</text>
+	</g>
+	<!-- 轨道 -->
+	<g fill="#F1F5F9" stroke="#E2E8F0">
+		<rect x="210" y="178" width="448" height="26" rx="4"/><rect x="210" y="210" width="448" height="26" rx="4"/>
+		<rect x="210" y="242" width="448" height="26" rx="4"/><rect x="210" y="274" width="448" height="26" rx="4"/>
+	</g>
+	<!-- 活动单元 -->
+	<g font-family="Inter, Arial, sans-serif" font-size="13" font-weight="700" text-anchor="middle">
+		<rect x="210" y="178" width="52" height="26" rx="4" fill="#60A5FA" stroke="#2563EB"/><text x="236" y="196" fill="#fff">F</text>
+		<rect x="602" y="178" width="52" height="26" rx="4" fill="#FB923C" stroke="#EA580C"/><text x="628" y="196" fill="#fff">B</text>
+		<rect x="266" y="210" width="52" height="26" rx="4" fill="#60A5FA" stroke="#2563EB"/><text x="292" y="228" fill="#fff">F</text>
+		<rect x="546" y="210" width="52" height="26" rx="4" fill="#FB923C" stroke="#EA580C"/><text x="572" y="228" fill="#fff">B</text>
+		<rect x="322" y="242" width="52" height="26" rx="4" fill="#60A5FA" stroke="#2563EB"/><text x="348" y="260" fill="#fff">F</text>
+		<rect x="490" y="242" width="52" height="26" rx="4" fill="#FB923C" stroke="#EA580C"/><text x="516" y="260" fill="#fff">B</text>
+		<rect x="378" y="274" width="52" height="26" rx="4" fill="#60A5FA" stroke="#2563EB"/><text x="404" y="292" fill="#fff">F</text>
+		<rect x="434" y="274" width="52" height="26" rx="4" fill="#FB923C" stroke="#EA580C"/><text x="460" y="292" fill="#fff">B</text>
+	</g>
+	<text x="900" y="230" text-anchor="middle" fill="#B91C1C" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="700">大片气泡</text>
+	<text x="900" y="254" text-anchor="middle" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="13">同一时刻只有 1 张卡在算</text>
+	<line x1="690" y1="191" x2="690" y2="287" stroke="#FCA5A5" stroke-width="1.5" stroke-dasharray="4 4"/>
+
+	<!-- ===== 微批次流水线 ===== -->
+	<text x="56" y="348" fill="#047857" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700">微批次流水线 · 把批次拆成 4 个微批次填进去</text>
+	<g font-family="Inter, Arial, sans-serif" font-size="13" fill="#64748B" text-anchor="end">
+		<text x="196" y="389">GPU0</text><text x="196" y="421">GPU1</text><text x="196" y="453">GPU2</text><text x="196" y="485">GPU3</text>
+	</g>
+	<g fill="#F1F5F9" stroke="#E2E8F0">
+		<rect x="210" y="370" width="448" height="26" rx="4"/><rect x="210" y="402" width="448" height="26" rx="4"/>
+		<rect x="210" y="434" width="448" height="26" rx="4"/><rect x="210" y="466" width="448" height="26" rx="4"/>
+	</g>
+	<g font-family="Inter, Arial, sans-serif" font-size="12" font-weight="700" text-anchor="middle" fill="#fff">
+		<!-- GPU0: cols 0-3 -->
+		<rect x="210" y="370" width="52" height="26" rx="4" fill="#60A5FA" stroke="#2563EB"/><text x="236" y="388">1</text>
+		<rect x="266" y="370" width="52" height="26" rx="4" fill="#60A5FA" stroke="#2563EB"/><text x="292" y="388">2</text>
+		<rect x="322" y="370" width="52" height="26" rx="4" fill="#60A5FA" stroke="#2563EB"/><text x="348" y="388">3</text>
+		<rect x="378" y="370" width="52" height="26" rx="4" fill="#60A5FA" stroke="#2563EB"/><text x="404" y="388">4</text>
+		<!-- GPU1: cols 1-4 -->
+		<rect x="266" y="402" width="52" height="26" rx="4" fill="#60A5FA" stroke="#2563EB"/><text x="292" y="420">1</text>
+		<rect x="322" y="402" width="52" height="26" rx="4" fill="#60A5FA" stroke="#2563EB"/><text x="348" y="420">2</text>
+		<rect x="378" y="402" width="52" height="26" rx="4" fill="#60A5FA" stroke="#2563EB"/><text x="404" y="420">3</text>
+		<rect x="434" y="402" width="52" height="26" rx="4" fill="#60A5FA" stroke="#2563EB"/><text x="460" y="420">4</text>
+		<!-- GPU2: cols 2-5 -->
+		<rect x="322" y="434" width="52" height="26" rx="4" fill="#60A5FA" stroke="#2563EB"/><text x="348" y="452">1</text>
+		<rect x="378" y="434" width="52" height="26" rx="4" fill="#60A5FA" stroke="#2563EB"/><text x="404" y="452">2</text>
+		<rect x="434" y="434" width="52" height="26" rx="4" fill="#60A5FA" stroke="#2563EB"/><text x="460" y="452">3</text>
+		<rect x="490" y="434" width="52" height="26" rx="4" fill="#60A5FA" stroke="#2563EB"/><text x="516" y="452">4</text>
+		<!-- GPU3: cols 3-6 -->
+		<rect x="378" y="466" width="52" height="26" rx="4" fill="#60A5FA" stroke="#2563EB"/><text x="404" y="484">1</text>
+		<rect x="434" y="466" width="52" height="26" rx="4" fill="#60A5FA" stroke="#2563EB"/><text x="460" y="484">2</text>
+		<rect x="490" y="466" width="52" height="26" rx="4" fill="#60A5FA" stroke="#2563EB"/><text x="516" y="484">3</text>
+		<rect x="546" y="466" width="52" height="26" rx="4" fill="#60A5FA" stroke="#2563EB"/><text x="572" y="484">4</text>
+	</g>
+	<text x="900" y="408" text-anchor="middle" fill="#047857" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="700">气泡只剩首尾小三角</text>
+	<text x="900" y="432" text-anchor="middle" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="13">中段四卡同时在算</text>
+
+	<!-- 右侧公式说明 -->
+	<g transform="translate(700,150)" font-family="Inter, Arial, sans-serif">
+		<rect x="0" y="0" width="392" height="60" rx="12" fill="#F0FDF4" stroke="#BBF7D0" />
+		<text x="20" y="28" fill="#166534" font-size="14" font-weight="700">气泡占比 = (n−1) / (m + n−1)</text>
+		<text x="20" y="50" fill="#475467" font-size="13">n=阶段数，m=微批次数；m 越大，气泡越小。</text>
+	</g>
+</svg>
