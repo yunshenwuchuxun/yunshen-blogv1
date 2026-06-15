@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="470" viewBox="0 0 1200 470" fill="none" role="img" aria-labelledby="ctitle cdesc">
+	<title id="ctitle">专家容量与溢出（Token Dropout）机制</title>
+	<desc id="cdesc">每个专家有容量上限，超过容量的 token 不再执行该专家 FFN，只通过残差连接传到下一层，造成潜在语义损失。</desc>
+	<rect width="1200" height="470" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="422" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="72" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="700">容量上限：给每个专家设一个"班级人数"</text>
+	<text x="56" y="106" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="18">超出容量的 token 被丢弃（drop），只走残差连接到下一层——这是稳定性与表达力之间的权衡。</text>
+
+	<g font-family="ui-monospace, Menlo, monospace">
+		<rect x="56" y="132" width="540" height="52" rx="10" fill="#F8FAFC" stroke="#CBD5E1" />
+		<text x="76" y="165" fill="#0F172A" font-size="19" font-weight="700">C_expert = ⌈ (N / E) × capacity_factor ⌉</text>
+	</g>
+	<text x="620" y="152" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="15">N = token 总数，E = 专家数</text>
+	<text x="620" y="176" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="15">capacity_factor 通常取 1.25</text>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<!-- 容量正常的专家 -->
+		<text x="200" y="236" fill="#111827" font-size="18" font-weight="700" text-anchor="middle">专家 A（容量=3）</text>
+		<rect x="120" y="252" width="160" height="150" rx="12" fill="#F0FDF4" stroke="#86EFAC" />
+		<g text-anchor="middle" font-size="15">
+			<rect x="140" y="350" width="120" height="34" rx="7" fill="#BBF7D0" stroke="#16A34A" /><text x="200" y="372" fill="#14532D">token a</text>
+			<rect x="140" y="310" width="120" height="34" rx="7" fill="#BBF7D0" stroke="#16A34A" /><text x="200" y="332" fill="#14532D">token b</text>
+			<rect x="140" y="270" width="120" height="34" rx="7" fill="#BBF7D0" stroke="#16A34A" /><text x="200" y="292" fill="#14532D">token c</text>
+		</g>
+		<text x="200" y="430" fill="#15803D" font-size="15" text-anchor="middle" font-weight="600">全部正常计算 ✓</text>
+
+		<!-- 容量溢出的专家 -->
+		<text x="560" y="236" fill="#111827" font-size="18" font-weight="700" text-anchor="middle">专家 B（容量=3，来了 5 个）</text>
+		<rect x="480" y="252" width="160" height="150" rx="12" fill="#FEF2F2" stroke="#FCA5A5" />
+		<g text-anchor="middle" font-size="15">
+			<rect x="500" y="350" width="120" height="34" rx="7" fill="#FECACA" stroke="#EF4444" /><text x="560" y="372" fill="#7F1D1D">token p</text>
+			<rect x="500" y="310" width="120" height="34" rx="7" fill="#FECACA" stroke="#EF4444" /><text x="560" y="332" fill="#7F1D1D">token q</text>
+			<rect x="500" y="270" width="120" height="34" rx="7" fill="#FECACA" stroke="#EF4444" /><text x="560" y="292" fill="#7F1D1D">token r</text>
+		</g>
+		<!-- 溢出 -->
+		<g text-anchor="middle" font-size="15">
+			<rect x="676" y="290" width="120" height="34" rx="7" fill="#F1F5F9" stroke="#CBD5E1" stroke-dasharray="4 3" /><text x="736" y="312" fill="#94A3B8">token s</text>
+			<rect x="676" y="334" width="120" height="34" rx="7" fill="#F1F5F9" stroke="#CBD5E1" stroke-dasharray="4 3" /><text x="736" y="356" fill="#94A3B8">token t</text>
+		</g>
+		<text x="736" y="270" fill="#B91C1C" font-size="14" text-anchor="middle" font-weight="700">溢出 · 被丢弃</text>
+
+		<!-- 残差旁路 -->
+		<path d="M796 312 Q 900 312 900 230 Q 900 180 1000 180" fill="none" stroke="#F59E0B" stroke-width="2.5" stroke-dasharray="5 4" />
+		<path d="M796 351 Q 900 351 900 230" fill="none" stroke="#F59E0B" stroke-width="2.5" stroke-dasharray="5 4" />
+		<rect x="1000" y="158" width="148" height="46" rx="10" fill="#FFFBEB" stroke="#F59E0B" />
+		<text x="1074" y="186" fill="#92400E" font-size="15" text-anchor="middle" font-weight="700">残差直连下一层</text>
+
+		<text x="900" y="420" fill="#B45309" font-size="15" text-anchor="middle" font-weight="600">未经任何专家处理 → 潜在语义损失</text>
+	</g>
+</svg>

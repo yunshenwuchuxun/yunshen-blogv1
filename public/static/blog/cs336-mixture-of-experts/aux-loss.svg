@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" fill="none" role="img" aria-labelledby="altitle aldesc">
+	<title id="altitle">辅助负载均衡损失</title>
+	<desc id="aldesc">在语言建模损失之外加一项辅助损失 N·Σfᵢ·Pᵢ。失衡时损失偏高，梯度通过可导的 P 把过载专家的概率压下去，逼分配回到均匀。</desc>
+	<rect width="1200" height="560" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="512" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+
+	<text x="56" y="80" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="700">辅助损失：把「均衡」写进训练目标</text>
+	<text x="56" y="114" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="19">在语言建模损失外加一项 L_aux = N · Σ fᵢ·Pᵢ，惩罚分配不均；均衡时取最小值 1。</text>
+
+	<!-- 左：失衡 -->
+	<rect x="56" y="146" width="520" height="300" rx="16" fill="#FEF2F2" stroke="#FECACA" />
+	<text x="80" y="184" fill="#B91C1C" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="700">失衡 · 少数专家过载</text>
+	<text x="80" y="208" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="13">fᵢ（token 占比）</text>
+	<!-- 均匀目标线 -->
+	<line x1="80" y1="355" x2="552" y2="355" stroke="#94A3B8" stroke-width="1.5" stroke-dasharray="5 5" />
+	<text x="548" y="349" text-anchor="end" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="12">均匀线 1/N</text>
+	<!-- 基线 -->
+	<line x1="80" y1="400" x2="552" y2="400" stroke="#CBD5E1" stroke-width="2" />
+	<!-- 柱 -->
+	<g>
+		<rect x="92" y="250" width="48" height="150" rx="4" fill="#F87171" stroke="#DC2626" />
+		<rect x="162" y="386" width="48" height="14" rx="4" fill="#93C5FD" stroke="#2563EB" />
+		<rect x="232" y="345" width="48" height="55" rx="4" fill="#93C5FD" stroke="#2563EB" />
+		<rect x="302" y="392" width="48" height="8" rx="4" fill="#93C5FD" stroke="#2563EB" />
+		<rect x="372" y="367" width="48" height="33" rx="4" fill="#93C5FD" stroke="#2563EB" />
+		<rect x="442" y="386" width="48" height="14" rx="4" fill="#93C5FD" stroke="#2563EB" />
+	</g>
+	<text x="116" y="240" text-anchor="middle" fill="#B91C1C" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="700">过载</text>
+	<rect x="316" y="414" width="200" height="24" rx="6" fill="#FEE2E2" />
+	<text x="416" y="431" text-anchor="middle" fill="#B91C1C" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700">L_aux ≈ 2.2（偏高）</text>
+
+	<!-- 右：均衡 -->
+	<rect x="624" y="146" width="520" height="300" rx="16" fill="#F0FDF4" stroke="#BBF7D0" />
+	<text x="648" y="184" fill="#047857" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="700">均衡 · 雨露均沾</text>
+	<text x="648" y="208" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="13">fᵢ（token 占比）</text>
+	<line x1="648" y1="355" x2="1120" y2="355" stroke="#94A3B8" stroke-width="1.5" stroke-dasharray="5 5" />
+	<text x="1116" y="349" text-anchor="end" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="12">均匀线 1/N</text>
+	<line x1="648" y1="400" x2="1120" y2="400" stroke="#CBD5E1" stroke-width="2" />
+	<g fill="#34D399" stroke="#059669">
+		<rect x="660" y="355" width="48" height="45" rx="4" />
+		<rect x="730" y="355" width="48" height="45" rx="4" />
+		<rect x="800" y="355" width="48" height="45" rx="4" />
+		<rect x="870" y="355" width="48" height="45" rx="4" />
+		<rect x="940" y="355" width="48" height="45" rx="4" />
+		<rect x="1010" y="355" width="48" height="45" rx="4" />
+	</g>
+	<rect x="784" y="414" width="200" height="24" rx="6" fill="#DCFCE7" />
+	<text x="884" y="431" text-anchor="middle" fill="#047857" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700">L_aux = 1.0（最小）</text>
+
+	<!-- 底部：梯度机制说明 -->
+	<g transform="translate(56,466)" font-family="Inter, Arial, sans-serif">
+		<rect x="0" y="0" width="1088" height="56" rx="12" fill="#EFF6FF" stroke="#BFDBFE" />
+		<text x="20" y="25" fill="#1E40AF" font-size="14" font-weight="700">精巧之处：fᵢ 不可导（硬计数），Pᵢ 可导（平均概率）。</text>
+		<text x="20" y="46" fill="#475467" font-size="14">梯度只能经 Pᵢ 回传 → 把过载专家的路由概率「拽小」→ 分配被推回均匀。系数 α≈0.01 调节均衡与效果的拉扯。</text>
+	</g>
+</svg>
