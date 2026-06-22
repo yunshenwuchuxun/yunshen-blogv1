@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" fill="none" role="img" aria-labelledby="t d">
+	<title id="t">训练最优 vs 推理最优</title>
+	<desc id="d">把推理成本计入总成本后，最优模型大小从 Chinchilla 点向更小模型、更多数据一侧移动。</desc>
+	<rect width="1200" height="520" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="472" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="70" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">总成本 = 训练 + 推理：最优点会左移</text>
+	<text x="56" y="100" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="17">达到同一目标质量时，推理量越大，最优配置越偏向"更小模型 + 更多数据"。</text>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<line x1="140" y1="150" x2="140" y2="430" stroke="#94A3B8" stroke-width="2.5" />
+		<line x1="140" y1="430" x2="1120" y2="430" stroke="#94A3B8" stroke-width="2.5" />
+		<text x="120" y="150" fill="#475569" font-size="15" text-anchor="end" transform="rotate(-90 120 290)">总成本</text>
+		<text x="630" y="466" fill="#475569" font-size="15" text-anchor="middle">模型大小 N（同一目标质量；越右越大）</text>
+		<text x="200" y="466" fill="#0E7490" font-size="13">小模型 + 多数据</text>
+		<text x="1060" y="466" fill="#5B21B6" font-size="13" text-anchor="end">大模型 + 少数据</text>
+
+		<!-- 低推理量 U 形（最优靠右，≈Chinchilla） -->
+		<path d="M300 250 C 480 360, 700 388, 820 388 C 940 388, 1010 330, 1080 250"
+			stroke="#7C3AED" stroke-width="4.5" fill="none" stroke-linecap="round" />
+		<circle cx="820" cy="388" r="9" fill="#7C3AED" />
+		<text x="820" y="372" fill="#5B21B6" font-size="14" font-weight="700" text-anchor="middle">训练最优（Chinchilla 20:1）</text>
+		<text x="1085" y="246" fill="#5B21B6" font-size="14">低推理量</text>
+
+		<!-- 高推理量 U 形（整体抬高，最优靠左） -->
+		<path d="M260 270 C 380 332, 470 348, 540 348 C 700 348, 900 410, 1080 470"
+			stroke="#0891B2" stroke-width="4.5" fill="none" stroke-linecap="round" />
+		<circle cx="540" cy="348" r="9" fill="#0891B2" />
+		<text x="540" y="332" fill="#155E75" font-size="14" font-weight="700" text-anchor="middle">推理最优（过度训练）</text>
+		<text x="248" y="266" fill="#155E75" font-size="14" text-anchor="end">高推理量</text>
+
+		<!-- 移动箭头 -->
+		<path d="M790 408 L575 380" stroke="#B91C1C" stroke-width="2.5" stroke-dasharray="6 5" marker-end="url(#ar2)" />
+		<text x="680" y="424" fill="#B91C1C" font-size="14" text-anchor="middle">推理量↑ → 最优点左移</text>
+	</g>
+	<defs>
+		<marker id="ar2" markerWidth="12" markerHeight="12" refX="8" refY="4" orient="auto">
+			<path d="M0 0 L8 4 L0 8 z" fill="#B91C1C" />
+		</marker>
+	</defs>
+</svg>

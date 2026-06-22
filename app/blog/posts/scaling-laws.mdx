@@ -1,0 +1,305 @@
+---
+title: '缩放定律（Scaling Laws）：在炼丹之前，先把大模型的性能"算"出来'
+publishedAt: '2026-06-22'
+summary: '训练一个千亿模型一次就要烧掉数百万美元，传统"多跑几组实验调参"的炼丹式做法彻底失效。缩放定律给出的解法是：在小规模上把"投入（参数 N / 数据 D / 算力 C）→ 损失 L"的关系拟合成一条幂律，再外推到大规模，在花钱之前就把结果算出来。本文按"为什么有效 → 单因素缩放 → 超参也能外推 → 联合缩放 → 训练最优 vs 推理最优 → 工程案例"的主线，把幂律的来源、内在维度、数据组成与重复、临界批量与 μP、Chinchilla 的 20:1、以及"为什么大家都在过度训练"讲清楚，配以重绘的示意图与论文原始实验图。'
+draft: false
+image: '/static/blog/scaling-laws/cover.svg'
+tags: [Deep Learning, Scaling Laws, LLM, Tech Blog]
+---
+
+训练一个前沿大模型，一次完整的预训练就要烧掉几百万美元的算力。在这种成本下，深度学习时代那套"多跑几组实验、网格搜索调参"的<strong>炼丹</strong>式做法彻底失效了——你没有第二次机会去试错。
+
+缩放定律（Scaling Laws）给出的解法听起来近乎"作弊"：先在<strong>便宜的小规模</strong>上，把"投入（模型参数 $N$、数据量 $D$、算力 $C$）→ 模型损失 $L$"的关系拟合成一条简单的<strong>幂律曲线</strong>，再把这条曲线<strong>外推</strong>到那个你还没训练、也训练不起的大模型上。于是在真正烧钱之前，你就能预测结果、规划配方、把每一分算力花在刀刃上。
+
+本文对应 Datawhale diy-llm 第九章（缩放定律）。原文内容非常详尽，但也铺得很长。这里把它压成一条主线：<strong>为什么幂律有效 → 一次只动一个旋钮的单因素缩放 → 连超参数也能外推 → 模型/数据/算力的联合缩放 → 从训练最优到推理最优 → 落到工程的三个案例</strong>。核心概念重绘为示意图，并保留原文与论文中最有代表性的实验图作为佐证。
+
+## 一、为什么需要缩放定律：从"炼丹"到"可预测的外推"
+
+缩放定律的整个方法论，其实就是三步：
+
+![缩放定律的核心范式：在小规模上做实验、拟合幂律、再外推到大规模](/static/blog/scaling-laws/scaling-idea.svg)
+
+<strong>在小规模实验 → 拟合出幂律关系 → 外推到大规模</strong>。能这么做的前提是：模型性能随规模的变化不是杂乱无章的，而是遵循一条平滑、可预测的曲线。
+
+这件事并不是 LLM 时代才有的直觉。它有很深的理论与实证根基：
+
+- <strong>理论起源：样本复杂度</strong>。经典统计学习理论早就给出过误差与样本量的关系，比如 $\epsilon(\hat h) \le \epsilon(h^\star) + O\!\left(\sqrt{d/m}\right)$——误差随样本量 $m$ 增大而下降，随假设空间复杂度 $d$ 增大而上升。这就是"更多数据带来更低误差"的最早形式化表达。
+- <strong>早期实证</strong>。Banko & Brill（2001）在词义消歧任务上发现，<strong>增加数据带来的性能提升，远超改进算法本身</strong>；Kolachina 等（2012）在机器翻译上发现学习曲线用幂律拟合效果最好。
+
+真正把这套直觉系统化的，是 Hestness 等（2017）提出的<strong>三阶段学习曲线</strong>：
+
+![Hestness 三阶段学习曲线：小数据区、幂律区、不可约误差区](/static/blog/scaling-laws/three-stage-curve.svg)
+
+- <strong>小数据区</strong>：数据太少，模型性能接近随机猜测，曲线没有规律。
+- <strong>幂律区</strong>：性能随数据稳定提升，在双对数（log-log）坐标下呈一条<strong>直线</strong>——这正是可以拟合、可以外推的黄金区间。
+- <strong>不可约误差区</strong>：性能撞上天花板，受限于模型容量或任务本身的噪声，再加数据也无济于事。
+
+缩放定律的全部技巧，就是要确认自己工作在中间那段<strong>幂律区</strong>，并小心两端的失真。
+
+## 二、单因素缩放：一次只动一个旋钮
+
+最干净的研究方式，是固定其他一切、只改变一个变量，看损失怎么变。
+
+### 数据 vs 性能：幂律与"内在维度"
+
+为什么偏偏是幂律？看一个最简单的例子——用 $n$ 个样本估计高斯分布的均值，均方误差是：
+
+$$
+\mathbb{E}\big[(\hat\mu - \mu)^2\big] = \frac{\sigma^2}{n}
+$$
+
+两边取对数，$\log(\text{Error}) = -\log n + 2\log\sigma$——这就是一条斜率为 $-1$ 的直线。把它推广到一般任务，就得到缩放定律的标准形式：
+
+$$
+\text{Error} \approx c \cdot n^{-\alpha}
+$$
+
+关键是这个指数 $\alpha$。Bahri 等（2021）指出，$\alpha$ 反映了数据流形的<strong>内在维度</strong>：维度越高，$\alpha$ 越小，曲线越平、数据"越贵"——你需要多得多的样本才能换来同样的性能提升。这解释了为什么不同任务的缩放速度天差地别。
+
+OpenAI 的 Kaplan 等（2020）把这条规律在语言模型上验证得淋漓尽致：损失对算力、数据量、参数量<strong>三者都呈幂律</strong>，跨越七个数量级依然是笔直的线。
+
+![OpenAI（Kaplan 等，2020）：测试损失对算力、数据集规模、参数量都呈幂律，在双对数坐标下是直线](/static/blog/scaling-laws/openai-scaling-laws.png)
+
+### 数据的"质"与"量"：组成只动截距，重复有上限
+
+数据不只有"多少"，还有"是什么"。两个关于数据的重要结论：
+
+<strong>数据组成只影响截距，不影响斜率</strong>。换不同的数据配方（比如代码占比、网页占比），改变的是幂律直线的<strong>上下位置（截距 $b$）</strong>，而不是它的<strong>倾斜程度（斜率 $k$）</strong>。
+
+![数据组成只平移幂律直线（改变截距），不改变其斜率](/static/blog/scaling-laws/data-composition.svg)
+
+这个性质极其实用：既然斜率不变，你就可以<strong>在便宜的小模型上做数据配方实验</strong>，选出的最优配比在大模型上依然成立——又一次"小规模选型、大规模复用"。
+
+<strong>重复数据的边际收益会迅速枯竭</strong>。当高质量数据不够、不得不重复使用时，重复多少次才"值"？研究给出了清晰的拐点：
+
+![数据重复的边际收益：4 个 epoch 以内重复数据约等于新数据，约 40 个 epoch 后几乎毫无价值](/static/blog/scaling-laws/data-repetition.svg)
+
+- <strong>4 个 epoch 以内</strong>：重复一遍数据，效果几乎等同于喂等量的新数据。
+- <strong>超过约 40 个 epoch</strong>：重复数据带来的收益趋近于零，相当于白烧算力。
+
+这种"先线性、后饱和"的关系，可以用<strong>有效数据</strong>建模：
+
+$$
+D' = U_D + U_D R_D^{\star}\left(1 - e^{-R_D / R_D^{\star}}\right)
+$$
+
+其中 $U_D$ 是去重后的唯一 token 数，$R_D$ 是重复次数，$R_D^{\star}$ 控制饱和速度。重复次数越多，$D'$ 越接近一个上限——这正是"40 个 epoch 后失效"的数学解释。
+
+### 模型与架构
+
+同样的算力预算下，<strong>Transformer 的缩放曲线明显优于 LSTM</strong>；而 Transformer 的各种变体之间，主要差异体现在幂律直线的<strong>常数项/截距</strong>上，幂律的形态（斜率）相当稳健。换句话说，架构创新更多是把整条曲线往下平移，而不是改变"加倍投入能换多少回报"这个根本规律。
+
+## 三、超参数也能外推：从优化器到学习率
+
+缩放定律最反直觉、也最实用的一步是：连<strong>超参数</strong>本身都可以预测。否则每换一个规模就要重新调一遍优化器、批量大小和学习率，"小规模实验"也就失去了意义。下面逐个旋钮来看。
+
+### 优化器：Adam 整体优于 SGD
+
+同样的数据量下，<strong>Adam 的缩放曲线整体压在 SGD 之下</strong>（损失更低）。但有意思的是，两者的幂律<strong>斜率几乎相同</strong>（约 $-0.094$ 对 $-0.095$）——也就是说，优化器的优势主要体现在把整条直线往下平移（更低的截距），而不是改变"加数据能换多少回报"这个斜率。
+
+![Adam vs SGD：两者都遵循幂律且斜率几乎相同，Adam 主要把曲线整体下移](/static/blog/scaling-laws/optimizer-adam-sgd.png)
+
+### 深度与宽度：超参数高度可互换
+
+模型该做成"高瘦"还是"矮胖"？Kaplan 等给出一个令人安心的结论：<strong>只要总参数量相同，深度/宽度的具体配置对性能影响极小</strong>。
+
+- <strong>前馈层比例</strong> $d_{ff}/d_{model}$：在 2～10 之间曲线几乎是平的，设 2、4 还是 8 都差不多，只有超过 10 才明显恶化。
+- <strong>宽高比</strong> $d_{model}/n_{layer}$：48 层 × 1600 维的"高瘦型"和 6 层 × 4288 维的"矮胖型"，只要总参数相同，性能差距不超过 3%。
+- <strong>注意力头维度</strong>：设 64 还是 128，影响也微乎其微。
+
+也就是说，在固定参数量的约束下，架构有相当大的自由度——这也解释了为什么各家模型的层数/宽度配置五花八门，却都能 work。
+
+### 临界批量大小：梯度噪声决定的拐点
+
+增大 batch size 能让训练更快（每步信息更多、所需步数更少），但不是越大越好。它背后的机理是<strong>梯度噪声</strong>：
+
+![临界批量大小：低于临界点是"完美缩放"，高于临界点进入"无效缩放"](/static/blog/scaling-laws/critical-batch-size.svg)
+
+- <strong>低于临界点（完美缩放）</strong>：此时梯度噪声大，加 batch 能有效降噪，训练步数近似等比例减少，几乎不浪费算力。
+- <strong>高于临界点（无效缩放）</strong>：噪声已经够低，再加 batch 对收敛帮助甚微，多出来的算力基本是浪费。
+
+而且临界批量本身也有规律：<strong>目标损失越低，所需的临界批量越大</strong>。MiniCPM 干脆把最优 batch 拟合成损失 $L$ 的函数：
+
+$$
+bs = 1.21 \times 10^9 \cdot L^{-6.24}
+$$
+
+### 学习率与 μP：让最优值跨规模不漂移
+
+<strong>学习率是最难跨尺度迁移的超参数</strong>。在标准参数化下，模型越大、最优学习率越小，小模型上调好的值搬到大模型往往直接发散——于是每个新规模都得重调一遍，成本极高。
+
+<strong>μP（Maximal Update Parametrization）</strong>及其变体 mμP 解决了这个问题：通过一套"感知缩放"的初始化与学习率方案，让最优学习率<strong>在不同规模下保持稳定</strong>。下图对比很直观——标准做法里最优点随宽度不断左移，μP 下则几乎钉在原地：
+
+![标准参数化下最优学习率随宽度漂移（左），μP 下最优点保持稳定（右）](/static/blog/scaling-laws/mup-standard-vs-improved.png)
+
+具体怎么调？当模型<strong>宽度扩大 $r$ 倍</strong>时：
+
+![μP 规则：矩阵类参数的学习率与初始化方差都除以 r，向量类参数保持不变](/static/blog/scaling-laws/mup-rules.svg)
+
+- <strong>矩阵类参数</strong>（Linear 权重）：学习率除以 $r$（$\eta \to \eta/r$），初始化方差也除以 $r$——让大模型的初始权重更接近 0，防止深层信号爆炸。
+- <strong>向量类参数</strong>（Bias、LayerNorm 等）：保持不变。
+
+这套规则（即 µTransfer）意味着：<strong>在小模型上找一次最优学习率，就能直接迁移到万亿参数大模型</strong>，把超参搜索成本压到近乎为零。MiniCPM 的实测也印证了这点——从 0.04B 到 2.1B（约 50 倍扩展），损失对学习率曲线的谷底始终稳定在 $0.01$ 附近：
+
+![采用 mμP 后，不同规模模型的最优学习率谷底稳定在 0.01 附近](/static/blog/scaling-laws/minicpm-lr-stability.png)
+
+## 四、一个重要的"但是"：下游任务上缩放会失灵
+
+前面所有漂亮的幂律，针对的都是<strong>预训练损失（困惑度）</strong>。可我们真正在意的，往往是模型在具体下游任务上的表现——而这两者并不总是同步。
+
+![同一批模型：困惑度随规模平滑可预测（左），SuperGLUE 准确率却参差不齐、难以预测（右）](/static/blog/scaling-laws/downstream-tasks.png)
+
+把同一批模型画两张图：
+
+- <strong>困惑度 vs 参数量（左）</strong>：漂亮的幂律直线，点几乎都落在线上，可预测性极强。
+- <strong>下游准确率 vs 参数量（右）</strong>：一团乱麻——有的小模型反超大模型，曲线参差不齐，根本拟合不出干净趋势。
+
+原因在于：语言建模是模型的<strong>基础目标</strong>，直接反映表示学习的质量，所以缩放得很稳；而下游任务还掺入了任务适配、提示工程、指令遵循等一大堆因素，它们会严重干扰缩放规律。由此还衍生出两类著名现象：<strong>涌现（emergence）</strong>——某些能力要等模型越过一定规模才突然出现；以及偶发的<strong>反向缩放（inverse scaling）</strong>——极少数任务上更大的模型反而更差。
+
+实践启示很明确：<strong>缩放定律对预训练损失预测力很强，但不要盲目用它外推下游任务的表现</strong>，后者需要针对性地单独验证。
+
+## 五、联合缩放：模型、数据与算力的三角
+
+单因素缩放回答的是"只加数据会怎样"，但真实问题永远带着<strong>算力预算约束</strong>：给定固定的算力 $C$，应该把它分给"更大的模型"还是"更多的数据"？
+
+先记住一条把三者联系起来的近似式（推导见 [CS336 资源核算](/blog/cs336-pytorch-resource-accounting)）：
+
+$$
+C \approx 6ND
+$$
+
+训练算力约等于 6 倍的参数量乘以数据量，于是固定 $C$ 就是在 $N$ 和 $D$ 之间做权衡。不同团队给出过不同的联合公式：Rosenfeld 等（2020）把误差拆成三项，
+
+$$
+\text{Error} = n^{-\alpha} + m^{-\beta} + C_0
+$$
+
+分别是数据项 $n^{-\alpha}$、模型项 $m^{-\beta}$，加上任务本身的不可约误差 $C_0$；Kaplan 等（2020）则用一个没有常数项的耦合形式 $\text{Error} = \left[m^{-\alpha} + n^{-1}\right]^{\beta}$。它们刻画的图像是一致的：<strong>固定算力下存在唯一的最优模型大小</strong>——小模型 loss 降得快但很快走平，大模型起点高却能持续降到更低。
+
+### Chinchilla：三条路殊途同归
+
+Chinchilla（Hoffmann 等，2022）把损失同时建模为 $N$ 和 $D$ 的函数：
+
+$$
+L(N, D) = E + \frac{A}{N^{\alpha}} + \frac{B}{D^{\beta}}
+$$
+
+并用<strong>三种互相独立的方法</strong>去估计计算最优的 $(N, D)$，结论高度一致：
+
+![Chinchilla 的三种方法：最小值包络、IsoFLOP、N-D 网格联合拟合，都指向 20:1](/static/blog/scaling-laws/chinchilla-methods.svg)
+
+1. <strong>最小值包络</strong>：把大量训练曲线的下包络线取出来，作为各算力下的最优表现。
+2. <strong>IsoFLOP</strong>：固定若干算力预算，每个预算下扫描不同模型大小，得到一族 U 形曲线，每条<strong>谷底</strong>即该预算的最优配置；这些谷底在双对数坐标下连成一条直线。
+3. <strong>联合拟合</strong>：在 $N$-$D$ 网格上训练一批模型，直接拟合上面的 $L(N,D)$ 函数。
+
+三种方法都得出：<strong>最优的 $N$ 和 $D$ 随算力的缩放指数都约为 $0.5$</strong>——算力翻倍时，模型和数据应该"各涨一半"，对应一个恒定的<strong>数据/参数比 ≈ 20:1</strong>（每个参数约配 20 个 token）。这直接纠正了早期 GPT-3 "模型过大、数据过少"（约 2:1）的配方。
+
+IsoFLOP 是其中最常用的工具，下图是 LLaMA 3 的实测：每条 U 形曲线的谷底，就是该算力预算下的最优模型大小。
+
+![IsoFLOP 曲线（LLaMA 3）：每个算力预算对应一条 U 形曲线，谷底即该预算下的最优配置](/static/blog/scaling-laws/llama3-isoflop.png)
+
+而联合缩放最强的地方，依然是<strong>外推</strong>：用 1/16 的模型、1/8 的数据拟合出关系，就能相当准确地预测全量模型的误差。
+
+![联合缩放的外推能力：用小模型小数据拟合（绿点），外推到大规模（红点）的预测误差仅几个百分点](/static/blog/scaling-laws/joint-scaling.png)
+
+## 六、从"训练最优"到"推理最优"：为什么大家都在过度训练
+
+Chinchilla 的 20:1 有一个常被忽略的前提：它只优化<strong>训练算力</strong>。但模型训完是要<strong>部署</strong>的，而推理成本（正比于模型大小 × 请求量）在一个被亿万次调用的模型上，往往<strong>远远超过</strong>一次性的训练成本。
+
+一旦把推理成本算进来，最优解就会偏离 Chinchilla：<strong>把模型做得更小、用远超 20:1 的数据把它"喂饱"</strong>。这样训练时多花了点钱，却换来一个更小、推理更便宜、延迟更低的模型——这就是当下普遍的<strong>过度训练（over-training）</strong>趋势。看看数据/参数比这些年的演变：
+
+![数据/参数比的演变：从 GPT-3 的约 2:1，到 Chinchilla 的 20:1，再到 LLaMA 3 70B 的约 215:1](/static/blog/scaling-laws/data-model-ratio.svg)
+
+| 模型 | 数据 / 参数比 |
+|------|------|
+| GPT-3 | ≈ 2 : 1 |
+| Chinchilla | 20 : 1 |
+| LLaMA 65B | ≈ 22 : 1 |
+| LLaMA 2 70B | ≈ 29 : 1 |
+| Mistral 7B | ≈ 110 : 1 |
+| LLaMA 3 70B | ≈ 215 : 1 |
+
+背后的逻辑是把<strong>总成本 = 训练成本 + 推理成本</strong>一起最小化：
+
+![训练最优 vs 推理最优：把推理成本计入后，最优点向"更小模型、更多数据"一侧移动](/static/blog/scaling-laws/train-vs-inference-optimal.svg)
+
+预期的推理量越大，最优点就越向"小模型 + 多数据"一侧移动。Chinchilla 是推理量为零时的特例；现实中没人只训不用，所以现代模型几乎都站在它的"过度训练"那一侧。
+
+## 七、不止语言模型：扩散模型也遵循幂律
+
+缩放定律并不是自回归语言模型的专利。研究发现，<strong>扩散模型（如图像生成）遵循与自回归模型相同形式的缩放法则</strong>。
+
+![自回归与扩散模型各自的 IsoFLOP 最优点，在双对数坐标下都落在一条直线上](/static/blog/scaling-laws/diffusion-scaling.svg)
+
+验证思路和前面如出一辙：分别画出自回归模型和扩散模型的 IsoFLOP 曲线，取出各自的最优点；在双对数坐标下，这些最优点<strong>同样连成一条直线</strong>。两者的差别只在幂律的<strong>具体系数</strong>（截距、指数取值）和应用领域，而"加算力就能可预测地降损失""$N$ 与 $D$ 的最优配比由算力决定""IsoFLOP 分析照样适用"这些结论完全通用。这正是缩放定律被看作一条相当普适的经验规律的原因。
+
+## 八、落到工程：三种把缩放定律用起来的范式
+
+理论说得再漂亮，最终要看工程上怎么变成可复制的配方。三个代表性实践，恰好对应三种不同的"超参数策略"。
+
+### Cerebras-GPT：用 µTransfer 一次调参、全程复用
+
+Cerebras-GPT 系统性地采用 mμP：先在一个 <strong>40M 的小模型</strong>上搜出一组超参（基础学习率 $\eta_{base}=6\times10^{-3}$、初始化标准差 $\sigma_{base}=0.08$、嵌入缩放 $m_{emb}=10$），然后<strong>原封不动地用到 0.1B～13B 的所有模型</strong>上。这就是 µTransfer 的威力——超参数在数十倍规模扩展中既稳定又可预测，省掉了在大模型上反复调参的天价成本。
+
+### MiniCPM：WSD 调度器 + 一次训练扫多种数据量
+
+MiniCPM 用 <strong>WSD（Warmup-Stable-Decay）</strong>调度器替代余弦调度，分预热、稳定、衰减三段。它的妙处在于：<strong>损失在衰减阶段会突然大幅下降</strong>，而衰减只需约 10% 的步数。
+
+![MiniCPM 的 WSD：多条曲线共享同一条稳定主干，在不同 token 数处分叉出衰减，损失骤降后逼近余弦调度](/static/blog/scaling-laws/wsd-decay-drop.png)
+
+更关键的是，多条 WSD 曲线可以<strong>共享同一条稳定主干</strong>，只在不同的 token 数处分叉出各自的衰减段——于是<strong>一次训练就近似覆盖了多种数据量场景</strong>，把 Chinchilla 式扫描的成本砍掉一大截。MiniCPM 还用 mμP（scale_emb=12、scale_depth=1.4、init_std=0.1、lr=0.01）保证学习率稳定，并验证了最优批量大小只与目标损失相关、与模型规模无关。它最终采用的数据/参数比高达约 <strong>192</strong>，是典型的过度训练。
+
+### DeepSeek：不用 μP，直接拟合超参的缩放定律
+
+DeepSeek 走了另一条路：它假设大部分超参在规模变化时基本不变，干脆<strong>直接把最优批量大小和学习率拟合成算力 $C$ 的幂律</strong>：
+
+$$
+\eta_{opt} = 0.3118 \cdot C^{-0.125}, \qquad B_{opt} = 0.2920 \cdot C^{0.327}
+$$
+
+![DeepSeek：最优批量随算力上升、最优学习率随算力下降，且学习率存在一个"宽泛区间"（灰带）](/static/blog/scaling-laws/deepseek-bs-lr-trend.png)
+
+它还有两个务实的发现：一是<strong>最优学习率不是一个点，而是一个宽泛区间</strong>（图中灰带），坦然接受了现实的"非完美性"；二是<strong>多步学习率调度器</strong>在处理完约千亿 token 后，最终性能与余弦调度相当，却更适合"持续训练"（可复用前一阶段的成果）。最终 DeepSeek 7B/67B 的实际表现，与小规模实验拟合出的缩放曲线高度吻合——再次证明小规模可以预测大几百上千倍的规模。
+
+这股潮流还在继续：MiniMax 等工作甚至为不同的注意力机制（Softmax / Lightning / 混合）分别建立缩放定律，把"<strong>架构选择</strong>"也纳入了可缩放分析的范畴。三种范式对比如下：
+
+| 方案 | 超参策略 | 缩放方法 | 招牌工具 |
+|------|------|------|------|
+| Cerebras-GPT | mμP 保持不变 | Chinchilla 公式 | µTransfer |
+| MiniCPM | mμP 保持不变 | 曲线拟合（方法 ③） | WSD 调度 |
+| DeepSeek | 大部分不变 | 直接拟合 + IsoFLOP | 多步调度 |
+
+## 九、实践建议
+
+把全文的工程含义浓缩成一份清单：
+
+- <strong>先小后大</strong>：在小模型上做实验、拟合幂律，再外推到目标规模，而不是直接在大模型上试错。
+- <strong>用 μP/mμP 稳住超参</strong>：让最优学习率等超参跨尺度可迁移，小模型调一次即可。
+- <strong>batch 与学习率</strong>：用拟合公式（如 $bs = 1.21\times10^9 \cdot L^{-6.24}$）或接受"宽泛最优区间"，不必死磕单点。
+- <strong>数据策略</strong>：配方可在小模型上选（组成只动截距）；重复控制在 4 个 epoch 以内；大规模下可适当放宽质量、优先保量。
+- <strong>明确目标再定比例</strong>：是追求训练最优（贴近 20:1）还是推理最优（远超 20:1 的过度训练），取决于这个模型未来要被调用多少次。
+
+## 总结
+
+缩放定律把大模型研发从"烧钱试错的炼丹"变成了"可外推的工程科学"：
+
+- 模型性能随投入呈<strong>幂律</strong>变化，在双对数坐标下是一条可拟合、可外推的直线；幂律的斜率由数据的<strong>内在维度</strong>决定。
+- 数据的<strong>组成只动截距、不动斜率</strong>（可小模型选型），<strong>重复</strong>则有约 4 / 40 个 epoch 的边际拐点。
+- 连<strong>超参数</strong>都能外推：优化器主要影响截距、深度/宽度高度可互换、临界批量可拟合，μP/mμP 让最优学习率跨尺度稳定。
+- 但要小心边界：缩放定律对<strong>预训练损失</strong>预测力很强，对<strong>下游任务</strong>却可能失灵（涌现、反向缩放），需单独验证。
+- 在算力约束下，$C\approx 6ND$ 与 $L(N,D)$ 共同决定计算最优配置，Chinchilla 用三种方法都得到 <strong>20:1</strong> 的数据/参数比基准。
+- 把<strong>推理成本</strong>计入后，最优点滑向"更小模型 + 更多数据"，这正是现代模型普遍<strong>过度训练</strong>的根本原因。
+- 这套规律相当普适：连<strong>扩散模型</strong>都遵循同形式的幂律，工程上则演化出 Cerebras-GPT / MiniCPM / DeepSeek 三种落地范式。
+
+一句话：在 LLM 时代，会算缩放定律，往往比会调参更重要。
+
+## 参考资料
+
+- Kaplan et al., 2020. <strong>Scaling Laws for Neural Language Models</strong>.
+- Hoffmann et al., 2022. <strong>Training Compute-Optimal Large Language Models</strong>（Chinchilla）.
+- Hestness et al., 2017. <strong>Deep Learning Scaling is Predictable, Empirically</strong>.
+- Bahri et al., 2021. <strong>Explaining Neural Scaling Laws</strong>.
+- Rosenfeld et al., 2020. <strong>A Constructive Prediction of the Generalization Error Across Scales</strong>.
+- Muennighoff et al., 2023. <strong>Scaling Data-Constrained Language Models</strong>（数据重复）.
+- Hu et al., 2024. <strong>MiniCPM</strong>；DeepSeek LLM Scaling Laws；Cerebras-GPT。
+- Datawhale diy-llm 第九章《缩放定律》（[原文](https://datawhalechina.github.io/diy-llm/chapter9/chapter9_Scaling_Laws.html)）。

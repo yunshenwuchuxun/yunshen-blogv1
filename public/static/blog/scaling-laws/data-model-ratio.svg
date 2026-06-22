@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" fill="none" role="img" aria-labelledby="t d">
+	<title id="t">数据 / 参数比的演变</title>
+	<desc id="d">从 GPT-3 的约 2:1，到 Chinchilla 的 20:1，再到 LLaMA 3 70B 的约 215:1，数据/参数比持续走高。</desc>
+	<rect width="1200" height="520" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="472" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="70" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">数据 / 参数比的演变：越来越"过度训练"</text>
+	<text x="56" y="100" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="17">每个参数配多少训练 token——从 GPT-3 远低于 20:1，到现代模型远高于 20:1（条宽按 √比例 绘制）。</text>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<!-- Chinchilla 20:1 基准线（对齐 Chinchilla 条形末端 x=459，√20≈4.47×40+280） -->
+		<line x1="459" y1="140" x2="459" y2="470" stroke="#7C3AED" stroke-width="2" stroke-dasharray="6 6" />
+		<text x="467" y="158" fill="#5B21B6" font-size="14" font-weight="700">Chinchilla 计算最优 20:1</text>
+
+		<!-- 条形（x: 标签, 起点 280） bar width = sqrt(ratio)*40 -->
+		<!-- GPT-3: sqrt2=1.41 ->57 -->
+		<rect x="280" y="150" width="57" height="34" rx="6" fill="#FCA5A5" />
+		<text x="268" y="172" fill="#334155" font-size="17" text-anchor="end">GPT-3</text>
+		<text x="347" y="172" fill="#B91C1C" font-size="15" font-weight="700">≈ 2 : 1</text>
+
+		<!-- Chinchilla: sqrt20=4.47 ->179 -->
+		<rect x="280" y="200" width="179" height="34" rx="6" fill="#C4B5FD" />
+		<text x="268" y="222" fill="#334155" font-size="17" text-anchor="end">Chinchilla</text>
+		<text x="469" y="222" fill="#5B21B6" font-size="15" font-weight="700">20 : 1</text>
+
+		<!-- LLaMA 65B: sqrt22=4.69 ->188 -->
+		<rect x="280" y="250" width="188" height="34" rx="6" fill="#A5B4FC" />
+		<text x="268" y="272" fill="#334155" font-size="17" text-anchor="end">LLaMA 65B</text>
+		<text x="478" y="272" fill="#3730A3" font-size="15" font-weight="700">≈ 22 : 1</text>
+
+		<!-- LLaMA2 70B: sqrt29=5.39 ->215 -->
+		<rect x="280" y="300" width="215" height="34" rx="6" fill="#818CF8" />
+		<text x="268" y="322" fill="#334155" font-size="17" text-anchor="end">LLaMA 2 70B</text>
+		<text x="505" y="322" fill="#3730A3" font-size="15" font-weight="700">≈ 29 : 1</text>
+
+		<!-- Mistral 7B: sqrt110=10.49 ->419 -->
+		<rect x="280" y="350" width="419" height="34" rx="6" fill="#38BDF8" />
+		<text x="268" y="372" fill="#334155" font-size="17" text-anchor="end">Mistral 7B</text>
+		<text x="709" y="372" fill="#0369A1" font-size="15" font-weight="700">≈ 110 : 1</text>
+
+		<!-- LLaMA3 70B: sqrt215=14.66 ->586 -->
+		<rect x="280" y="400" width="586" height="34" rx="6" fill="#22D3EE" />
+		<text x="268" y="422" fill="#334155" font-size="17" text-anchor="end">LLaMA 3 70B</text>
+		<text x="876" y="422" fill="#155E75" font-size="15" font-weight="700">≈ 215 : 1</text>
+
+		<!-- 右侧注释 -->
+		<rect x="930" y="250" width="218" height="130" rx="14" fill="#ECFEFF" stroke="#0891B2" />
+		<text x="952" y="288" fill="#155E75" font-size="16" font-weight="700">为推理而过度训练</text>
+		<text x="952" y="318" fill="#0E7490" font-size="14">模型更小、数据更多，</text>
+		<text x="952" y="342" fill="#0E7490" font-size="14">训练略贵，但推理</text>
+		<text x="952" y="366" fill="#0E7490" font-size="14">更便宜、延迟更低。</text>
+	</g>
+</svg>

@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="440" viewBox="0 0 1200 440" fill="none" role="img" aria-labelledby="t d">
+	<title id="t">缩放定律的核心范式</title>
+	<desc id="d">三步法：在小规模上做实验、拟合幂律关系、再外推到大规模模型。</desc>
+	<rect width="1200" height="440" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="392" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="74" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="700">缩放定律的三步法</text>
+	<text x="56" y="106" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="18">用便宜的小规模实验，预测昂贵的大规模结果——在烧钱之前就知道答案。</text>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<!-- step 1 -->
+		<rect x="64" y="150" width="300" height="220" rx="16" fill="#EEF2FF" stroke="#6366F1" />
+		<circle cx="104" cy="192" r="20" fill="#6366F1" />
+		<text x="104" y="199" fill="#FFFFFF" font-size="20" font-weight="800" text-anchor="middle">1</text>
+		<text x="140" y="199" fill="#3730A3" font-size="22" font-weight="700">小规模实验</text>
+		<text x="92" y="248" fill="#4338CA" font-size="17">在小模型 / 少量数据上</text>
+		<text x="92" y="278" fill="#4338CA" font-size="17">跑几组成本可控的实验，</text>
+		<text x="92" y="308" fill="#4338CA" font-size="17">采集若干"投入→损失"点。</text>
+
+		<!-- step 2 -->
+		<rect x="450" y="150" width="300" height="220" rx="16" fill="#ECFEFF" stroke="#0891B2" />
+		<circle cx="490" cy="192" r="20" fill="#0891B2" />
+		<text x="490" y="199" fill="#FFFFFF" font-size="20" font-weight="800" text-anchor="middle">2</text>
+		<text x="526" y="199" fill="#155E75" font-size="22" font-weight="700">拟合幂律</text>
+		<text x="478" y="248" fill="#0E7490" font-size="17">双对数坐标下点连成</text>
+		<text x="478" y="278" fill="#0E7490" font-size="17">一条直线，拟合出</text>
+		<text x="478" y="308" fill="#0E7490" font-size="17">斜率与截距。</text>
+
+		<!-- step 3 -->
+		<rect x="836" y="150" width="300" height="220" rx="16" fill="#F5F3FF" stroke="#7C3AED" />
+		<circle cx="876" cy="192" r="20" fill="#7C3AED" />
+		<text x="876" y="199" fill="#FFFFFF" font-size="20" font-weight="800" text-anchor="middle">3</text>
+		<text x="912" y="199" fill="#5B21B6" font-size="22" font-weight="700">外推大规模</text>
+		<text x="864" y="248" fill="#6D28D9" font-size="17">把直线延伸到那个</text>
+		<text x="864" y="278" fill="#6D28D9" font-size="17">还训练不起的大模型，</text>
+		<text x="864" y="308" fill="#6D28D9" font-size="17">预测它的最终性能。</text>
+
+		<!-- arrows -->
+		<path d="M372 260 L442 260" stroke="#94A3B8" stroke-width="3" marker-end="url(#ar)" />
+		<path d="M758 260 L828 260" stroke="#94A3B8" stroke-width="3" marker-end="url(#ar)" />
+	</g>
+	<defs>
+		<marker id="ar" markerWidth="12" markerHeight="12" refX="8" refY="4" orient="auto">
+			<path d="M0 0 L8 4 L0 8 z" fill="#94A3B8" />
+		</marker>
+	</defs>
+</svg>

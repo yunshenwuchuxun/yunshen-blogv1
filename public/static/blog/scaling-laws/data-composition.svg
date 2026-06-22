@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="500" viewBox="0 0 1200 500" fill="none" role="img" aria-labelledby="t d">
+	<title id="t">数据组成只影响截距，不影响斜率</title>
+	<desc id="d">不同数据配方在双对数坐标下给出斜率相同、截距不同的两条平行幂律直线。</desc>
+	<rect width="1200" height="500" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="452" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="70" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">数据组成：只平移，不改斜率</text>
+	<text x="56" y="100" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="17">换数据配方改变的是直线的高低（截距 b），而非倾斜程度（斜率 k）——所以配方可在小模型上选。</text>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<line x1="120" y1="140" x2="120" y2="420" stroke="#94A3B8" stroke-width="2.5" />
+		<line x1="120" y1="420" x2="760" y2="420" stroke="#94A3B8" stroke-width="2.5" />
+		<text x="100" y="140" fill="#475569" font-size="15" text-anchor="end" transform="rotate(-90 100 280)">log（损失）</text>
+		<text x="440" y="456" fill="#475569" font-size="15" text-anchor="middle">log（数据量）</text>
+
+		<!-- 两条平行直线 -->
+		<line x1="150" y1="200" x2="740" y2="360" stroke="#6366F1" stroke-width="4.5" />
+		<line x1="150" y1="270" x2="740" y2="430" stroke="#0891B2" stroke-width="4.5" stroke-dasharray="2 0" />
+
+		<!-- 点 -->
+		<circle cx="220" cy="219" r="6" fill="#6366F1" /><circle cx="380" cy="263" r="6" fill="#6366F1" /><circle cx="560" cy="312" r="6" fill="#6366F1" />
+		<circle cx="220" cy="289" r="6" fill="#0891B2" /><circle cx="380" cy="333" r="6" fill="#0891B2" /><circle cx="560" cy="382" r="6" fill="#0891B2" />
+
+		<text x="600" y="300" fill="#4338CA" font-size="17" font-weight="600">配方 A</text>
+		<text x="600" y="412" fill="#0E7490" font-size="17" font-weight="600">配方 B</text>
+
+		<!-- 截距差标注 -->
+		<line x1="150" y1="200" x2="150" y2="270" stroke="#B91C1C" stroke-width="2" stroke-dasharray="4 4" />
+		<text x="158" y="240" fill="#B91C1C" font-size="14">截距差 Δb</text>
+
+		<!-- 右侧结论卡 -->
+		<rect x="820" y="150" width="320" height="120" rx="14" fill="#DCFCE7" stroke="#22C55E" />
+		<text x="844" y="190" fill="#166534" font-size="18" font-weight="700">斜率 k 相同</text>
+		<text x="844" y="222" fill="#15803D" font-size="15">"加倍数据能换多少回报"</text>
+		<text x="844" y="246" fill="#15803D" font-size="15">不随配方变化。</text>
+
+		<rect x="820" y="290" width="320" height="120" rx="14" fill="#EEF2FF" stroke="#6366F1" />
+		<text x="844" y="330" fill="#3730A3" font-size="18" font-weight="700">截距 b 不同</text>
+		<text x="844" y="362" fill="#4338CA" font-size="15">好配方把整条线往下平移，</text>
+		<text x="844" y="386" fill="#4338CA" font-size="15">可在小模型上低成本选型。</text>
+	</g>
+</svg>

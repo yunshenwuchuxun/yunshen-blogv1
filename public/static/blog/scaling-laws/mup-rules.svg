@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="460" viewBox="0 0 1200 460" fill="none" role="img" aria-labelledby="t d">
+	<title id="t">μP 的重参数化规则</title>
+	<desc id="d">当模型宽度扩大 r 倍时，矩阵类参数的学习率与初始化方差都除以 r，向量类参数保持不变。</desc>
+	<rect width="1200" height="460" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="412" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="72" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">μP：宽度扩大 r 倍时，怎么调超参</text>
+	<text x="56" y="102" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="17">核心是"感知缩放"——按宽度自动缩放学习率与初始化，让最优超参跨规模不变。</text>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<!-- 左：宽度 ×r -->
+		<rect x="64" y="150" width="220" height="240" rx="16" fill="#EEF2FF" stroke="#6366F1" />
+		<text x="174" y="200" fill="#3730A3" font-size="20" font-weight="700" text-anchor="middle">宽度扩大</text>
+		<text x="174" y="280" fill="#6366F1" font-size="64" font-weight="800" text-anchor="middle">× r</text>
+		<text x="174" y="340" fill="#4338CA" font-size="15" text-anchor="middle">小模型 → 大模型</text>
+
+		<path d="M300 270 L356 270" stroke="#94A3B8" stroke-width="3" marker-end="url(#ar3)" />
+
+		<!-- 矩阵类参数 -->
+		<rect x="372" y="150" width="430" height="240" rx="16" fill="#FFFFFF" stroke="#0891B2" />
+		<text x="396" y="190" fill="#155E75" font-size="19" font-weight="700">矩阵类参数（Linear 权重）</text>
+		<rect x="396" y="214" width="382" height="64" rx="10" fill="#ECFEFF" />
+		<text x="416" y="254" fill="#0E7490" font-size="18">学习率 ÷ r　　<tspan font-weight="700">η → η / r</tspan></text>
+		<rect x="396" y="294" width="382" height="64" rx="10" fill="#ECFEFF" />
+		<text x="416" y="334" fill="#0E7490" font-size="18">初始化方差 ÷ r　　<tspan font-weight="700">σ² → σ² / r</tspan></text>
+
+		<!-- 向量类参数 -->
+		<rect x="818" y="150" width="318" height="240" rx="16" fill="#FFFFFF" stroke="#9CA3AF" />
+		<text x="842" y="190" fill="#374151" font-size="19" font-weight="700">向量类参数</text>
+		<text x="842" y="214" fill="#6B7280" font-size="14">Bias、LayerNorm 等</text>
+		<rect x="842" y="244" width="270" height="100" rx="10" fill="#F3F4F6" />
+		<text x="977" y="296" fill="#374151" font-size="22" font-weight="800" text-anchor="middle">保持不变</text>
+		<text x="977" y="324" fill="#6B7280" font-size="14" text-anchor="middle">无需随规模调整</text>
+	</g>
+	<defs>
+		<marker id="ar3" markerWidth="12" markerHeight="12" refX="8" refY="4" orient="auto">
+			<path d="M0 0 L8 4 L0 8 z" fill="#94A3B8" />
+		</marker>
+	</defs>
+</svg>

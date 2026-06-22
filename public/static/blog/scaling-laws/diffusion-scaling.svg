@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="480" viewBox="0 0 1200 480" fill="none" role="img" aria-labelledby="t d">
+	<title id="t">扩散模型遵循与自回归模型相同的缩放法则</title>
+	<desc id="d">自回归与扩散模型各自的 IsoFLOP 最优点，在双对数坐标下都落在一条直线上，说明两者都遵循幂律。</desc>
+	<rect width="1200" height="480" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="432" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="70" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">不只是语言模型：扩散模型也是幂律</text>
+	<text x="56" y="100" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="17">两类模型各取 IsoFLOP 最优点，落在 log-log 直线上——缩放定律不是自回归模型的专利。</text>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<!-- 左：自回归 IsoFLOP -->
+		<rect x="56" y="140" width="340" height="290" rx="16" fill="#FFFFFF" stroke="#6366F1" />
+		<text x="226" y="174" fill="#3730A3" font-size="17" font-weight="700" text-anchor="middle">自回归模型 IsoFLOP</text>
+		<line x1="92" y1="390" x2="378" y2="390" stroke="#CBD5E1" stroke-width="2" />
+		<line x1="92" y1="200" x2="92" y2="390" stroke="#CBD5E1" stroke-width="2" />
+		<path d="M112 230 C 152 350, 192 352, 232 230" stroke="#A5B4FC" stroke-width="2.6" fill="none" />
+		<path d="M152 250 C 192 360, 232 362, 272 250" stroke="#818CF8" stroke-width="2.6" fill="none" />
+		<path d="M192 270 C 232 372, 272 374, 312 270" stroke="#6366F1" stroke-width="2.6" fill="none" />
+		<path d="M192 230 L312 250 L232 295" stroke="none" />
+		<polygon points="192,348 199,335 185,335" fill="#DB2777" />
+		<polygon points="232,358 239,345 225,345" fill="#DB2777" />
+		<polygon points="272,366 279,353 265,353" fill="#DB2777" />
+
+		<!-- 中：扩散 IsoFLOP -->
+		<rect x="430" y="140" width="340" height="290" rx="16" fill="#FFFFFF" stroke="#0891B2" />
+		<text x="600" y="174" fill="#155E75" font-size="17" font-weight="700" text-anchor="middle">扩散模型 IsoFLOP</text>
+		<line x1="466" y1="390" x2="752" y2="390" stroke="#CBD5E1" stroke-width="2" />
+		<line x1="466" y1="200" x2="466" y2="390" stroke="#CBD5E1" stroke-width="2" />
+		<path d="M486 230 C 526 350, 566 352, 606 230" stroke="#67E8F9" stroke-width="2.6" fill="none" />
+		<path d="M526 250 C 566 360, 606 362, 646 250" stroke="#22D3EE" stroke-width="2.6" fill="none" />
+		<path d="M566 270 C 606 372, 646 374, 686 270" stroke="#0891B2" stroke-width="2.6" fill="none" />
+		<polygon points="566,348 573,335 559,335" fill="#DB2777" />
+		<polygon points="606,358 613,345 599,345" fill="#DB2777" />
+		<polygon points="646,366 653,353 639,353" fill="#DB2777" />
+
+		<!-- 右：最优点连成直线 -->
+		<rect x="804" y="140" width="332" height="290" rx="16" fill="#FDF2F8" stroke="#DB2777" />
+		<text x="970" y="174" fill="#9D174D" font-size="17" font-weight="700" text-anchor="middle">最优点连成直线</text>
+		<line x1="840" y1="390" x2="1110" y2="390" stroke="#CBD5E1" stroke-width="2" />
+		<line x1="840" y1="200" x2="840" y2="390" stroke="#CBD5E1" stroke-width="2" />
+		<line x1="858" y1="365" x2="1095" y2="225" stroke="#DB2777" stroke-width="3.5" />
+		<polygon points="880,352 887,339 873,339" fill="#6366F1" />
+		<polygon points="930,322 937,309 923,309" fill="#6366F1" />
+		<polygon points="985,290 992,277 978,277" fill="#0891B2" />
+		<polygon points="1040,258 1047,245 1033,245" fill="#0891B2" />
+		<text x="970" y="415" fill="#9D174D" font-size="13" text-anchor="middle">log 算力 → log 最优损失</text>
+	</g>
+</svg>

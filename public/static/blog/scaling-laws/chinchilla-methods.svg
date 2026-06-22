@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="480" viewBox="0 0 1200 480" fill="none" role="img" aria-labelledby="t d">
+	<title id="t">Chinchilla 确定计算最优配置的三种方法</title>
+	<desc id="d">最小值包络、IsoFLOP 等计算量分析、以及在 N-D 网格上联合拟合三种方法都指向 20:1。</desc>
+	<rect width="1200" height="480" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="432" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="70" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">三条殊途同归的路：都指向 20:1</text>
+	<text x="56" y="100" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="17">Chinchilla 用三种独立方法估计计算最优的 (N, D)，结论一致——每参数约配 20 个 token。</text>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<!-- 方法1：最小值包络 -->
+		<rect x="56" y="140" width="346" height="290" rx="16" fill="#FFFFFF" stroke="#6366F1" />
+		<text x="78" y="178" fill="#3730A3" font-size="19" font-weight="700">① 最小值包络</text>
+		<text x="78" y="202" fill="#6366F1" font-size="13">取所有训练曲线的下包络</text>
+		<line x1="92" y1="380" x2="378" y2="380" stroke="#CBD5E1" stroke-width="2" />
+		<line x1="92" y1="230" x2="92" y2="380" stroke="#CBD5E1" stroke-width="2" />
+		<path d="M100 250 C 160 290, 220 250, 280 320" stroke="#C7D2FE" stroke-width="2.5" fill="none" />
+		<path d="M120 270 C 180 320, 250 290, 320 350" stroke="#C7D2FE" stroke-width="2.5" fill="none" />
+		<path d="M100 250 C 200 360, 300 360, 370 372" stroke="#6366F1" stroke-width="3.5" fill="none" />
+		<text x="235" y="408" fill="#64748b" font-size="12" text-anchor="middle">算力 →</text>
+
+		<!-- 方法2：IsoFLOP -->
+		<rect x="426" y="140" width="346" height="290" rx="16" fill="#FFFFFF" stroke="#0891B2" />
+		<text x="448" y="178" fill="#155E75" font-size="19" font-weight="700">② IsoFLOP</text>
+		<text x="448" y="202" fill="#0891B2" font-size="13">固定算力扫 N，取每条谷底</text>
+		<line x1="462" y1="380" x2="748" y2="380" stroke="#CBD5E1" stroke-width="2" />
+		<line x1="462" y1="230" x2="462" y2="380" stroke="#CBD5E1" stroke-width="2" />
+		<path d="M482 250 C 522 350, 562 352, 602 250" stroke="#67E8F9" stroke-width="2.8" fill="none" />
+		<path d="M520 270 C 560 360, 600 362, 640 270" stroke="#22D3EE" stroke-width="2.8" fill="none" />
+		<path d="M560 290 C 600 368, 640 370, 680 290" stroke="#0891B2" stroke-width="2.8" fill="none" />
+		<circle cx="562" cy="350" r="5" fill="#DB2777" /><circle cx="600" cy="360" r="5" fill="#DB2777" /><circle cx="640" cy="368" r="5" fill="#DB2777" />
+		<text x="605" y="408" fill="#64748b" font-size="12" text-anchor="middle">模型大小 N →</text>
+
+		<!-- 方法3：联合拟合 -->
+		<rect x="796" y="140" width="346" height="290" rx="16" fill="#FFFFFF" stroke="#7C3AED" />
+		<text x="818" y="178" fill="#5B21B6" font-size="19" font-weight="700">③ 联合拟合</text>
+		<text x="818" y="202" fill="#7C3AED" font-size="13">在 N-D 网格上拟合 L(N,D)</text>
+		<g stroke="#DDD6FE" stroke-width="1.5">
+			<line x1="840" y1="240" x2="1110" y2="240" /><line x1="840" y1="280" x2="1110" y2="280" />
+			<line x1="840" y1="320" x2="1110" y2="320" /><line x1="840" y1="360" x2="1110" y2="360" />
+			<line x1="880" y1="230" x2="880" y2="372" /><line x1="960" y1="230" x2="960" y2="372" />
+			<line x1="1040" y1="230" x2="1040" y2="372" />
+		</g>
+		<path d="M850 365 L1100 235" stroke="#7C3AED" stroke-width="3.5" fill="none" />
+		<text x="975" y="408" fill="#64748b" font-size="12" text-anchor="middle">D 与 N 的最优指数均 ≈ 0.5</text>
+	</g>
+</svg>

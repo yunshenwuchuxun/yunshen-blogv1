@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="500" viewBox="0 0 1200 500" fill="none" role="img" aria-labelledby="t d">
+	<title id="t">数据重复的边际收益递减</title>
+	<desc id="d">重复 4 个 epoch 以内约等于新数据，超过约 40 个 epoch 后重复数据几乎没有价值。</desc>
+	<rect width="1200" height="500" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="452" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="70" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">重复数据：先等价新数据，后迅速失效</text>
+	<text x="56" y="100" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="17">有效数据 D′ 随重复次数趋于上限——4 个 epoch 内几乎无损，40 个 epoch 后形同白烧算力。</text>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<line x1="130" y1="150" x2="130" y2="420" stroke="#94A3B8" stroke-width="2.5" />
+		<line x1="130" y1="420" x2="1120" y2="420" stroke="#94A3B8" stroke-width="2.5" />
+		<text x="110" y="150" fill="#475569" font-size="15" text-anchor="end" transform="rotate(-90 110 285)">有效数据 D′</text>
+		<text x="625" y="458" fill="#475569" font-size="15" text-anchor="middle">重复次数（epoch）</text>
+
+		<!-- 理想线性（虚） -->
+		<line x1="130" y1="420" x2="560" y2="150" stroke="#9CA3AF" stroke-width="2" stroke-dasharray="7 7" />
+		<text x="470" y="180" fill="#9CA3AF" font-size="14">理想：等价新数据</text>
+
+		<!-- 实际饱和曲线 -->
+		<path d="M130 420 C 230 300, 300 250, 400 235 C 540 215, 760 205, 1090 200"
+			stroke="#6366F1" stroke-width="4.5" fill="none" />
+
+		<!-- 上限渐近线 -->
+		<line x1="130" y1="200" x2="1110" y2="200" stroke="#B91C1C" stroke-width="1.6" stroke-dasharray="5 6" />
+		<text x="1110" y="190" fill="#B91C1C" font-size="14" text-anchor="end">有效数据上限</text>
+
+		<!-- 4 epoch 区 -->
+		<line x1="360" y1="150" x2="360" y2="420" stroke="#22C55E" stroke-width="1.8" stroke-dasharray="5 5" />
+		<text x="245" y="392" fill="#15803D" font-size="15" font-weight="700" text-anchor="middle">≤ 4 epoch</text>
+		<text x="245" y="412" fill="#166534" font-size="13" text-anchor="middle">≈ 新数据</text>
+
+		<!-- 40 epoch 区 -->
+		<line x1="780" y1="150" x2="780" y2="420" stroke="#B45309" stroke-width="1.8" stroke-dasharray="5 5" />
+		<text x="930" y="252" fill="#B45309" font-size="15" font-weight="700" text-anchor="middle">≈ 40 epoch 之后</text>
+		<text x="930" y="274" fill="#92400E" font-size="13" text-anchor="middle">收益趋近于零</text>
+	</g>
+</svg>
