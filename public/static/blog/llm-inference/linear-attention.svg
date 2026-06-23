@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="480" viewBox="0 0 1200 480" fill="none" role="img" aria-labelledby="t d">
+	<title id="t">Softmax 注意力与线性注意力的显存对比</title>
+	<desc id="d">Softmax 注意力的 KV Cache 随序列长度线性膨胀；线性注意力只维护一个固定大小的状态。</desc>
+	<rect width="1200" height="480" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="432" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="72" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">少存、少搬：固定状态 vs 膨胀的缓存</text>
+	<text x="56" y="102" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="17">推理复杂度从 O(n²d) 降到 O(nd)，且不再需要随序列增长的显式 KV Cache。</text>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<!-- 左：softmax -->
+		<rect x="56" y="138" width="530" height="304" rx="16" fill="#FEF2F2" stroke="#EF4444" />
+		<text x="80" y="178" fill="#991B1B" font-size="20" font-weight="700">Softmax 注意力</text>
+		<text x="80" y="202" fill="#B91C1C" font-size="14">推理 O(n²d)，KV Cache 随序列线性膨胀</text>
+		<!-- 随 token 增长的缓存条 -->
+		<g>
+			<text x="92" y="248" fill="#991B1B" font-size="13">t₁</text><rect x="120" y="234" width="40" height="22" rx="4" fill="#FCA5A5" />
+			<text x="92" y="286" fill="#991B1B" font-size="13">t₂</text><rect x="120" y="272" width="80" height="22" rx="4" fill="#FCA5A5" />
+			<text x="92" y="324" fill="#991B1B" font-size="13">t₃</text><rect x="120" y="310" width="120" height="22" rx="4" fill="#FCA5A5" />
+			<text x="92" y="362" fill="#991B1B" font-size="13">t₄</text><rect x="120" y="348" width="160" height="22" rx="4" fill="#F87171" />
+			<text x="92" y="400" fill="#991B1B" font-size="13">t₅</text><rect x="120" y="386" width="200" height="22" rx="4" fill="#EF4444" />
+		</g>
+		<text x="420" y="396" fill="#B91C1C" font-size="14" font-weight="700">越生成越大 ↑</text>
+
+		<!-- 右：linear -->
+		<rect x="610" y="138" width="526" height="304" rx="16" fill="#ECFEFF" stroke="#0891B2" />
+		<text x="634" y="178" fill="#155E75" font-size="20" font-weight="700">线性注意力 / SSM</text>
+		<text x="634" y="202" fill="#0E7490" font-size="14">推理 O(nd)，只维护一个固定大小的状态</text>
+		<!-- 固定状态盒 -->
+		<rect x="700" y="250" width="160" height="110" rx="12" fill="#CFFAFE" stroke="#0891B2" stroke-width="2" />
+		<text x="780" y="298" fill="#155E75" font-size="18" font-weight="700" text-anchor="middle">固定状态 S, Z</text>
+		<text x="780" y="326" fill="#0E7490" font-size="13" text-anchor="middle">大小不随序列变</text>
+		<!-- 前缀累加循环 -->
+		<path d="M700 305 C 640 305, 640 250, 700 250" stroke="#0891B2" stroke-width="2.5" fill="none" marker-end="url(#la)" />
+		<text x="634" y="244" fill="#0891B2" font-size="13">前缀累加</text>
+		<text x="880" y="290" fill="#0E7490" font-size="13">每步：</text>
+		<text x="880" y="316" fill="#155E75" font-size="14">S ← S + φ(K)ᵀV</text>
+		<text x="880" y="340" fill="#155E75" font-size="14">y = φ(Q)ᵀS / φ(Q)ᵀZ</text>
+		<text x="780" y="404" fill="#0891B2" font-size="14" font-weight="700" text-anchor="middle">显存恒定，长上下文友好</text>
+	</g>
+	<defs>
+		<marker id="la" markerWidth="11" markerHeight="11" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#0891B2" /></marker>
+	</defs>
+</svg>

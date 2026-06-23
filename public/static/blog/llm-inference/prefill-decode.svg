@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="500" viewBox="0 0 1200 500" fill="none" role="img" aria-labelledby="t d">
+	<title id="t">Prefill 与 Decode 两阶段</title>
+	<desc id="d">Prefill 并行处理整个 prompt 并填充 KV Cache；Decode 逐 token 读取缓存并把新 K/V 追加进去。</desc>
+	<rect width="1200" height="500" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="452" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="72" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">一次推理的两段：Prefill → Decode</text>
+	<text x="56" y="102" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="17">Prefill 并行打满算力、决定 TTFT；Decode 逐 token 读写 KV Cache、决定 TPOT。</text>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<!-- Prefill -->
+		<rect x="56" y="138" width="440" height="304" rx="16" fill="#EEF2FF" stroke="#6366F1" />
+		<text x="80" y="176" fill="#3730A3" font-size="20" font-weight="700">① Prefill（预填充）</text>
+		<text x="80" y="200" fill="#6366F1" font-size="14">一次性并行处理整个 prompt</text>
+		<g>
+			<rect x="84" y="222" width="56" height="38" rx="7" fill="#C7D2FE" stroke="#6366F1" /><text x="112" y="247" fill="#3730A3" font-size="13" text-anchor="middle">P₁</text>
+			<rect x="152" y="222" width="56" height="38" rx="7" fill="#C7D2FE" stroke="#6366F1" /><text x="180" y="247" fill="#3730A3" font-size="13" text-anchor="middle">P₂</text>
+			<rect x="220" y="222" width="56" height="38" rx="7" fill="#C7D2FE" stroke="#6366F1" /><text x="248" y="247" fill="#3730A3" font-size="13" text-anchor="middle">P₃</text>
+			<rect x="288" y="222" width="56" height="38" rx="7" fill="#C7D2FE" stroke="#6366F1" /><text x="316" y="247" fill="#3730A3" font-size="13" text-anchor="middle">P₄</text>
+		</g>
+		<text x="214" y="296" fill="#4338CA" font-size="14" text-anchor="middle">↓ 算出每个 token 的 K / V</text>
+		<rect x="84" y="312" width="384" height="56" rx="10" fill="#FFFFFF" stroke="#6366F1" stroke-dasharray="5 4" />
+		<text x="276" y="345" fill="#3730A3" font-size="16" font-weight="700" text-anchor="middle">写入 KV Cache</text>
+		<text x="276" y="404" fill="#6366F1" font-size="14" text-anchor="middle">能并行 → 算力打满 → 决定 TTFT</text>
+
+		<!-- 箭头 -->
+		<path d="M504 290 L548 290" stroke="#94A3B8" stroke-width="3" marker-end="url(#arr2)" />
+
+		<!-- Decode -->
+		<rect x="560" y="138" width="576" height="304" rx="16" fill="#ECFEFF" stroke="#0891B2" />
+		<text x="584" y="176" fill="#155E75" font-size="20" font-weight="700">② Decode（解码）</text>
+		<text x="584" y="200" fill="#0891B2" font-size="14">逐个生成，Query 只与缓存的 K/V 做注意力</text>
+		<!-- KV cache 增长 -->
+		<rect x="584" y="222" width="380" height="56" rx="10" fill="#FFFFFF" stroke="#0891B2" stroke-dasharray="5 4" />
+		<text x="600" y="246" fill="#155E75" font-size="13">KV Cache</text>
+		<g>
+			<rect x="600" y="252" width="22" height="20" rx="4" fill="#A5F3FC" /><rect x="626" y="252" width="22" height="20" rx="4" fill="#A5F3FC" /><rect x="652" y="252" width="22" height="20" rx="4" fill="#A5F3FC" /><rect x="678" y="252" width="22" height="20" rx="4" fill="#A5F3FC" />
+			<rect x="704" y="252" width="22" height="20" rx="4" fill="#67E8F9" /><rect x="730" y="252" width="22" height="20" rx="4" fill="#22D3EE" />
+			<text x="800" y="267" fill="#0891B2" font-size="13">← 每步追加</text>
+		</g>
+		<!-- decode tokens -->
+		<g>
+			<rect x="584" y="300" width="56" height="38" rx="7" fill="#CFFAFE" stroke="#0891B2" /><text x="612" y="325" fill="#155E75" font-size="13" text-anchor="middle">x₁</text>
+			<rect x="652" y="300" width="56" height="38" rx="7" fill="#CFFAFE" stroke="#0891B2" /><text x="680" y="325" fill="#155E75" font-size="13" text-anchor="middle">x₂</text>
+			<rect x="720" y="300" width="56" height="38" rx="7" fill="#CFFAFE" stroke="#0891B2" /><text x="748" y="325" fill="#155E75" font-size="13" text-anchor="middle">x₃</text>
+			<path d="M640 319 L652 319" stroke="#0891B2" stroke-width="2.5" marker-end="url(#arr3)" />
+			<path d="M708 319 L720 319" stroke="#0891B2" stroke-width="2.5" marker-end="url(#arr3)" />
+			<text x="900" y="325" fill="#155E75" font-size="13">一个一个吐</text>
+		</g>
+		<text x="848" y="404" fill="#0891B2" font-size="14" text-anchor="middle">逐 token 串行 → 内存受限 → 决定 TPOT（主要瓶颈）</text>
+	</g>
+	<defs>
+		<marker id="arr2" markerWidth="12" markerHeight="12" refX="8" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#94A3B8" /></marker>
+		<marker id="arr3" markerWidth="11" markerHeight="11" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#0891B2" /></marker>
+	</defs>
+</svg>

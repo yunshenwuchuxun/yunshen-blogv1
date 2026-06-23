@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="470" viewBox="0 0 1200 470" fill="none" role="img" aria-labelledby="t d">
+	<title id="t">三种生成范式</title>
+	<desc id="d">自回归逐 token 串行、扩散整段并行、块扩散在块内并行块间自回归。</desc>
+	<rect width="1200" height="470" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="422" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="70" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">三种生成范式：串行、并行、与折中</text>
+	<text x="56" y="100" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="17">块扩散（BDLM）块内用扩散并行、块间用自回归顺序——兼得并行效率与上下文连贯。</text>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<!-- 自回归 -->
+		<rect x="56" y="138" width="346" height="290" rx="16" fill="#EEF2FF" stroke="#6366F1" />
+		<text x="80" y="176" fill="#3730A3" font-size="19" font-weight="700">自回归（AR）</text>
+		<text x="80" y="200" fill="#6366F1" font-size="13">逐 token 串行，连贯但慢</text>
+		<g>
+			<rect x="86" y="240" width="48" height="40" rx="7" fill="#C7D2FE" stroke="#6366F1" /><text x="110" y="266" fill="#3730A3" font-size="14" text-anchor="middle">1</text>
+			<rect x="150" y="240" width="48" height="40" rx="7" fill="#C7D2FE" stroke="#6366F1" opacity="0.8" /><text x="174" y="266" fill="#3730A3" font-size="14" text-anchor="middle">2</text>
+			<rect x="214" y="240" width="48" height="40" rx="7" fill="#C7D2FE" stroke="#6366F1" opacity="0.6" /><text x="238" y="266" fill="#3730A3" font-size="14" text-anchor="middle">3</text>
+			<rect x="278" y="240" width="48" height="40" rx="7" fill="#C7D2FE" stroke="#6366F1" opacity="0.4" /><text x="302" y="266" fill="#3730A3" font-size="14" text-anchor="middle">4</text>
+			<path d="M134 260 L150 260" stroke="#6366F1" stroke-width="2" marker-end="url(#g1)" />
+			<path d="M198 260 L214 260" stroke="#6366F1" stroke-width="2" marker-end="url(#g1)" />
+			<path d="M262 260 L278 260" stroke="#6366F1" stroke-width="2" marker-end="url(#g1)" />
+		</g>
+		<text x="229" y="380" fill="#4338CA" font-size="14" text-anchor="middle">4 步生成 4 个 token</text>
+
+		<!-- 扩散 -->
+		<rect x="426" y="138" width="346" height="290" rx="16" fill="#ECFEFF" stroke="#0891B2" />
+		<text x="450" y="176" fill="#155E75" font-size="19" font-weight="700">扩散（Diffusion）</text>
+		<text x="450" y="200" fill="#0891B2" font-size="13">整段并行，快但易逻辑断裂</text>
+		<g>
+			<rect x="456" y="240" width="48" height="40" rx="7" fill="#67E8F9" stroke="#0891B2" /><text x="480" y="266" fill="#155E75" font-size="14" text-anchor="middle">?</text>
+			<rect x="520" y="240" width="48" height="40" rx="7" fill="#67E8F9" stroke="#0891B2" /><text x="544" y="266" fill="#155E75" font-size="14" text-anchor="middle">?</text>
+			<rect x="584" y="240" width="48" height="40" rx="7" fill="#67E8F9" stroke="#0891B2" /><text x="608" y="266" fill="#155E75" font-size="14" text-anchor="middle">?</text>
+			<rect x="648" y="240" width="48" height="40" rx="7" fill="#67E8F9" stroke="#0891B2" /><text x="672" y="266" fill="#155E75" font-size="14" text-anchor="middle">?</text>
+			<path d="M599 226 L599 238" stroke="#0891B2" stroke-width="2" marker-end="url(#g2)" />
+			<text x="599" y="218" fill="#0891B2" font-size="12" text-anchor="middle">同时去噪</text>
+		</g>
+		<text x="599" y="380" fill="#0E7490" font-size="14" text-anchor="middle">1 步并行铺开整段</text>
+
+		<!-- 块扩散 -->
+		<rect x="796" y="138" width="340" height="290" rx="16" fill="#F5F3FF" stroke="#7C3AED" />
+		<text x="820" y="176" fill="#5B21B6" font-size="19" font-weight="700">块扩散（BDLM）</text>
+		<text x="820" y="200" fill="#7C3AED" font-size="13">块内扩散并行 + 块间自回归</text>
+		<g>
+			<rect x="822" y="234" width="130" height="56" rx="9" fill="#DDD6FE" stroke="#7C3AED" />
+			<rect x="834" y="248" width="24" height="28" rx="4" fill="#C4B5FD" /><rect x="862" y="248" width="24" height="28" rx="4" fill="#C4B5FD" /><rect x="890" y="248" width="24" height="28" rx="4" fill="#C4B5FD" />
+			<text x="887" y="306" fill="#5B21B6" font-size="12" text-anchor="middle">块 1（内部并行）</text>
+			<rect x="978" y="234" width="130" height="56" rx="9" fill="#DDD6FE" stroke="#7C3AED" opacity="0.6" />
+			<rect x="990" y="248" width="24" height="28" rx="4" fill="#C4B5FD" opacity="0.7" /><rect x="1018" y="248" width="24" height="28" rx="4" fill="#C4B5FD" opacity="0.7" /><rect x="1046" y="248" width="24" height="28" rx="4" fill="#C4B5FD" opacity="0.7" />
+			<text x="1043" y="306" fill="#6D28D9" font-size="12" text-anchor="middle">块 2</text>
+			<path d="M956 262 L974 262" stroke="#7C3AED" stroke-width="2.5" marker-end="url(#g3)" />
+		</g>
+		<text x="966" y="380" fill="#6D28D9" font-size="14" text-anchor="middle">复用 KV Cache，可变长生成</text>
+	</g>
+	<defs>
+		<marker id="g1" markerWidth="10" markerHeight="10" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#6366F1" /></marker>
+		<marker id="g2" markerWidth="10" markerHeight="10" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#0891B2" /></marker>
+		<marker id="g3" markerWidth="10" markerHeight="10" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#7C3AED" /></marker>
+	</defs>
+</svg>

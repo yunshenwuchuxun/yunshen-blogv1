@@ -1,0 +1,204 @@
+---
+title: 'LLM 推理优化：当瓶颈从"算力"变成"带宽"'
+publishedAt: '2026-06-23'
+summary: '今天大模型的钱，大头不在训练而在推理——OpenAI 每天生成上千亿词，推理是 7×24 小时在烧。可推理慢有个反直觉的真相：多数时候 GPU 不是在算，而是在等数据。本文对应 Datawhale diy-llm 第十章，按一条主线重组：先讲清推理与训练"算力 vs 带宽"的瓶颈区别，再拆开 Prefill/Decode 两阶段与 KV Cache，用"算术强度"点破内存受限的本质与批处理的拼车效应，理清延迟与吞吐的矛盾，最后把线性注意力/扩散、推测解码/MTP、提示词压缩等五花八门的优化技术归到三条路线上，配以重绘的示意图与论文原图。'
+draft: false
+image: '/static/blog/llm-inference/cover.svg'
+tags: [Deep Learning, LLM, Inference, Tech Blog]
+---
+
+今天的大模型，钱的大头不在训练，而在推理。OpenAI 每天要生成超过 1000 亿个词，Cursor 每天产出数十亿行被用户采纳的代码——训练是一次性投入，推理却是 7×24 小时不停地烧。于是"把推理做快、做便宜"，成了和"把模型训得更强"同等重要的工程命题。
+
+可推理优化有个反直觉的起点：<strong>推理慢，往往不是因为 GPU 算不过来，而是因为它在"等数据"</strong>。理解这一点，几乎所有推理优化技术都会变得顺理成章。
+
+本文对应 Datawhale diy-llm 第十章（推理）。原文覆盖面很广但略显发散，这里按一条主线重新组织：先讲清推理与训练的本质区别，再拆开 Prefill / Decode 两阶段与 KV Cache，然后用"算术强度"点破真正的瓶颈、理清延迟与吞吐的矛盾，最后把五花八门的优化技术归到<strong>三条路线</strong>上。
+
+## 一、推理与训练：瓶颈从"算力"转向"带宽"
+
+训练和推理虽然跑的是同一个模型，但它们的计算特性几乎相反。
+
+训练时，整条序列的标签都是已知的（ground-truth + 因果掩码），可以<strong>一次性并行</strong>喂进去算 loss——所有 token 同时计算，GPU 火力全开，瓶颈在<strong>算力（FLOPs）</strong>。
+
+推理时则是<strong>自回归</strong>的：每个新 token 都依赖自己刚刚生成的上一个 token，必须一个一个地吐，天然无法在时间维度上并行。这时 GPU 的算力大量闲置，瓶颈转移到了<strong>显存与带宽</strong>。
+
+![训练可整条序列并行、瓶颈在算力；推理必须逐 token 自回归、瓶颈在显存带宽](/static/blog/llm-inference/train-vs-infer.svg)
+
+| 维度 | 训练 | 推理 |
+|------|------|------|
+| 输入来源 | 真实标签 + 因果掩码 | 模型自己上一步的输出 |
+| 并行化 | 整个序列可并行 | 只能按时间逐步生成 |
+| 主要瓶颈 | <strong>算力（compute-bound）</strong> | <strong>显存与带宽（memory-bound）</strong> |
+
+这个"算力 vs 带宽"的区别，是后面一切推理优化的总根源。
+
+## 二、Prefill 与 Decode：两阶段与 KV Cache
+
+一次完整推理被切成两段，特性截然不同。
+
+<strong>Prefill（预填充）</strong>：一次性并行处理整个 prompt，逐层算出每个 token 的 Key / Value，存进 KV Cache。这一步和训练一样能并行，算力能打满——它决定了 <strong>TTFT（首 token 延迟）</strong>。
+
+<strong>Decode（解码）</strong>：逐个生成新 token。新 token 的 Query 只跟缓存里的 K、V 做注意力，算完再把自己的 K、V 追加进缓存：
+
+$$
+\text{Attention}(Q_{new}, K_{cache}, V_{cache}) = \text{softmax}\!\left(\frac{Q_{new} K_{cache}^\top}{\sqrt{d_k}}\right) V_{cache}
+$$
+
+![Prefill 并行填充 KV Cache，Decode 逐 token 读取缓存并把新 K/V 追加进去](/static/blog/llm-inference/prefill-decode.svg)
+
+<strong>KV Cache 的意义</strong>：在自回归设置里，过去的 token 一旦算完就不会被未来 token 改变，它们对应的 $(K, V)$ 可以<strong>复用</strong>，避免每生成一个新词就重算整个前缀——这是典型的"用显存换算力"。代价是显存随序列长度线性膨胀：
+
+$$
+\text{显存} \propto \text{token 数} \times \text{层数} \times \text{头数} \times \text{维度}
+$$
+
+但 KV Cache 只对"算完就不再改"的自回归模式有效。一旦 token 的表示会被后续修改，缓存就失效了：
+
+| 架构 | KV Cache | 原因 |
+|------|------|------|
+| 自回归 Transformer | ✅ 适用 | 过去 token 算完不再改变 |
+| BERT 等双向注意力 | ❌ 不适用 | 任一 token 改动都影响全局表示 |
+| 扩散模型 | ⚠️ 部分适用 | 条件编码可复用，但扩散步骤间会变 |
+
+## 三、真正的瓶颈：算术强度与"拼车效应"
+
+为什么 decode 这么慢？答案藏在一个叫<strong>算术强度（Arithmetic Intensity）</strong>的指标里——每从显存搬运 1 字节数据，能喂给计算单元做多少次浮点运算：
+
+$$
+I = \frac{\text{FLOPs}}{\text{Bytes}}
+$$
+
+每个 GPU 都有一个临界值（Roofline 的拐点）：低于它，计算单元算得太快、被迫等数据搬运，是<strong>内存受限（memory-bound）</strong>；高于它，数据喂得过来、算力被榨干，是<strong>计算受限（compute-bound）</strong>。以 H100 为例：
+
+$$
+I_{crit} = \frac{989\ \text{TFLOP/s}}{3.35\ \text{TB/s}} \approx 295\ \text{FLOPs/byte}
+$$
+
+现在算一笔 decode 的账：批大小 $B=1$、隐藏维度 $D=4096$、FFN 中间维度 $F=11008$（LLaMA-7B 量级），用 FP16。结果是 FLOPs ≈ 90 亿次、显存搬运 ≈ 180 MB、算术强度 $I \approx 50$——<strong>远低于 H100 的 295</strong>。
+
+```python
+def arithmetic_intensity(B, D, F, bytes_per_elem=2):
+    # 读 X、读权重 W、写结果 Y
+    bytes_moved = bytes_per_elem * (B * D + D * F + B * F)
+    flops = 2 * B * D * F
+    return flops / bytes_moved
+
+# B=1 单条解码：I ≈ 50  ≪  H100 临界 295  →  内存带宽受限
+# GPU 大部分时间在等权重从显存搬过来，算力大量闲置
+```
+
+结论很扎心：<strong>单条解码本质上是内存带宽受限的</strong>，再强的算力也派不上用场。
+
+怎么救？答案是<strong>批处理（batching）= 拼车</strong>：把多条请求凑在一起，让它们<strong>共享同一次权重搬运</strong>。权重只搬一次、却服务了一整批请求，算术强度随 batch 飙升：
+
+![算术强度随批大小上升：B=1 时远在内存受限区，加大 batch 把它推过 295 的临界线进入计算受限区](/static/blog/llm-inference/arithmetic-intensity.svg)
+
+| 批大小 B | 算术强度 I |
+|------|------|
+| 1 | ≈ 50（内存受限） |
+| 16 | ≈ 250 |
+| 64 | ≈ 700（已越过临界） |
+| 256 | ≈ 1400（计算受限） |
+
+batch 越大，越接近甚至越过 295，GPU 从空闲转向饱和，单 token 的推理成本被一整批请求摊薄。这正是 vLLM 等推理引擎拼命做大 batch（连续批处理 / continuous batching）的根本原因。
+
+## 四、延迟与吞吐：一对常常打架的目标
+
+衡量推理性能有三个核心指标：
+
+![TTFT 由 prefill 决定、TPOT 由 decode 决定、吞吐是系统每秒总产出；拼车提吞吐却可能拖慢单条延迟](/static/blog/llm-inference/latency-throughput.svg)
+
+- <strong>TTFT（Time To First Token）</strong>：从请求到吐出第一个 token 的延迟，由 prefill 决定，影响"反应快不快"。
+- <strong>TPOT / Latency</strong>：之后每个 token 的生成速度，由 decode 决定，影响"打字流不流畅"。
+- <strong>Throughput（吞吐量）</strong>：系统单位时间内生成的总 token 数，衡量整体效率。
+
+关键认知是：<strong>高吞吐 ≠ 低延迟</strong>。吞吐是系统视角的总效率，延迟是单个用户的真实体验。前面说的"拼车"（大 batch）能大幅提升吞吐，却可能让单条请求排队更久、延迟变高。所以离线批量任务可以一味追吞吐，而在线对话必须优先保延迟——这是一组需要按场景权衡的矛盾。
+
+理解了以上"为什么慢"，剩下的优化技术就能归到三条清晰的路线上：<strong>省显存的架构、省步数的解码、省输入的压缩</strong>。
+
+## 五、优化路线一：换更省显存的架构
+
+既然瓶颈是显存与带宽，第一条路就是从架构上<strong>少存、少搬</strong>。
+
+### 线性注意力 / 状态空间模型（SSM）
+
+标准 softmax 注意力的推理复杂度是 $O(n^2 d)$，而且 KV Cache 随序列长度线性膨胀。<strong>线性注意力</strong>把 softmax 换成一个核映射 $\phi$，用一个<strong>固定大小的状态</strong>累加全部历史，推理复杂度降到 $O(nd)$，且不再需要随序列增长的显式 KV Cache。它靠"前缀累加"保证因果性——每个词只依赖它之前的信息：
+
+$$
+S_i = S_{i-1} + \phi(K_i)^\top V_i, \quad Z_i = Z_{i-1} + \phi(K_i), \quad y_i = \frac{\phi(Q_i)^\top S_i}{\phi(Q_i)^\top Z_i}
+$$
+
+![Softmax 注意力的 KV Cache 随序列线性膨胀；线性注意力只维护一个固定大小的状态](/static/blog/llm-inference/linear-attention.svg)
+
+代表工作有 Mamba、S5 这类 SSM，以及 MiniMax 把全局注意力与线性注意力混合的方案。在长上下文下，这种架构的优势是压倒性的——softmax 模型的延迟早早爆炸，而线性/混合注意力几乎只是线性增长：
+
+![长上下文延迟对比：MiniMax（线性/混合注意力）在 1M token 仍近似线性，softmax 类模型在百 K 级就急剧上升](/static/blog/llm-inference/longctx-latency.png)
+
+### 扩散语言模型：跳出自回归
+
+另一条更激进的路是干脆放弃自回归。<strong>扩散语言模型</strong>可以在<strong>空间维度并行</strong>生成多个 token，不受逐 token 串行的限制，大批量生成时效率很高。它的软肋是自然语言固有的因果依赖——一次并行铺开整段，长文本容易逻辑断裂、上下文不一致。
+
+折中方案是<strong>块扩散（BDLM）</strong>：<strong>块内</strong>用扩散并行恢复被掩码的词元，<strong>块间</strong>用自回归顺序生成——既拿到块内并行，又能复用 KV Cache、保证跨块连贯。
+
+![三种生成范式：自回归逐 token、扩散整段并行、块扩散块内并行块间自回归](/static/blog/llm-inference/generation-paradigms.svg)
+
+这条路已经走出了像样的成绩：LLaDA2.0-flash 的平均分达到 73.18，逼近同级自回归模型 Qwen3-30B-Instruct 的 73.60，在复杂生成、代码、数学等任务上甚至更强。
+
+## 六、优化路线二：用"草稿 + 验证"省掉解码步数
+
+decode 慢的根源是"大模型逐 token 串行"。那能不能让便宜的小模型先冲、大模型只负责检查？这就是一整类<strong>草稿 + 验证</strong>方法。
+
+<strong>推测解码（Speculative Decoding）</strong>：一个小的草稿模型一口气生成 $k$ 个候选 token，大模型<strong>一次并行验证</strong>这 $k$ 个，接受最长的一致前缀，从第一个不一致处丢弃重来。大模型从"串行生成 $k$ 步"变成"并行验证 1 次"，而且数学上输出分布与大模型单独解码<strong>完全一致</strong>——这是质量无损的加速。
+
+![推测解码：小模型起草 k 个 token，大模型一次并行验证，接受一致前缀、拒绝点之后重来](/static/blog/llm-inference/speculative-decoding.svg)
+
+由此衍生出几个变体：
+
+- <strong>级联解码（Cascade）</strong>：换个角度，按 token 的不确定性做<strong>路由</strong>——简单的直接让小模型出，难的才升级到大模型，减少的是大模型的<strong>调用频率</strong>。
+- <strong>推测级联（Speculative Cascades，Google）</strong>：融合两者，小模型起草一个 block、大模型并行判断其"可接受性"，接受则继续、拒绝则由更大模型兜底重写。比纯推测解码延迟更低，比纯级联拒绝率更低。
+
+<strong>MTP（Multi-Token Prediction）</strong>让模型一次预测多个未来 token，天然契合推测解码。但两家用法完全不同：
+
+DeepSeek V3 把 MTP 当作<strong>训练目标</strong>，采用按时间顺序的<strong>级联</strong>结构（在连续隐表示空间里建立条件依赖，而非离散 token 级 rollout），目的是学到更利于多步生成的表示、为后续推测解码打基础——它本身并不直接加速推理。
+
+![DeepSeek V3 的 MTP：主模型 + 多个共享权重的 MTP 模块按时间顺序级联，各自预测更远的 token](/static/blog/llm-inference/deepseek-mtp.png)
+
+Gemma 4（2026 年 5 月）则把 MTP 用在<strong>推理</strong>侧：draft + target 双模型在 token 级做多步草拟 + 验证，直接削减 target 模型的解码开销。
+
+| 维度 | DeepSeek V3 | Gemma 4 |
+|------|------|------|
+| 作用阶段 | 训练 | 推理 |
+| 作用对象 | 隐表示 | Token 序列 |
+| 目的 | 增强多步生成一致性 | 减少 target 解码开销 |
+| 架构 | 单一主模型 | Draft + Target 双模型 |
+
+## 七、优化路线三：把输入变短（提示词压缩）
+
+prefill 的成本和 KV Cache 的占用都随 prompt 长度增长，所以第三条路是直接<strong>压缩输入</strong>。
+
+![三种提示词压缩：硬压缩删改离散 token、软压缩换成连续向量、视觉压缩把文本渲染成图像](/static/blog/llm-inference/prompt-compression.svg)
+
+- <strong>硬压缩</strong>：在离散 token 层面动刀——筛选出与查询最相关的句子 / token，或把冗长表达改写得更简洁。
+- <strong>软压缩</strong>：把上下文编码成<strong>连续向量</strong>来替代离散 token，更紧凑，但可解释性差、对 prompt 风格敏感。
+- <strong>视觉压缩</strong>：DeepSeek-OCR 的脑洞——把长文本<strong>渲染成图片</strong>，再用视觉编码器读回，用固定维度的图像表示来承载长文本。
+
+代价是这些方法本身也有开销（仍需完整前向、可能损失信息），更适合上下文极长且可复用的场景。
+
+## 总结
+
+把推理优化的全貌收束成几条：
+
+- <strong>根本区别</strong>：训练 compute-bound、可整序列并行；推理 memory-bound、必须自回归串行。这是一切的起点。
+- <strong>两阶段</strong>：Prefill 并行打满算力、决定 TTFT；Decode 逐 token 读写 KV Cache、决定 TPOT，是主要瓶颈所在。
+- <strong>算术强度</strong>点破本质：$B=1$ 解码 $I\approx 50 \ll$ H100 的 295，内存受限；批处理"拼车"是榨干算力、提升吞吐的核心手段。
+- <strong>延迟 ≠ 吞吐</strong>：大 batch 提吞吐却可能拖慢单条延迟，需按在线 / 离线场景权衡。
+- <strong>三条优化路线</strong>：省显存的架构（线性注意力 / SSM / 块扩散）、省步数的解码（推测解码 / 级联 / MTP）、省输入的压缩（硬 / 软 / 视觉）。
+
+一句话记住推理优化：大多数时候，<strong>GPU 不是在算，而是在等</strong>——所有技巧，都是想方设法让它少等一点。
+
+## 参考资料
+
+- <strong>长上下文语言建模综述</strong>（[arXiv:2503.17407](https://arxiv.org/abs/2503.17407)）。
+- DeepSeek-AI, 2024. <strong>DeepSeek-V3 Technical Report</strong>（[arXiv:2412.19437](https://arxiv.org/abs/2412.19437)）。
+- <strong>大小模型协作 / 推测级联</strong>（[arXiv:2405.19261](https://arxiv.org/pdf/2405.19261)）。
+- <strong>LLaDA2.0</strong> 官方报告；Google <strong>Gemma 4</strong> 推理加速公告。
+- Datawhale diy-llm 第十章《推理》（[原文](https://datawhalechina.github.io/diy-llm/chapter10/%E6%8E%A8%E7%90%86.html)）。

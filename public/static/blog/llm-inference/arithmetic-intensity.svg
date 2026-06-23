@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" fill="none" role="img" aria-labelledby="t d">
+	<title id="t">算术强度的 Roofline 与批处理</title>
+	<desc id="d">B=1 解码算术强度约 50，远在内存受限区；加大批处理把它推过 295 的临界线进入计算受限区。</desc>
+	<rect width="1200" height="520" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="472" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="70" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">Roofline：批处理如何把推理推过临界线</text>
+	<text x="56" y="100" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="17">单条解码 I≈50 卡在内存受限区，GPU 在等数据；拼车（大 batch）共享权重搬运，把强度推高。</text>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<!-- 区域底色 -->
+		<rect x="140" y="150" width="370" height="270" fill="#FEE2E2" opacity="0.45" />
+		<rect x="510" y="150" width="570" height="270" fill="#DCFCE7" opacity="0.5" />
+		<!-- 轴 -->
+		<line x1="140" y1="150" x2="140" y2="420" stroke="#94A3B8" stroke-width="2.5" />
+		<line x1="140" y1="420" x2="1090" y2="420" stroke="#94A3B8" stroke-width="2.5" />
+		<text x="120" y="150" fill="#475569" font-size="15" text-anchor="end" transform="rotate(-90 120 285)">可达性能</text>
+		<text x="615" y="458" fill="#475569" font-size="15" text-anchor="middle">算术强度 I（FLOPs/byte，对数）</text>
+
+		<!-- roofline -->
+		<line x1="150" y1="392" x2="510" y2="190" stroke="#6366F1" stroke-width="4" />
+		<line x1="510" y1="190" x2="1080" y2="190" stroke="#6366F1" stroke-width="4" />
+		<!-- 临界线 -->
+		<line x1="510" y1="150" x2="510" y2="420" stroke="#7C3AED" stroke-width="2" stroke-dasharray="6 6" />
+		<text x="510" y="142" fill="#5B21B6" font-size="15" font-weight="700" text-anchor="middle">H100 临界 ≈ 295</text>
+
+		<!-- 区域标签 -->
+		<text x="300" y="185" fill="#B91C1C" font-size="18" font-weight="700" text-anchor="middle">内存受限</text>
+		<text x="300" y="208" fill="#991B1B" font-size="13" text-anchor="middle">算力闲着等数据</text>
+		<text x="800" y="320" fill="#15803D" font-size="18" font-weight="700" text-anchor="middle">计算受限</text>
+		<text x="800" y="343" fill="#166534" font-size="13" text-anchor="middle">算力被榨干</text>
+
+		<!-- 批处理点 -->
+		<circle cx="250" cy="336" r="8" fill="#DC2626" /><text x="250" y="362" fill="#B91C1C" font-size="14" font-weight="700" text-anchor="middle">B=1 (≈50)</text>
+		<circle cx="470" cy="212" r="8" fill="#D97706" /><text x="470" y="200" fill="#B45309" font-size="14" font-weight="700" text-anchor="middle">B=16 (≈250)</text>
+		<circle cx="720" cy="190" r="8" fill="#16A34A" /><text x="720" y="178" fill="#15803D" font-size="14" font-weight="700" text-anchor="middle">B=64 (≈700)</text>
+		<circle cx="930" cy="190" r="8" fill="#16A34A" /><text x="930" y="178" fill="#15803D" font-size="14" font-weight="700" text-anchor="middle">B=256 (≈1400)</text>
+
+		<!-- 移动箭头 -->
+		<path d="M268 330 C 360 300, 420 250, 458 220" stroke="#7C3AED" stroke-width="2.5" stroke-dasharray="6 5" marker-end="url(#ai)" fill="none" />
+		<text x="360" y="276" fill="#7C3AED" font-size="13" transform="rotate(-22 360 276)">加大 batch</text>
+	</g>
+	<defs>
+		<marker id="ai" markerWidth="12" markerHeight="12" refX="8" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#7C3AED" /></marker>
+	</defs>
+</svg>

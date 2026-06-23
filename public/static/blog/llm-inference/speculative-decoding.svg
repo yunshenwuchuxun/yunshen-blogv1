@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="470" viewBox="0 0 1200 470" fill="none" role="img" aria-labelledby="t d">
+	<title id="t">推测解码</title>
+	<desc id="d">小草稿模型一次生成 k 个候选 token，大模型并行验证，接受最长一致前缀，从不一致处重来。</desc>
+	<rect width="1200" height="470" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="422" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="70" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">推测解码：小模型起草，大模型并行验证</text>
+	<text x="56" y="100" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="17">大模型从"串行生成 k 步"变成"并行验证 1 次"，且输出分布与单独解码完全一致——质量无损。</text>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<!-- 第一步：草稿模型 -->
+		<text x="80" y="166" fill="#0E7490" font-size="17" font-weight="700">① 小草稿模型：一口气起草 k 个 token</text>
+		<g>
+			<rect x="84" y="186" width="80" height="44" rx="8" fill="#CFFAFE" stroke="#0891B2" /><text x="124" y="214" fill="#155E75" font-size="15" text-anchor="middle">Data</text>
+			<rect x="176" y="186" width="80" height="44" rx="8" fill="#CFFAFE" stroke="#0891B2" /><text x="216" y="214" fill="#155E75" font-size="15" text-anchor="middle">whale</text>
+			<rect x="268" y="186" width="80" height="44" rx="8" fill="#CFFAFE" stroke="#0891B2" /><text x="308" y="214" fill="#155E75" font-size="15" text-anchor="middle">成立</text>
+			<rect x="360" y="186" width="80" height="44" rx="8" fill="#CFFAFE" stroke="#0891B2" /><text x="400" y="214" fill="#155E75" font-size="15" text-anchor="middle">于</text>
+			<rect x="452" y="186" width="80" height="44" rx="8" fill="#CFFAFE" stroke="#0891B2" /><text x="492" y="214" fill="#155E75" font-size="15" text-anchor="middle">昨天</text>
+		</g>
+		<text x="600" y="214" fill="#0E7490" font-size="14">便宜、快</text>
+
+		<!-- 第二步：大模型并行验证 -->
+		<text x="80" y="290" fill="#3730A3" font-size="17" font-weight="700">② 大模型：一次并行验证全部 k 个</text>
+		<g>
+			<!-- 接受的 -->
+			<rect x="84" y="310" width="80" height="44" rx="8" fill="#DCFCE7" stroke="#16A34A" /><text x="124" y="338" fill="#15803D" font-size="15" text-anchor="middle">✓</text>
+			<rect x="176" y="310" width="80" height="44" rx="8" fill="#DCFCE7" stroke="#16A34A" /><text x="216" y="338" fill="#15803D" font-size="15" text-anchor="middle">✓</text>
+			<rect x="268" y="310" width="80" height="44" rx="8" fill="#DCFCE7" stroke="#16A34A" /><text x="308" y="338" fill="#15803D" font-size="15" text-anchor="middle">✓</text>
+			<rect x="360" y="310" width="80" height="44" rx="8" fill="#DCFCE7" stroke="#16A34A" /><text x="400" y="338" fill="#15803D" font-size="15" text-anchor="middle">✓</text>
+			<!-- 拒绝的 -->
+			<rect x="452" y="310" width="80" height="44" rx="8" fill="#FEE2E2" stroke="#DC2626" /><text x="492" y="338" fill="#B91C1C" font-size="15" text-anchor="middle">✗</text>
+		</g>
+		<!-- 接受/拒绝标注 -->
+		<line x1="84" y1="372" x2="440" y2="372" stroke="#16A34A" stroke-width="2" />
+		<text x="262" y="394" fill="#15803D" font-size="14" font-weight="700" text-anchor="middle">接受最长一致前缀（4 个）</text>
+		<line x1="452" y1="372" x2="532" y2="372" stroke="#DC2626" stroke-width="2" />
+		<text x="492" y="394" fill="#B91C1C" font-size="13" text-anchor="middle">拒绝点</text>
+		<text x="560" y="338" fill="#5B21B6" font-size="14">↑ 从这里由大模型重出，再交还草稿模型续</text>
+
+		<!-- 收益卡 -->
+		<rect x="720" y="150" width="416" height="96" rx="14" fill="#F5F3FF" stroke="#7C3AED" />
+		<text x="744" y="186" fill="#5B21B6" font-size="17" font-weight="700">为什么快</text>
+		<text x="744" y="214" fill="#6D28D9" font-size="14">k 步串行解码 → 1 次并行验证；</text>
+		<text x="744" y="236" fill="#6D28D9" font-size="14">草稿命中越多，省得越多。</text>
+	</g>
+</svg>

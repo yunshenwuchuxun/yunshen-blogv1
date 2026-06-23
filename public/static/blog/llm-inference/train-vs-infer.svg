@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="480" viewBox="0 0 1200 480" fill="none" role="img" aria-labelledby="t d">
+	<title id="t">训练与推理的瓶颈差异</title>
+	<desc id="d">训练整条序列并行、瓶颈在算力；推理逐 token 自回归、瓶颈在显存带宽。</desc>
+	<rect width="1200" height="480" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="432" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="72" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">同一个模型，两种相反的计算特性</text>
+	<text x="56" y="102" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="17">训练可以一次性并行算完整条序列；推理只能一个 token 接一个 token 地吐。</text>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<!-- 左：训练 -->
+		<rect x="64" y="140" width="480" height="290" rx="16" fill="#EEF2FF" stroke="#6366F1" />
+		<text x="88" y="180" fill="#3730A3" font-size="21" font-weight="700">训练：整条序列并行</text>
+		<!-- 并行 token 同时进入 -->
+		<g>
+			<rect x="100" y="210" width="64" height="40" rx="8" fill="#C7D2FE" stroke="#6366F1" /><text x="132" y="236" fill="#3730A3" font-size="15" text-anchor="middle">t₁</text>
+			<rect x="176" y="210" width="64" height="40" rx="8" fill="#C7D2FE" stroke="#6366F1" /><text x="208" y="236" fill="#3730A3" font-size="15" text-anchor="middle">t₂</text>
+			<rect x="252" y="210" width="64" height="40" rx="8" fill="#C7D2FE" stroke="#6366F1" /><text x="284" y="236" fill="#3730A3" font-size="15" text-anchor="middle">t₃</text>
+			<rect x="328" y="210" width="64" height="40" rx="8" fill="#C7D2FE" stroke="#6366F1" /><text x="360" y="236" fill="#3730A3" font-size="15" text-anchor="middle">t₄</text>
+			<rect x="404" y="210" width="64" height="40" rx="8" fill="#C7D2FE" stroke="#6366F1" /><text x="436" y="236" fill="#3730A3" font-size="15" text-anchor="middle">t₅</text>
+		</g>
+		<text x="304" y="290" fill="#4338CA" font-size="15" text-anchor="middle">真实标签全部已知 → 同时计算</text>
+		<rect x="150" y="320" width="308" height="50" rx="12" fill="#6366F1" />
+		<text x="304" y="352" fill="#FFFFFF" font-size="18" font-weight="700" text-anchor="middle">瓶颈：算力（compute-bound）</text>
+		<text x="304" y="400" fill="#4338CA" font-size="14" text-anchor="middle">GPU 火力全开</text>
+
+		<!-- 右：推理 -->
+		<rect x="600" y="140" width="536" height="290" rx="16" fill="#FEF2F2" stroke="#EF4444" />
+		<text x="624" y="180" fill="#991B1B" font-size="21" font-weight="700">推理：逐 token 自回归</text>
+		<g>
+			<rect x="636" y="210" width="60" height="40" rx="8" fill="#FECACA" stroke="#EF4444" /><text x="666" y="236" fill="#991B1B" font-size="15" text-anchor="middle">t₁</text>
+			<rect x="712" y="210" width="60" height="40" rx="8" fill="#FECACA" stroke="#EF4444" opacity="0.75" /><text x="742" y="236" fill="#991B1B" font-size="15" text-anchor="middle">t₂</text>
+			<rect x="788" y="210" width="60" height="40" rx="8" fill="#FECACA" stroke="#EF4444" opacity="0.5" /><text x="818" y="236" fill="#991B1B" font-size="15" text-anchor="middle">t₃</text>
+			<rect x="864" y="210" width="60" height="40" rx="8" fill="#FECACA" stroke="#EF4444" opacity="0.3" /><text x="894" y="236" fill="#991B1B" font-size="15" text-anchor="middle">t₄</text>
+			<path d="M696 230 L712 230" stroke="#EF4444" stroke-width="2.5" marker-end="url(#arr)" />
+			<path d="M772 230 L788 230" stroke="#EF4444" stroke-width="2.5" marker-end="url(#arr)" />
+			<path d="M848 230 L864 230" stroke="#EF4444" stroke-width="2.5" marker-end="url(#arr)" />
+		</g>
+		<text x="868" y="290" fill="#B91C1C" font-size="15" text-anchor="middle">每个 token 都要等上一个生成完</text>
+		<rect x="700" y="320" width="336" height="50" rx="12" fill="#EF4444" />
+		<text x="868" y="352" fill="#FFFFFF" font-size="18" font-weight="700" text-anchor="middle">瓶颈：显存与带宽（memory-bound）</text>
+		<text x="868" y="400" fill="#B91C1C" font-size="14" text-anchor="middle">算力大量闲置，忙着等数据</text>
+	</g>
+	<defs>
+		<marker id="arr" markerWidth="11" markerHeight="11" refX="7" refY="4" orient="auto">
+			<path d="M0 0 L8 4 L0 8 z" fill="#EF4444" />
+		</marker>
+	</defs>
+</svg>

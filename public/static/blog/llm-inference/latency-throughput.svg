@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="480" viewBox="0 0 1200 480" fill="none" role="img" aria-labelledby="t d">
+	<title id="t">延迟与吞吐三大指标</title>
+	<desc id="d">TTFT 由 prefill 决定，TPOT 由 decode 决定，吞吐是系统每秒总产出；大 batch 提吞吐却可能拖慢单条延迟。</desc>
+	<rect width="1200" height="480" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="432" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="72" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">三个指标，与一对矛盾</text>
+	<text x="56" y="102" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="17">TTFT 看反应快慢、TPOT 看打字流畅、吞吐看系统效率——高吞吐不等于低延迟。</text>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<!-- 时间轴示意 -->
+		<text x="80" y="172" fill="#475569" font-size="15">请求</text>
+		<line x1="130" y1="190" x2="1110" y2="190" stroke="#CBD5E1" stroke-width="2" />
+		<!-- prefill 段 -->
+		<rect x="130" y="172" width="170" height="36" rx="8" fill="#C7D2FE" stroke="#6366F1" />
+		<text x="215" y="196" fill="#3730A3" font-size="15" text-anchor="middle">Prefill</text>
+		<!-- decode tokens -->
+		<rect x="320" y="172" width="46" height="36" rx="7" fill="#CFFAFE" stroke="#0891B2" /><text x="343" y="196" fill="#155E75" font-size="13" text-anchor="middle">x₁</text>
+		<rect x="386" y="172" width="46" height="36" rx="7" fill="#CFFAFE" stroke="#0891B2" /><text x="409" y="196" fill="#155E75" font-size="13" text-anchor="middle">x₂</text>
+		<rect x="452" y="172" width="46" height="36" rx="7" fill="#CFFAFE" stroke="#0891B2" /><text x="475" y="196" fill="#155E75" font-size="13" text-anchor="middle">x₃</text>
+		<rect x="518" y="172" width="46" height="36" rx="7" fill="#CFFAFE" stroke="#0891B2" /><text x="541" y="196" fill="#155E75" font-size="13" text-anchor="middle">x₄</text>
+		<!-- TTFT 标注 -->
+		<line x1="130" y1="240" x2="320" y2="240" stroke="#6366F1" stroke-width="2" />
+		<line x1="130" y1="232" x2="130" y2="248" stroke="#6366F1" stroke-width="2" /><line x1="320" y1="232" x2="320" y2="248" stroke="#6366F1" stroke-width="2" />
+		<text x="225" y="266" fill="#3730A3" font-size="14" font-weight="700" text-anchor="middle">TTFT（首 token 延迟）</text>
+		<!-- TPOT 标注 -->
+		<line x1="366" y1="146" x2="452" y2="146" stroke="#0891B2" stroke-width="2" />
+		<line x1="366" y1="138" x2="366" y2="154" stroke="#0891B2" stroke-width="2" /><line x1="452" y1="138" x2="452" y2="154" stroke="#0891B2" stroke-width="2" />
+		<text x="409" y="130" fill="#155E75" font-size="14" font-weight="700" text-anchor="middle">TPOT</text>
+
+		<!-- 三张卡 -->
+		<rect x="130" y="300" width="300" height="130" rx="14" fill="#EEF2FF" stroke="#6366F1" />
+		<text x="152" y="338" fill="#3730A3" font-size="18" font-weight="700">TTFT</text>
+		<text x="152" y="368" fill="#4338CA" font-size="14">请求 → 首 token 的延迟</text>
+		<text x="152" y="394" fill="#4338CA" font-size="14">由 <tspan font-weight="700">Prefill</tspan> 决定，越低越好</text>
+
+		<rect x="450" y="300" width="300" height="130" rx="14" fill="#ECFEFF" stroke="#0891B2" />
+		<text x="472" y="338" fill="#155E75" font-size="18" font-weight="700">TPOT / 延迟</text>
+		<text x="472" y="368" fill="#0E7490" font-size="14">后续每 token 的速度</text>
+		<text x="472" y="394" fill="#0E7490" font-size="14">由 <tspan font-weight="700">Decode</tspan> 决定，越低越好</text>
+
+		<rect x="770" y="300" width="300" height="130" rx="14" fill="#F5F3FF" stroke="#7C3AED" />
+		<text x="792" y="338" fill="#5B21B6" font-size="18" font-weight="700">Throughput</text>
+		<text x="792" y="368" fill="#6D28D9" font-size="14">系统每秒总 token 数</text>
+		<text x="792" y="394" fill="#6D28D9" font-size="14">越高越好（系统视角）</text>
+
+		<!-- 矛盾提示 -->
+		<rect x="770" y="150" width="300" height="96" rx="12" fill="#FEF3C7" stroke="#D97706" />
+		<text x="920" y="186" fill="#92400E" font-size="16" font-weight="700" text-anchor="middle">高吞吐 ≠ 低延迟</text>
+		<text x="920" y="214" fill="#B45309" font-size="13" text-anchor="middle">大 batch 提吞吐，</text>
+		<text x="920" y="234" fill="#B45309" font-size="13" text-anchor="middle">却可能拖慢单条请求</text>
+	</g>
+</svg>
