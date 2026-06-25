@@ -1,5 +1,5 @@
 ---
-title: 'LLM 推理优化：当瓶颈从"算力"变成"带宽"'
+title: 'CS336 第九讲 · LLM 推理优化：当瓶颈从"算力"变成"带宽"'
 publishedAt: '2026-06-23'
 summary: '今天大模型的钱，大头不在训练而在推理——OpenAI 每天生成上千亿词，推理是 7×24 小时在烧。可推理慢有个反直觉的真相：多数时候 GPU 不是在算，而是在等数据。本文对应 Datawhale diy-llm 第十章，按一条主线重组：先讲清推理与训练"算力 vs 带宽"的瓶颈区别，再拆开 Prefill/Decode 两阶段与 KV Cache，用"算术强度"点破内存受限的本质与批处理的拼车效应，理清延迟与吞吐的矛盾，最后把线性注意力/扩散、推测解码/MTP、提示词压缩等五花八门的优化技术归到三条路线上，配以重绘的示意图与论文原图。'
 draft: false
@@ -73,6 +73,12 @@ $$
 I_{crit} = \frac{989\ \text{TFLOP/s}}{3.35\ \text{TB/s}} \approx 295\ \text{FLOPs/byte}
 $$
 
+这个 295 就是 Roofline 曲线的<strong>拐点（ridge point）</strong>：把横轴设为算术强度、纵轴设为实际可达算力，曲线左半段是一条斜率等于带宽的上升直线——此时性能完全由"每秒能搬多少字节"决定，再多的 TFLOPS 也用不上；越过拐点后曲线变成一条水平线，性能被算力峰值锁死。一个算子落在哪一侧，不取决于它有多少 FLOPs，而取决于<strong>每搬一字节能摊到多少次运算</strong>。
+
+为什么 decode 注定落在左半段？根子在它的计算形态：$B=1$ 时，每一层都是<strong>权重矩阵 × 一个激活向量</strong>（矩阵–向量乘，GEMV）。每个权重从显存读上来，只参与<strong>一次</strong>乘加就被丢弃——2 字节权重换 2 次 FLOPs，算术强度天然趋近于 1。整个 7B 模型约 14 GB 的权重，<strong>每生成一个 token 就要被完整搬运一遍</strong>，而真正用到的运算少得可怜。这正是 decode 慢的物理本质：不是算不过来，是搬不过来。
+
+作为对比，prefill 是<strong>权重矩阵 × 一整段提示词的激活矩阵</strong>（矩阵–矩阵乘，GEMM），同一份权重被几百上千个 token 复用，算术强度轻松越过 295，因此 prefill 是计算受限的。<strong>同一个模型、同一批权重，prefill 吃算力、decode 吃带宽</strong>——这个不对称是后面所有优化的出发点。
+
 现在算一笔 decode 的账：批大小 $B=1$、隐藏维度 $D=4096$、FFN 中间维度 $F=11008$（LLaMA-7B 量级），用 FP16。结果是 FLOPs ≈ 90 亿次、显存搬运 ≈ 180 MB、算术强度 $I \approx 50$——<strong>远低于 H100 的 295</strong>。
 
 ```python
@@ -88,7 +94,7 @@ def arithmetic_intensity(B, D, F, bytes_per_elem=2):
 
 结论很扎心：<strong>单条解码本质上是内存带宽受限的</strong>，再强的算力也派不上用场。
 
-怎么救？答案是<strong>批处理（batching）= 拼车</strong>：把多条请求凑在一起，让它们<strong>共享同一次权重搬运</strong>。权重只搬一次、却服务了一整批请求，算术强度随 batch 飙升：
+怎么救？关键观察是：decode 搬运的字节里，<strong>绝大部分是被所有请求共享的权重</strong>，而随请求数增长的只是各自那一小份激活与 KV。于是答案是<strong>批处理（batching）= 拼车</strong>：把多条请求凑在一起，让它们<strong>共享同一次权重搬运</strong>。GEMV 也随之变回 GEMM——同一份权重读上来后，被一整批请求各自的激活向量复用。权重只搬一次、却服务了一整批请求，算术强度随 batch 飙升：
 
 ![算术强度随批大小上升：B=1 时远在内存受限区，加大 batch 把它推过 295 的临界线进入计算受限区](/static/blog/llm-inference/arithmetic-intensity.svg)
 
@@ -100,6 +106,8 @@ def arithmetic_intensity(B, D, F, bytes_per_elem=2):
 | 256 | ≈ 1400（计算受限） |
 
 batch 越大，越接近甚至越过 295，GPU 从空闲转向饱和，单 token 的推理成本被一整批请求摊薄。这正是 vLLM 等推理引擎拼命做大 batch（连续批处理 / continuous batching）的根本原因。
+
+但拼车不是无限免费的，它有两堵墙。第一堵是<strong>显存</strong>：batch 里每条请求都拖着自己的 KV Cache，且随各自上下文长度线性增长。权重占掉一块固定显存后，剩下的空间被 KV Cache 瓜分——上下文越长，能塞进同一批的请求就越少，$B$ 被显存硬卡住。这也是为什么 KV Cache 的省显存手段（量化、PagedAttention、GQA/MLA）本质上是在<strong>给 batch 腾地方</strong>。第二堵是<strong>延迟</strong>：batch 越大，单步计算耗时越长、请求排队越久，吞吐涨了，单条请求的 TPOT 却被拖慢——这就引出下一节那对总在打架的指标。
 
 ## 四、延迟与吞吐：一对常常打架的目标
 
@@ -121,7 +129,11 @@ batch 越大，越接近甚至越过 295，GPU 从空闲转向饱和，单 token
 
 ### 线性注意力 / 状态空间模型（SSM）
 
-标准 softmax 注意力的推理复杂度是 $O(n^2 d)$，而且 KV Cache 随序列长度线性膨胀。<strong>线性注意力</strong>把 softmax 换成一个核映射 $\phi$，用一个<strong>固定大小的状态</strong>累加全部历史，推理复杂度降到 $O(nd)$，且不再需要随序列增长的显式 KV Cache。它靠"前缀累加"保证因果性——每个词只依赖它之前的信息：
+标准 softmax 注意力的推理复杂度是 $O(n^2 d)$，而且 KV Cache 随序列长度线性膨胀。瓶颈藏在 $\text{softmax}(QK^\top)V$ 里：$QK^\top$ 是一个 $n\times n$ 的注意力矩阵，必须先把它显式算出来，复杂度就锁死在 $n^2$。
+
+<strong>线性注意力</strong>的破局点是<strong>结合律</strong>。它把不可分解的 $\text{softmax}(q\cdot k)$ 换成一个可分解的核映射 $\phi(q)\cdot\phi(k)$，于是注意力可以写成 $\phi(Q)\big(\phi(K)^\top V\big)$——先算括号里的 $\phi(K)^\top V$，得到的是一个<strong>与序列长度无关</strong>的 $d\times d$ 矩阵，再左乘 $\phi(Q)$。$n\times n$ 的中间矩阵被绕开了，复杂度从 $O(n^2 d)$ 降到 $O(nd^2)$，长序列下即近似线性。
+
+落到推理上，这个 $d\times d$ 矩阵就是一份<strong>固定大小的状态</strong>，靠"前缀累加"边解码边累积，保证因果性——每个词只依赖它之前的信息：
 
 $$
 S_i = S_{i-1} + \phi(K_i)^\top V_i, \quad Z_i = Z_{i-1} + \phi(K_i), \quad y_i = \frac{\phi(Q_i)^\top S_i}{\phi(Q_i)^\top Z_i}
@@ -129,13 +141,17 @@ $$
 
 ![Softmax 注意力的 KV Cache 随序列线性膨胀；线性注意力只维护一个固定大小的状态](/static/blog/llm-inference/linear-attention.svg)
 
+注意这里有个绕不开的代价：那份固定状态本质上是把<strong>全部历史压成了一个定长摘要</strong>。softmax 注意力保留了每个 token 的 $K,V$，能精确回看任意一个历史位置（完美召回）；线性注意力只留下一个 $d\times d$ 的累加和，信息越久越被稀释，因此在"大海捞针"式的<strong>精确长程检索</strong>上天然偏弱。这正是纯线性模型在质量上常落下风的原因，也解释了为什么主流方案是<strong>混合</strong>：在大量廉价的线性层里掺入少数几层完整 softmax 注意力，既拿到线性的显存与速度，又保住几层精确召回的能力。
+
 代表工作有 Mamba、S5 这类 SSM，以及 MiniMax 把全局注意力与线性注意力混合的方案。在长上下文下，这种架构的优势是压倒性的——softmax 模型的延迟早早爆炸，而线性/混合注意力几乎只是线性增长：
 
 ![长上下文延迟对比：MiniMax（线性/混合注意力）在 1M token 仍近似线性，softmax 类模型在百 K 级就急剧上升](/static/blog/llm-inference/longctx-latency.png)
 
 ### 扩散语言模型：跳出自回归
 
-另一条更激进的路是干脆放弃自回归。<strong>扩散语言模型</strong>可以在<strong>空间维度并行</strong>生成多个 token，不受逐 token 串行的限制，大批量生成时效率很高。它的软肋是自然语言固有的因果依赖——一次并行铺开整段，长文本容易逻辑断裂、上下文不一致。
+另一条更激进的路是干脆放弃自回归。自回归把生成步数和序列长度死死绑定：要出 $n$ 个 token，就得串行跑 $n$ 次。<strong>扩散语言模型</strong>换了个思路——先铺开一整段<strong>全被掩码（或加噪）</strong>的序列，再用若干步迭代去噪，<strong>每一步同时预测所有被掩码的位置</strong>。这样生成步数（去噪步数）和序列长度<strong>解耦</strong>，可以在<strong>空间维度并行</strong>恢复多个 token，不受逐 token 串行的限制，大批量生成时效率很高。
+
+它的软肋也正出在"并行"上：自然语言有强因果依赖，一步并行敲定一大片 token、彼此又看不到对方的最终取值，容易出现<strong>局部通顺、全局却前后矛盾</strong>——长文本尤其容易逻辑断裂、上下文不一致。
 
 折中方案是<strong>块扩散（BDLM）</strong>：<strong>块内</strong>用扩散并行恢复被掩码的词元，<strong>块间</strong>用自回归顺序生成——既拿到块内并行，又能复用 KV Cache、保证跨块连贯。
 
