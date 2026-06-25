@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="450" viewBox="0 0 1200 450" fill="none" role="img" aria-labelledby="t d">
+	<title id="t">真实数据奠基，合成数据精调</title>
+	<desc id="d">预训练用大规模真实数据打基础，对齐阶段用专家模型生成的合成数据精调并覆盖长尾。</desc>
+	<rect width="1200" height="450" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="402" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="72" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">真实数据奠基，合成数据精调</text>
+	<text x="56" y="102" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="17">预训练靠真实文本学规律，对齐靠合成数据系统性地教指令遵循、推理与价值对齐。</text>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<!-- 真实数据：宽地基 -->
+		<rect x="120" y="320" width="700" height="70" rx="12" fill="#EEF2FF" stroke="#6366F1" />
+		<text x="470" y="352" fill="#3730A3" font-size="19" font-weight="700" text-anchor="middle">真实数据（大规模网页 / 书籍 / 代码）</text>
+		<text x="470" y="376" fill="#4338CA" font-size="14" text-anchor="middle">预训练地基：学习基础语言规律与世界知识</text>
+
+		<!-- 合成数据：上层精调 -->
+		<rect x="250" y="216" width="440" height="64" rx="12" fill="#ECFEFF" stroke="#0891B2" />
+		<text x="470" y="245" fill="#155E75" font-size="18" font-weight="700" text-anchor="middle">合成数据（专家模型生成）</text>
+		<text x="470" y="268" fill="#0E7490" font-size="13" text-anchor="middle">对齐精调：指令、推理、偏好</text>
+		<path d="M470 320 L470 284" stroke="#94A3B8" stroke-width="3" marker-end="url(#s3)" />
+
+		<!-- 专家模型来源 -->
+		<rect x="300" y="138" width="160" height="46" rx="10" fill="#F5F3FF" stroke="#7C3AED" />
+		<text x="380" y="166" fill="#5B21B6" font-size="14" font-weight="700" text-anchor="middle">Qwen2.5-Math</text>
+		<rect x="480" y="138" width="160" height="46" rx="10" fill="#F5F3FF" stroke="#7C3AED" />
+		<text x="560" y="166" fill="#5B21B6" font-size="14" font-weight="700" text-anchor="middle">TuluMath 等</text>
+		<path d="M380 186 L430 214" stroke="#94A3B8" stroke-width="2" marker-end="url(#s3)" />
+		<path d="M560 186 L510 214" stroke="#94A3B8" stroke-width="2" marker-end="url(#s3)" />
+
+		<!-- 右侧三优势 -->
+		<rect x="860" y="150" width="276" height="76" rx="12" fill="#DCFCE7" stroke="#16A34A" />
+		<text x="884" y="184" fill="#166534" font-size="16" font-weight="700">高质量示范</text>
+		<text x="884" y="208" fill="#15803D" font-size="13">逻辑清晰、可控</text>
+		<rect x="860" y="236" width="276" height="76" rx="12" fill="#FEF3C7" stroke="#D97706" />
+		<text x="884" y="270" fill="#92400E" font-size="16" font-weight="700">降低标注成本</text>
+		<text x="884" y="294" fill="#B45309" font-size="13">省去大规模人工</text>
+		<rect x="860" y="322" width="276" height="68" rx="12" fill="#EDE9FE" stroke="#7C3AED" />
+		<text x="884" y="354" fill="#5B21B6" font-size="16" font-weight="700">覆盖长尾</text>
+		<text x="884" y="378" fill="#6D28D9" font-size="13">针对稀缺场景定制</text>
+	</g>
+	<defs>
+		<marker id="s3" markerWidth="11" markerHeight="11" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#94A3B8" /></marker>
+	</defs>
+</svg>

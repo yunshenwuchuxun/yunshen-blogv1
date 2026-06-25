@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="470" viewBox="0 0 1200 470" fill="none" role="img" aria-labelledby="t d">
+	<title id="t">LSH 近似去重三步</title>
+	<desc id="d">k-shingling 把文本切成片段集合，MinHash 压成短签名，再按 band 分桶找出候选相似对。</desc>
+	<rect width="1200" height="470" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="422" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="72" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">LSH：用短签名高效找近似重复</text>
+	<text x="56" y="102" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="17">把"两两比对全部文档"这件 O(n²) 的事，压缩成"同桶才比对"，近似重复也能抓到。</text>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<!-- Step 1 -->
+		<rect x="56" y="138" width="330" height="290" rx="16" fill="#EEF2FF" stroke="#6366F1" />
+		<text x="80" y="176" fill="#3730A3" font-size="19" font-weight="700">① k-Shingling</text>
+		<text x="80" y="200" fill="#6366F1" font-size="13">切成连续 k 元片段的集合</text>
+		<rect x="80" y="216" width="280" height="34" rx="7" fill="#FFFFFF" stroke="#C7D2FE" />
+		<text x="220" y="238" fill="#3730A3" font-size="14" text-anchor="middle">"今天天气很好"</text>
+		<text x="220" y="276" fill="#4338CA" font-size="13" text-anchor="middle">↓ k=2</text>
+		<g fill="#C7D2FE" stroke="#6366F1">
+			<rect x="84" y="292" width="60" height="28" rx="6" /><rect x="150" y="292" width="60" height="28" rx="6" /><rect x="216" y="292" width="60" height="28" rx="6" /><rect x="282" y="292" width="60" height="28" rx="6" />
+		</g>
+		<g fill="#3730A3" font-size="12" text-anchor="middle">
+			<text x="114" y="311">今天</text><text x="180" y="311">天天</text><text x="246" y="311">天气</text><text x="312" y="311">很好</text>
+		</g>
+		<text x="220" y="362" fill="#3730A3" font-size="14" text-anchor="middle">Jaccard = |∩| / |∪|</text>
+		<text x="220" y="392" fill="#6366F1" font-size="13" text-anchor="middle">衡量两篇文档的重合度</text>
+
+		<path d="M392 283 L426 283" stroke="#94A3B8" stroke-width="3" marker-end="url(#l3)" />
+
+		<!-- Step 2 -->
+		<rect x="432" y="138" width="330" height="290" rx="16" fill="#ECFEFF" stroke="#0891B2" />
+		<text x="456" y="176" fill="#155E75" font-size="19" font-weight="700">② MinHash 签名</text>
+		<text x="456" y="200" fill="#0891B2" font-size="13">n 个哈希，各取最小值</text>
+		<g fill="#A5F3FC" stroke="#0891B2">
+			<rect x="456" y="220" width="46" height="32" rx="6" /><rect x="508" y="220" width="46" height="32" rx="6" /><rect x="560" y="220" width="46" height="32" rx="6" /><rect x="612" y="220" width="46" height="32" rx="6" /><rect x="664" y="220" width="46" height="32" rx="6" />
+		</g>
+		<g fill="#155E75" font-size="13" text-anchor="middle">
+			<text x="479" y="241">7</text><text x="531" y="241">2</text><text x="583" y="241">9</text><text x="635" y="241">4</text><text x="687" y="241">1</text>
+		</g>
+		<text x="595" y="300" fill="#155E75" font-size="14" text-anchor="middle">关键性质</text>
+		<rect x="456" y="316" width="280" height="74" rx="10" fill="#FFFFFF" stroke="#0891B2" stroke-dasharray="5 4" />
+		<text x="596" y="346" fill="#0E7490" font-size="14" text-anchor="middle">P(签名相等) ≈ Jaccard 相似度</text>
+		<text x="596" y="372" fill="#0E7490" font-size="13" text-anchor="middle">高维集合 → 短签名比较</text>
+
+		<path d="M768 283 L802 283" stroke="#94A3B8" stroke-width="3" marker-end="url(#l3)" />
+
+		<!-- Step 3 -->
+		<rect x="808" y="138" width="328" height="290" rx="16" fill="#F5F3FF" stroke="#7C3AED" />
+		<text x="832" y="176" fill="#5B21B6" font-size="19" font-weight="700">③ Band 分桶</text>
+		<text x="832" y="200" fill="#7C3AED" font-size="13">签名切成 b 个 band（各 r 行）</text>
+		<!-- 签名分 band -->
+		<g>
+			<rect x="832" y="216" width="84" height="30" rx="6" fill="#DDD6FE" stroke="#7C3AED" /><text x="874" y="237" fill="#5B21B6" font-size="13" text-anchor="middle">band 1</text>
+			<rect x="924" y="216" width="84" height="30" rx="6" fill="#DDD6FE" stroke="#7C3AED" /><text x="966" y="237" fill="#5B21B6" font-size="13" text-anchor="middle">band 2</text>
+			<rect x="1016" y="216" width="96" height="30" rx="6" fill="#DDD6FE" stroke="#7C3AED" /><text x="1064" y="237" fill="#5B21B6" font-size="13" text-anchor="middle">band 3…</text>
+		</g>
+		<!-- 桶 -->
+		<rect x="880" y="280" width="180" height="44" rx="9" fill="#C4B5FD" stroke="#7C3AED" />
+		<text x="970" y="307" fill="#5B21B6" font-size="14" font-weight="700" text-anchor="middle">同一个桶</text>
+		<path d="M874 246 C 900 264, 940 264, 962 278" stroke="#7C3AED" stroke-width="2" fill="none" marker-end="url(#l4)" />
+		<path d="M1064 246 C 1040 264, 1000 264, 978 278" stroke="#7C3AED" stroke-width="2" fill="none" marker-end="url(#l4)" />
+		<text x="970" y="362" fill="#6D28D9" font-size="14" text-anchor="middle">任一 band 完全匹配</text>
+		<text x="970" y="388" fill="#6D28D9" font-size="14" text-anchor="middle">→ 成为候选相似对</text>
+	</g>
+	<defs>
+		<marker id="l3" markerWidth="12" markerHeight="12" refX="8" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#94A3B8" /></marker>
+		<marker id="l4" markerWidth="10" markerHeight="10" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#7C3AED" /></marker>
+	</defs>
+</svg>

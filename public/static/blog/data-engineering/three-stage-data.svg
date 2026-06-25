@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="460" viewBox="0 0 1200 460" fill="none" role="img" aria-labelledby="t d">
+	<title id="t">三阶段训练的数据角色</title>
+	<desc id="d">预训练用海量通用数据打基础，中期训练用高质量 STEM 补能力，后训练用指令与偏好数据做对齐。</desc>
+	<rect width="1200" height="460" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="412" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="72" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">三阶段训练：数据量递减、质量递增</text>
+	<text x="56" y="102" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="17">从海量通用网页打基础，到精挑细选的指令与偏好数据做对齐，数据角色层层聚焦。</text>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<!-- 预训练 -->
+		<rect x="64" y="140" width="320" height="270" rx="16" fill="#EEF2FF" stroke="#6366F1" />
+		<text x="88" y="180" fill="#3730A3" font-size="21" font-weight="700">① 预训练</text>
+		<rect x="88" y="200" width="200" height="34" rx="8" fill="#6366F1" /><text x="188" y="223" fill="#FFFFFF" font-size="15" font-weight="700" text-anchor="middle">3T – 15T tokens（90–95%）</text>
+		<text x="88" y="266" fill="#4338CA" font-size="15">来源：Common Crawl、</text>
+		<text x="88" y="290" fill="#4338CA" font-size="15">书籍、维基百科</text>
+		<text x="88" y="338" fill="#3730A3" font-size="16" font-weight="700">目标</text>
+		<text x="88" y="364" fill="#4338CA" font-size="15">通用语言能力、世界知识</text>
+
+		<path d="M390 275 L424 275" stroke="#94A3B8" stroke-width="3" marker-end="url(#a3)" />
+
+		<!-- 中期训练 -->
+		<rect x="430" y="140" width="320" height="270" rx="16" fill="#ECFEFF" stroke="#0891B2" />
+		<text x="454" y="180" fill="#155E75" font-size="21" font-weight="700">② 中期训练</text>
+		<rect x="454" y="200" width="150" height="34" rx="8" fill="#0891B2" /><text x="529" y="223" fill="#FFFFFF" font-size="14" font-weight="700" text-anchor="middle">百亿–千亿（5–10%）</text>
+		<text x="454" y="266" fill="#0E7490" font-size="15">来源：高质量 STEM、</text>
+		<text x="454" y="290" fill="#0E7490" font-size="15">长上下文数据</text>
+		<text x="454" y="338" fill="#155E75" font-size="16" font-weight="700">目标</text>
+		<text x="454" y="364" fill="#0E7490" font-size="15">数学、代码、推理能力</text>
+
+		<path d="M756 275 L790 275" stroke="#94A3B8" stroke-width="3" marker-end="url(#a3)" />
+
+		<!-- 后训练 -->
+		<rect x="796" y="140" width="340" height="270" rx="16" fill="#F5F3FF" stroke="#7C3AED" />
+		<text x="820" y="180" fill="#5B21B6" font-size="21" font-weight="700">③ 后训练</text>
+		<rect x="820" y="200" width="110" height="34" rx="8" fill="#7C3AED" /><text x="875" y="223" fill="#FFFFFF" font-size="14" font-weight="700" text-anchor="middle">较小规模</text>
+		<text x="820" y="266" fill="#6D28D9" font-size="15">来源：人工 / 合成指令、</text>
+		<text x="820" y="290" fill="#6D28D9" font-size="15">偏好数据</text>
+		<text x="820" y="338" fill="#5B21B6" font-size="16" font-weight="700">目标</text>
+		<text x="820" y="364" fill="#6D28D9" font-size="15">指令遵循、价值对齐、安全</text>
+	</g>
+	<defs>
+		<marker id="a3" markerWidth="12" markerHeight="12" refX="8" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#94A3B8" /></marker>
+	</defs>
+</svg>
