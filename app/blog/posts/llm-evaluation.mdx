@@ -1,0 +1,188 @@
+---
+title: 'CS336 第十讲 · LLM 评估与基准测试：榜单越来越多，我们到底在评估什么？'
+publishedAt: '2026-06-24'
+summary: '训练一个大模型很难，但说清"它到底好不好"同样难。本文按一条主线梳理大模型评估的全貌：先看现实中的四个评估视角与"想清楚四件事"的评估框架，再回到最古老的度量——困惑度（含 LAMBADA / HellaSwag 下游验证），然后系统过一遍基准测试的五大家族（知识 / 指令遵循 / 智能体 / 纯推理 / 安全），最后落到两个根本问题：真实性（考试分数 ≠ 真实世界好用）与有效性（测试集被污染、标注有噪声）。结论是当下评估正陷入"数据爆炸、信息贫困"的危机——榜单越来越多，可信的信号却越来越少。配以重绘示意图与原论文流程图。'
+draft: false
+image: '/static/blog/llm-evaluation/cover.svg'
+tags: [LLM, Evaluation, Benchmark, Tech Blog]
+---
+
+训练一个大模型很难，但还有一件同样难的事：训练完之后，你怎么<strong>说清它到底好不好</strong>？
+
+打开任何一份模型发布报告，都是一长串基准分数：MMLU-Pro 多少、GPQA 多少、MATH 多少。这些数字看起来客观、可比，可一旦你真去依赖它们，麻烦就来了——经典基准纷纷逼近满分而"饱和"，热门榜单被各种手段刷到失真，社区里则流传着和分数对不上的"体感"。连 Andrej Karpathy 都在公开抱怨：现在真的不知道该看哪个指标了。
+
+本文对应 Datawhale diy-llm 第十二章（评估与基准测试）。原文铺得很全，这里把它压成一条主线：<strong>现实中怎么看模型 → 一次评估要想清楚什么 → 最基础的度量困惑度 → 基准的五大家族 → 两个根本问题（真实性与有效性）→ 我们到底在评估什么</strong>。核心概念重绘为示意图，并保留原论文里最有代表性的流程图。
+
+## 一、看待一个模型，至少有四个视角
+
+在谈具体基准之前，先承认一件事：<strong>没有任何单一数字能代表"模型好不好"</strong>。现实中我们至少同时在用四个互补的视角看模型。
+
+![看待一个模型的四个视角：基准分数、成本性价比、用户的真实选择、社区口碑](/static/blog/llm-evaluation/four-views.svg)
+
+其中"成本与性价比"这一视角尤其值得单独画出来——把"智能"放到"价格"的坐标上，你看到的不是一个冠军，而是一条<strong>帕累托前沿</strong>：再聪明的模型，太贵也没人用，真正有意义的是"同等价位下最强"或"同等能力下最便宜"。
+
+![Artificial Analysis：模型智能指数 vs 推理成本，真正重要的是帕累托前沿而非单点冠军](/static/blog/llm-evaluation/fig-cost-pareto.png)
+
+## 二、设计一次评估，要想清楚四件事
+
+第二个原则：<strong>评估必须服务于明确的目标，没有"放之四海皆准"的评估</strong>。任何一次评估都可以拆成四个环节，每个环节的选择都会实实在在地改变最终结论。
+
+![评估框架的四个环节：输入是什么、如何调用模型、如何评估输出、如何解读结果](/static/blog/llm-evaluation/eval-framework.svg)
+
+这里最容易被忽略的是<strong>第二步"如何调用"</strong>：同一个模型，零样本和思维链能差出一大截；允许不允许调用工具，评的其实是"模型本身"还是"模型 + 脚手架的整个系统"——这是两个完全不同的问题。<strong>第四步"如何解读"</strong>同样关键：一个高分到底是真泛化，还是把答案背了下来？后面"有效性"一节会专门回到这个问题。
+
+## 三、困惑度：最古老也最基础的度量
+
+在五花八门的基准之前，语言模型有一个最朴素、最不依赖人工标注的度量——<strong>困惑度（Perplexity）</strong>。它衡量模型对一段未见文本的"平均犹豫程度"：
+
+$$
+\text{PPL}(D) = p(D)^{-\frac{1}{|D|}} = \left(\prod_{i=1}^{|D|} p(x_i \mid x_{\lt i})\right)^{-\frac{1}{|D|}}
+$$
+
+其中 $p(D)$ 是模型赋予整段文本的联合概率，$|D|$ 是 token 总数。直觉很简单：读到"我把水烧__"，好模型几乎笃定下一个字是"开"，概率分布<strong>尖锐而自信</strong>，困惑度低；差模型对一堆候选都拿不准，分布<strong>平摊而犹豫</strong>，困惑度高。
+
+![困惑度的直觉：分布越尖锐自信困惑度越低，越平摊犹豫困惑度越高](/static/blog/llm-evaluation/perplexity.svg)
+
+<strong>为什么必须用测试集？</strong> 训练集上的困惑度可以无限刷低（模型能直接记住），只有在<strong>没见过的测试集</strong>上，困惑度才真正反映泛化能力。早年有几个经典语料：
+
+| 数据集 | 特点 |
+|------|------|
+| Penn Treebank (PTB) | 小规模华尔街日报语料，早期 RNN / LSTM 实验的标配 |
+| WikiText-103 | 维基百科大规模英文语料，更贴近真实语言分布 |
+| One Billion Word (1BW) | 欧议会 / 联合国 / 新闻文本，词汇量大、难度高 |
+
+这条线索串起了语言模型的进步史：2016 年 Jozefowicz 等用 CNN+LSTM 把 1BW 的困惑度从 51.3 一举压到 30.0；到了 GPT-2，干脆在海量 WebText 上预训练、再<strong>零样本</strong>地去测各种标准数据集，用"无需在目标数据上训练就能预测得很好"证明了大规模多样数据带来的泛化能力。
+
+<strong>为什么到今天困惑度仍然重要？</strong> 因为它平滑、连续、无需任务标注，是拟合<strong>缩放定律</strong>（参见 [缩放定律](/blog/scaling-laws)）最干净的信号；还能扩展成"条件困惑度"，比如在问答里只计算答案部分。极端一点甚至有"困惑度最大主义"的哲学观点：完美的困惑度等于真实语言分布的熵，把困惑度一路降到底，就等于逼近真实世界分布、逼近 AGI。
+
+但它也有<strong>陷阱</strong>：黑盒模型上报的概率难以验证，早期模型对未登录词（UNK）的处理会让概率失真——所以困惑度更适合研究者自控的场景，不适合公开的黑盒横评。也正因如此，我们还需要能反映模型是否"真的理解语言"的<strong>下游任务</strong>：
+
+- <strong>完形填空（LAMBADA）</strong>：给一段上下文、遮住最后一个词让模型补全，刻意挑选那些"必须读懂全文才能填对"的例子，考的是长距离依赖与世界知识。
+
+![LAMBADA 完形填空任务样例：必须理解整段上下文才能补全最后一个词](/static/blog/llm-evaluation/fig-lambada.png)
+
+- <strong>常识推理（HellaSwag）</strong>：给一个日常场景，从四个后续里选出最自然的那个，考的是对生活常识的判断，且可以自动打分。
+
+![HellaSwag 常识推理样例：从四个后续中选出最符合常识的一项](/static/blog/llm-evaluation/fig-hellaswag.png)
+
+## 四、基准测试的五大家族
+
+主流基准虽然多，但大致可以归成五个家族，每一类回答关于模型的一个不同问题。
+
+![基准测试的五大家族：知识、指令遵循、智能体、纯推理、安全](/static/blog/llm-evaluation/benchmark-families.svg)
+
+### 知识类：你知道多少？
+
+这一类问"模型脑子里装了多少知识"，形式多为多项选择。
+
+- <strong>MMLU</strong>：横跨 57 个学科（数学、历史、法律、伦理……）的选择题。GPT-3 时代少样本还不到 50%，如今顶尖模型已逼近 90%+，逐渐<strong>饱和</strong>，部分题目还被指过于简单或带噪声。
+- <strong>MMLU-Pro</strong>：MMLU 的加强版——剔除噪声题，把选项从 4 个加到 10 个，准确率应声下降，缓解了饱和，通常配合思维链评测。
+- <strong>GPQA</strong>：由 PhD 出题的"防谷歌"难题，标准是"非专家即使搜 30 分钟也答不出"。博士专家约 65%、GPT-4 约 39%，当前顶尖模型约 80%。
+- <strong>Humanity's Last Exam（人类最后一考）</strong>：2500 道多模态、多学科难题，靠重金悬赏向社区征集、再多轮筛掉简单题。它的局限也很典型：题目征集有选择偏差，且形式只能是"有标准答案的考试"。
+
+![Humanity's Last Exam 的收集与多阶段筛选流程](/static/blog/llm-evaluation/fig-hle-pipeline.png)
+
+### 指令遵循类：听不听话、答得好不好？
+
+知识题有标准答案，但日常使用更多是开放式对话，于是有了这一类。
+
+- <strong>Chatbot Arena</strong>：让真实用户对两个匿名模型的回复盲测投票，用 ELO 算分。输入天然动态、能容纳新模型、直接反映真实偏好；缺点是投票者有样本偏差，分数也可能被策略性操纵。
+- <strong>IFEval</strong>：专测"听话程度"，用<strong>可自动验证的约束</strong>（如"至少写 5 句话""必须包含某关键词"）。高度自动化，但只看约束是否满足，不评语义质量。
+- <strong>AlpacaEval</strong>：805 条多样指令，用强模型（如 GPT-4）当裁判算胜率。自动化程度高，但裁判有偏见，容易被"回答更长"之类的表面特征带偏。
+- <strong>WildBench</strong>：从一百多万条真实人机对话里采样，再用 GPT-4-Turbo 配检查清单逐项评分。它和 Chatbot Arena 的相关系数高达 0.95，几乎成了"新基准到底有没有用"的事实检验标准。
+
+![WildBench 的构建流程：从真实对话采样并配合检查清单评分](/static/blog/llm-evaluation/fig-wildbench.png)
+
+### 智能体类：能不能干完整的活？
+
+前面都是"答题"，这一类要求模型像一个能自主行动的<strong>智能体</strong>，跑完一整条任务链。
+
+- <strong>SWE-Bench</strong>：从 12 个 Python 仓库里取 2294 个真实任务——给一个 GitHub issue，模型要提交一个能<strong>通过单元测试</strong>的 PR。成功与否直接跑测试说了算，标准毫不含糊。
+
+![SWE-Bench 评测流程：根据真实 issue 生成补丁并运行单元测试验证](/static/blog/llm-evaluation/fig-swebench.png)
+
+- <strong>CyBench</strong>：40 个网络安全"夺旗"（CTF）挑战，难度以"人类首次攻破耗时"衡量，有的题人类要花上 24 小时。
+- <strong>MLE-Bench</strong>：75 个 Kaggle 机器学习竞赛，要求模型走完数据处理、训练、调参、提交的完整流程。最强模型的<strong>夺牌率也不到 20%</strong>——这类基准代表着当前能力前沿，也清楚地标出了"自主智能体"距离成熟还有多远。
+
+![MLE-Bench 评测流程：模型需走完完整的机器学习竞赛流程](/static/blog/llm-evaluation/fig-mlebench.png)
+
+### 纯推理类：没学过也能推出来吗？
+
+知识类考"记得多少"，<strong>ARC-AGI</strong> 偏要反过来考"没学过也能不能推"。它给出一组视觉化的"输入网格 → 输出网格"示例，让模型自己推断变换规则、再应用到新网格上。
+
+![ARC-AGI-1 评测示意：从几组网格示例中推断规则并应用到新输入](/static/blog/llm-evaluation/fig-arc-agi-1.png)
+
+它几乎不依赖语言知识，考的是<strong>纯粹的、类人的抽象与泛化</strong>。这恰恰是传统 LLM 长期吃瘪的地方——人类觉得轻松，模型却长期得分极低，因此被视作通往 AGI 的试金石之一。难度更高的 ARC-AGI-2 则进一步拉开了人与模型的差距。
+
+![ARC-AGI-2 评测示意：更高难度的抽象推理任务](/static/blog/llm-evaluation/fig-arc-agi-2.png)
+
+### 安全类：会不会作恶？
+
+最后一类问的是风险。但"安全"本身就难定义：它同时包含拒绝有害请求、减少幻觉、符合伦理等多个维度。对闭源 API，关键看模型作恶的"倾向性"；而对开源基础模型，<strong>"能力本身就是风险"</strong>。
+
+- <strong>HarmBench</strong>：定义 510 种违法或违背社会规范的有害行为，用提示词测模型的执行倾向，核心指标是拒绝率。
+- <strong>AIR-Bench</strong>：对齐全球监管框架与公司政策，覆盖 314 个风险类别、5694 条评测提示，系统性地检验合规与风险管理。
+
+![AIR-Bench 评测集概览：对齐监管框架的风险类别体系](/static/blog/llm-evaluation/fig-airbench.png)
+
+还有两个绕不开的话题：一是<strong>越狱（Jailbreaking）</strong>——即便模型被训练成会拒绝，攻击者仍能用自动优化的提示（如 GCG）绕过防护，且攻击甚至能从开源模型<strong>迁移</strong>到闭源模型，暴露出防线的脆弱；二是<strong>部署前测试</strong>——美、英 AI 安全研究所推动厂商在发布前提供模型访问权、由安全机构评估出报告，尽管目前还只是自愿性质，却代表了监管合规化的方向。说到底，安全不只是"会不会拒绝"，把医疗场景里的幻觉降下来，本身就是在提升安全。
+
+## 五、真实性：考试分数 ≠ 真实世界好用
+
+把五大家族走完，会发现一个共同的尴尬：它们几乎都是<strong>标准化"考试题"</strong>，而真实用户提出的，大多是模糊、开放、多轮往返的<strong>"求助"</strong>。两者之间始终隔着一道鸿沟。
+
+![考试分数与真实使用之间的鸿沟：测验型题目 vs 求助型诉求](/static/blog/llm-evaluation/realism-gap.svg)
+
+所以越来越多人主张：<strong>真实世界的使用，才是模型价值的终极检验</strong>。LLM 早已被大规模集成进各类应用，Cursor 这样的编程工具几乎完全建立在它之上——这些场景里的表现，比任何榜单都更能说明问题。
+
+沿着这个方向出现了一些新尝试：Anthropic 的 <strong>Clio</strong> 在保护隐私的前提下，用语言模型去分析真实用户数据，发现人们真实的提问模式和标准化基准差异显著；医疗领域的 <strong>MedHELM</strong> 则由 29 名临床医生贡献 121 个真实临床任务，刻意贴近实际诊疗而非"医学考试"。但它们也撞上了一个根本矛盾：<strong>越真实，越涉及隐私</strong>——患者数据没法公开，这让"真实性基准"天然难以共享和复现。
+
+## 六、有效性：当测试集已经被"背"过了
+
+就算一个基准设计得很好、也足够真实，还有最后一道坎：它<strong>测出来的分数可信吗</strong>？这就是有效性问题，而最大的威胁是<strong>数据污染</strong>。
+
+![数据污染：当训练语料约等于整个互联网，测试集很可能早已被模型见过](/static/blog/llm-evaluation/contamination.svg)
+
+当训练语料约等于<strong>整个互联网</strong>，你几乎无法保证测试题没被模型见过。重叠的部分会让分数虚高，而大多数实验室又不公开训练数据，外界根本无从核实重叠有多大。对此有两条应对路线：
+
+- <strong>路线一，从模型反推</strong>：利用数据点的"可交换性"等统计性质，估计模型是否见过某些测试样本——只能给出概率，无法 100% 坐实。
+- <strong>路线二，推动报告规范</strong>：要求厂商主动披露训练-测试重叠情况，把它变成类似学术诚信的行业自律。
+
+![许多基准本身就存在标注错误或噪声，需要定期审计与修订](/static/blog/llm-evaluation/fig-label-noise.png)
+
+更微妙的是，问题不全在模型——<strong>基准本身也常有标注错误和噪声</strong>。SWE-Bench 推出人工核验过的 Verified 版本后，人们才发现原始分数可能因为题目本身的错误而被<strong>低估</strong>。换句话说，有时不是模型不行，是题出错了。
+
+![从模型反推训练-测试重叠：利用数据点的可交换性进行推断](/static/blog/llm-evaluation/fig-train-test-overlap.png)
+
+## 七、我们到底在评估什么？
+
+把以上都串起来，会触到一个更根本的转变：<strong>评估的对象本身变了</strong>。
+
+![评估范式从"比较方法"转向"比较模型/系统"，由此带来当下的评估危机](/static/blog/llm-evaluation/eval-crisis.svg)
+
+ImageNet 时代，我们评估的是<strong>方法</strong>：固定数据集、固定训练协议，只比新算法本身的优劣，强调科学可复现。而今天，我们评估的是<strong>模型/系统</strong>：数据和技巧随便用，比的是端到端的最终产品，强调实用价值。
+
+老办法对上新对象，就失灵了——这正是当下"评估危机"的根源：经典基准纷纷饱和，热门榜单被严重过拟合（挖提示词、拿私有集反复测、甚至把排名直接当成训练监督信号），而我们手握海量数据和排名，却<strong>缺乏一套公认、可靠的综合标准</strong>，陷入"数据爆炸、信息贫困"的怪圈。一个被反复提及的出路是：与其追逐单一公开榜单，不如把<strong>多个私有评估集组合成集成评估体系</strong>，强调多维度而非单一排名，在开放与防作弊之间找平衡。
+
+## 总结
+
+把全文压成几条结论：
+
+- 看模型至少有<strong>四个视角</strong>——基准分数、成本性价比、用户真实选择、社区口碑，没有任何单一数字能代表全部；性价比要看<strong>帕累托前沿</strong>而非单点冠军。
+- 设计评估要想清<strong>四件事</strong>：输入是什么、如何调用、如何评估输出、如何解读；其中"评模型还是评系统""是泛化还是记忆"最易被忽略。
+- <strong>困惑度</strong>是最基础的度量，平滑无标注、适合拟合缩放定律，但黑盒上难验证，需配 LAMBADA / HellaSwag 等下游任务佐证理解力。
+- 基准分<strong>五大家族</strong>：知识（MMLU/GPQA/HLE）、指令遵循（Arena/IFEval/WildBench）、智能体（SWE/Cy/MLE-Bench）、纯推理（ARC-AGI）、安全（HarmBench/AIR-Bench），分别回答模型不同维度的问题。
+- 两个根本问题：<strong>真实性</strong>——考试分数不等于真实好用，越真实越涉及隐私；<strong>有效性</strong>——训练-测试污染让分数虚高，基准自身也常有标注噪声。
+- 评估对象已从"比较方法"变为"比较模型/系统"，导致基准饱和、榜单被过拟合、缺乏统一标准——<strong>数据爆炸，信息却贫困</strong>。
+
+一句话：在大模型时代，<strong>会读榜，比会刷榜更重要</strong>——知道每个分数测的是什么、又测不到什么，才不至于被数字牵着走。
+
+## 参考资料
+
+- Datawhale diy-llm 第十二章《评估与基准测试》（[原文](https://datawhalechina.github.io/diy-llm/chapter12/chapter12_%E8%AF%84%E4%BC%B0%E4%B8%8E%E5%9F%BA%E5%87%86%E6%B5%8B%E8%AF%95.html)）。
+- Hendrycks et al., 2021. <strong>Measuring Massive Multitask Language Understanding</strong>（MMLU）.
+- Wang et al., 2024. <strong>MMLU-Pro</strong>；Rein et al., 2023. <strong>GPQA</strong>；<strong>Humanity's Last Exam</strong>.
+- Jimenez et al., 2023. <strong>SWE-bench</strong>；<strong>CyBench</strong>；Chan et al., 2024. <strong>MLE-bench</strong>.
+- Chollet, 2019. <strong>On the Measure of Intelligence</strong>（ARC-AGI）.
+- Mazeika et al., 2024. <strong>HarmBench</strong>；Zeng et al., 2024. <strong>AIR-Bench</strong>；Zou et al., 2023. <strong>GCG 越狱</strong>.
+- Lin et al., 2024. <strong>WildBench</strong>；Dubois et al., 2023. <strong>AlpacaEval</strong>；<strong>Chatbot Arena</strong>；Anthropic <strong>Clio</strong>；<strong>MedHELM</strong>.

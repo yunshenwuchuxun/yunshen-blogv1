@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="540" viewBox="0 0 1200 540" fill="none" role="img" aria-labelledby="t d">
+	<title id="t">评估范式的转变与当下的危机</title>
+	<desc id="d">评估对象已从"固定协议下比较方法"转向"端到端比较模型/系统"，由此带来基准饱和、刷榜过拟合、缺乏统一标准的评估危机。</desc>
+	<rect width="1200" height="540" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="492" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="66" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="27" font-weight="700">我们到底在评估什么？</text>
+	<text x="56" y="96" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="16">评估对象变了，老办法也随之失效——榜单越来越多，可信的信号却越来越少。</text>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<!-- 过去 -->
+		<rect x="56" y="128" width="476" height="190" rx="16" fill="#EFF6FF" stroke="#BFDBFE" />
+		<text x="294" y="168" fill="#1D4ED8" font-size="20" font-weight="700" text-anchor="middle">过去：评估"方法"</text>
+		<text x="80" y="206" fill="#334155" font-size="15">· 固定数据集 + 固定训练协议</text>
+		<text x="80" y="238" fill="#334155" font-size="15">· 只比新算法本身的优劣（如 ImageNet）</text>
+		<text x="80" y="270" fill="#334155" font-size="15">· 强调科学可复现</text>
+		<text x="80" y="300" fill="#1D4ED8" font-size="14.5" font-weight="600">关键词：公平、可控、可重复</text>
+
+		<!-- 箭头 -->
+		<defs>
+			<marker id="ar2" markerWidth="14" markerHeight="14" refX="9" refY="7" orient="auto">
+				<path d="M1 1 L11 7 L1 13" fill="none" stroke="#7C3AED" stroke-width="2.5" />
+			</marker>
+		</defs>
+		<line x1="548" y1="223" x2="652" y2="223" stroke="#7C3AED" stroke-width="3" marker-end="url(#ar2)" />
+
+		<!-- 现在 -->
+		<rect x="668" y="128" width="476" height="190" rx="16" fill="#FAF5FF" stroke="#E9D5FF" />
+		<text x="906" y="168" fill="#6D28D9" font-size="20" font-weight="700" text-anchor="middle">现在：评估"模型 / 系统"</text>
+		<text x="692" y="206" fill="#334155" font-size="15">· 任意数据、任意技巧都行</text>
+		<text x="692" y="238" fill="#334155" font-size="15">· 比的是"端到端"的最终产品</text>
+		<text x="692" y="270" fill="#334155" font-size="15">· 强调实用价值</text>
+		<text x="692" y="300" fill="#6D28D9" font-size="14.5" font-weight="600">关键词：好不好用、值不值得部署</text>
+
+		<!-- 危机底栏 -->
+		<rect x="56" y="346" width="1088" height="148" rx="16" fill="#FEF2F2" stroke="#FECACA" />
+		<text x="80" y="384" fill="#B91C1C" font-size="19" font-weight="700">由此而来的评估危机</text>
+		<text x="80" y="422" fill="#334155" font-size="15">· 经典基准纷纷饱和（MMLU 逼近满分）</text>
+		<text x="80" y="452" fill="#334155" font-size="15">· 榜单被过拟合：挖提示词、私有集反复测、甚至拿排名当训练信号</text>
+		<text x="640" y="422" fill="#334155" font-size="15">· 缺乏一套公认、可靠的综合标准</text>
+		<text x="640" y="452" fill="#334155" font-size="15">· "数据爆炸，信息贫困"，不知道该看哪个指标</text>
+		<text x="80" y="482" fill="#B91C1C" font-size="14.5" font-weight="600">可能的出路：把多个私有评估集组合成集成评估，强调多维度而非单一排名。</text>
+	</g>
+</svg>

@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="500" viewBox="0 0 1200 500" fill="none" role="img" aria-labelledby="t d">
+	<title id="t">训练-测试集污染</title>
+	<desc id="d">当训练数据约等于整个互联网时，测试题很可能早已被模型见过，重叠部分会让基准分数虚高、失去有效性。</desc>
+	<rect width="1200" height="500" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="452" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="66" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="27" font-weight="700">当测试集早已被"背"过：数据污染</text>
+	<text x="56" y="96" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="16">训练语料 ≈ 整个互联网，测试题很可能就藏在其中——分数到底是"理解"还是"记忆"？</text>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<!-- 左：集合重叠 -->
+		<circle cx="320" cy="300" r="148" fill="#DBEAFE" stroke="#93C5FD" stroke-width="2" />
+		<text x="244" y="200" fill="#1D4ED8" font-size="16" font-weight="700">互联网级训练数据</text>
+		<circle cx="430" cy="300" r="78" fill="#FCE7F3" stroke="#F9A8D4" stroke-width="2" opacity="0.85" />
+		<text x="452" y="296" fill="#BE185D" font-size="15" font-weight="700" text-anchor="middle">测试集</text>
+		<!-- 重叠区强调 -->
+		<path d="M388 234 A78 78 0 0 0 388 366 A148 148 0 0 1 388 234 Z" fill="#F472B6" opacity="0.55" />
+		<text x="360" y="392" fill="#9D174D" font-size="13.5" text-anchor="middle">重叠 = 见过的题</text>
+
+		<!-- 右：后果与两条路 -->
+		<text x="616" y="178" fill="#111827" font-size="19" font-weight="700">后果：分数虚高、信号失真</text>
+		<rect x="616" y="200" width="500" height="2" fill="#E2E8F0" />
+
+		<text x="616" y="240" fill="#B91C1C" font-size="16" font-weight="600">问题</text>
+		<text x="616" y="268" fill="#334155" font-size="15">大多数实验室不公开训练数据，</text>
+		<text x="616" y="292" fill="#334155" font-size="15">外界几乎无法确认重叠有多大。</text>
+
+		<text x="616" y="338" fill="#047857" font-size="16" font-weight="600">两条应对路线</text>
+		<text x="616" y="368" fill="#334155" font-size="15">① 从模型反推：用数据点的</text>
+		<text x="634" y="392" fill="#334155" font-size="15">"可交换性"估计它是否见过样本</text>
+		<text x="616" y="426" fill="#334155" font-size="15">② 推动报告规范：要求厂商主动</text>
+		<text x="634" y="450" fill="#334155" font-size="15">披露训练-测试重叠，类似学术诚信</text>
+	</g>
+</svg>

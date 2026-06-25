@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" fill="none" role="img" aria-labelledby="t d">
+	<title id="t">基准测试的五大家族</title>
+	<desc id="d">主流基准大致分五类：知识类、指令遵循类、智能体类、纯推理类、安全类，分别回答模型不同维度的能力问题。</desc>
+	<rect width="1200" height="560" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="512" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="66" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="27" font-weight="700">基准测试的五大家族</text>
+	<text x="56" y="96" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="16">每一类回答关于模型的一个不同问题——把它们拼起来，才接近"这个模型到底行不行"。</text>
+
+	<g font-family="Inter, Arial, sans-serif" font-size="14.5">
+		<!-- 列宽 ~210, x: 56,282,508,734,960 -->
+		<!-- 1 知识类 -->
+		<rect x="56" y="128" width="210" height="380" rx="16" fill="#EFF6FF" stroke="#BFDBFE" />
+		<text x="161" y="170" fill="#1D4ED8" font-size="19" font-weight="700" text-anchor="middle">知识类</text>
+		<text x="161" y="196" fill="#3B82F6" font-size="14" text-anchor="middle">你知道多少？</text>
+		<text x="76" y="244" fill="#334155">· MMLU（57 学科）</text>
+		<text x="76" y="278" fill="#334155">· MMLU-Pro</text>
+		<text x="94" y="300" fill="#64748B" font-size="13">10 选 1，更难</text>
+		<text x="76" y="334" fill="#334155">· GPQA</text>
+		<text x="94" y="356" fill="#64748B" font-size="13">博士级、防搜索</text>
+		<text x="76" y="390" fill="#334155">· Humanity's</text>
+		<text x="94" y="412" fill="#334155">Last Exam</text>
+		<text x="94" y="434" fill="#64748B" font-size="13">人类最后一考</text>
+
+		<!-- 2 指令遵循 -->
+		<rect x="282" y="128" width="210" height="380" rx="16" fill="#FFF7ED" stroke="#FED7AA" />
+		<text x="387" y="170" fill="#C2410C" font-size="19" font-weight="700" text-anchor="middle">指令遵循</text>
+		<text x="387" y="196" fill="#EA580C" font-size="14" text-anchor="middle">听不听话、答得好不好？</text>
+		<text x="302" y="244" fill="#334155">· Chatbot Arena</text>
+		<text x="320" y="266" fill="#64748B" font-size="13">盲测投票 + ELO</text>
+		<text x="302" y="300" fill="#334155">· IFEval</text>
+		<text x="320" y="322" fill="#64748B" font-size="13">可自动验证的约束</text>
+		<text x="302" y="356" fill="#334155">· AlpacaEval</text>
+		<text x="320" y="378" fill="#64748B" font-size="13">LLM 当裁判算胜率</text>
+		<text x="302" y="412" fill="#334155">· WildBench</text>
+		<text x="320" y="434" fill="#64748B" font-size="13">真实对话采样</text>
+
+		<!-- 3 智能体 -->
+		<rect x="508" y="128" width="210" height="380" rx="16" fill="#ECFDF5" stroke="#A7F3D0" />
+		<text x="613" y="170" fill="#047857" font-size="19" font-weight="700" text-anchor="middle">智能体</text>
+		<text x="613" y="196" fill="#059669" font-size="14" text-anchor="middle">能不能干完整的活？</text>
+		<text x="528" y="244" fill="#334155">· SWE-Bench</text>
+		<text x="546" y="266" fill="#64748B" font-size="13">改真实 GitHub</text>
+		<text x="546" y="286" fill="#64748B" font-size="13">issue，跑单测</text>
+		<text x="528" y="328" fill="#334155">· CyBench</text>
+		<text x="546" y="350" fill="#64748B" font-size="13">CTF 网络安全夺旗</text>
+		<text x="528" y="392" fill="#334155">· MLE-Bench</text>
+		<text x="546" y="414" fill="#64748B" font-size="13">75 个 Kaggle 赛</text>
+		<text x="546" y="434" fill="#64748B" font-size="13">夺牌率 &lt; 20%</text>
+
+		<!-- 4 纯推理 -->
+		<rect x="734" y="128" width="210" height="380" rx="16" fill="#FAF5FF" stroke="#E9D5FF" />
+		<text x="839" y="170" fill="#6D28D9" font-size="19" font-weight="700" text-anchor="middle">纯推理</text>
+		<text x="839" y="196" fill="#7C3AED" font-size="14" text-anchor="middle">没学过也能推出来吗？</text>
+		<text x="754" y="244" fill="#334155">· ARC-AGI-1 / 2</text>
+		<text x="772" y="270" fill="#64748B" font-size="13">视觉网格找规律</text>
+		<text x="772" y="294" fill="#64748B" font-size="13">不依赖语言知识</text>
+		<text x="772" y="318" fill="#64748B" font-size="13">测抽象泛化</text>
+		<text x="754" y="360" fill="#334155">人类轻松、</text>
+		<text x="754" y="384" fill="#334155">模型长期吃瘪——</text>
+		<text x="754" y="408" fill="#334155">被视作通往 AGI</text>
+		<text x="754" y="432" fill="#334155">的试金石之一。</text>
+
+		<!-- 5 安全 -->
+		<rect x="960" y="128" width="184" height="380" rx="16" fill="#FEF2F2" stroke="#FECACA" />
+		<text x="1052" y="170" fill="#B91C1C" font-size="19" font-weight="700" text-anchor="middle">安全</text>
+		<text x="1052" y="196" fill="#DC2626" font-size="14" text-anchor="middle">会不会作恶？</text>
+		<text x="980" y="244" fill="#334155">· HarmBench</text>
+		<text x="998" y="266" fill="#64748B" font-size="13">510 种有害行为</text>
+		<text x="980" y="308" fill="#334155">· AIR-Bench</text>
+		<text x="998" y="330" fill="#64748B" font-size="13">对齐监管框架</text>
+		<text x="980" y="372" fill="#334155">· 越狱测试</text>
+		<text x="998" y="394" fill="#64748B" font-size="13">绕过防护的攻击</text>
+		<text x="980" y="436" fill="#64748B" font-size="13">开源模型："能力</text>
+		<text x="998" y="456" fill="#64748B" font-size="13">本身即风险"</text>
+	</g>
+</svg>

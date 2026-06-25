@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+	<title id="title">LLM 评估与基准测试 封面</title>
+	<desc id="desc">大模型评估的全景：从困惑度、五大基准家族，到真实性、有效性与当下的评估危机——数据爆炸，信息却贫困。</desc>
+	<defs>
+		<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0" stop-color="#0b1120" />
+			<stop offset="0.5" stop-color="#111a2e" />
+			<stop offset="1" stop-color="#1e293b" />
+		</linearGradient>
+		<linearGradient id="accentA" x1="0" y1="0" x2="1" y2="0">
+			<stop offset="0" stop-color="#22d3ee" />
+			<stop offset="1" stop-color="#a78bfa" />
+		</linearGradient>
+		<filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+			<feGaussianBlur stdDeviation="5" result="blur" />
+			<feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+		</filter>
+	</defs>
+	<rect width="1200" height="630" fill="url(#bg)" />
+
+	<text x="80" y="116" fill="#7dd3fc" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="600" letter-spacing="3">DATAWHALE diy-llm · CH.12</text>
+	<text x="80" y="196" fill="#f8fafc" font-family="Inter, Arial, sans-serif" font-size="64" font-weight="800">评估与基准测试</text>
+	<text x="80" y="256" fill="url(#accentA)" font-family="Inter, Arial, sans-serif" font-size="36" font-weight="700">我们到底在评估什么？</text>
+
+	<text x="80" y="324" fill="#94a3b8" font-family="Inter, Arial, sans-serif" font-size="23">从困惑度到五大基准家族，从真实性到数据污染——</text>
+	<text x="80" y="360" fill="#94a3b8" font-family="Inter, Arial, sans-serif" font-size="23">榜单越来越多，可信的信号却越来越少：数据爆炸，信息贫困。</text>
+
+	<!-- 右下：饱和的排行榜柱状 + 一条逼近天花板的曲线 -->
+	<g transform="translate(740,372)" font-family="Inter, Arial, sans-serif">
+		<line x1="0" y1="0" x2="0" y2="200" stroke="#475569" stroke-width="2" />
+		<line x1="0" y1="200" x2="400" y2="200" stroke="#475569" stroke-width="2" />
+		<text x="-8" y="-6" fill="#64748b" font-size="15" text-anchor="end">分数</text>
+		<text x="400" y="224" fill="#64748b" font-size="15" text-anchor="end">时间 / 模型迭代</text>
+
+		<!-- 天花板 -->
+		<line x1="0" y1="34" x2="400" y2="34" stroke="#475569" stroke-width="1.5" stroke-dasharray="6 7" />
+		<text x="396" y="28" fill="#64748b" font-size="14" text-anchor="end">基准饱和上限</text>
+
+		<!-- 逼近饱和的曲线 -->
+		<path d="M10 180 C 120 150, 180 70, 280 46 S 380 36, 396 35" stroke="url(#accentA)" stroke-width="4" fill="none" filter="url(#glow)" />
+		<circle cx="396" cy="35" r="6" fill="#f472b6" />
+
+		<!-- 几根柱子 -->
+		<rect x="40" y="120" width="34" height="80" rx="4" fill="#22d3ee" opacity="0.55" />
+		<rect x="120" y="78" width="34" height="122" rx="4" fill="#38bdf8" opacity="0.6" />
+		<rect x="200" y="52" width="34" height="148" rx="4" fill="#818cf8" opacity="0.65" />
+		<rect x="280" y="42" width="34" height="158" rx="4" fill="#a78bfa" opacity="0.7" />
+	</g>
+</svg>

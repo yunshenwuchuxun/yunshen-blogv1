@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" fill="none" role="img" aria-labelledby="t d">
+	<title id="t">设计一次评估要想清楚的四件事</title>
+	<desc id="d">任何评估都可拆成四个环节：输入是什么、如何调用模型、如何评估输出、如何解读结果——每个环节的选择都会改变结论。</desc>
+	<rect width="1200" height="560" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="512" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="68" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="27" font-weight="700">一次评估，要想清楚四件事</text>
+	<text x="56" y="98" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="16">没有"唯一正确"的评估，评估只能服务于明确的目标。每一步的选择都会改变最终结论。</text>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<!-- 连接箭头底线 -->
+		<defs>
+			<marker id="ar" markerWidth="12" markerHeight="12" refX="8" refY="6" orient="auto">
+				<path d="M1 1 L9 6 L1 11" fill="none" stroke="#94A3B8" stroke-width="2" />
+			</marker>
+		</defs>
+
+		<!-- 四个阶段块 -->
+		<!-- 1 输入 -->
+		<rect x="56" y="150" width="256" height="320" rx="16" fill="#EFF6FF" stroke="#BFDBFE" />
+		<text x="184" y="194" fill="#1D4ED8" font-size="20" font-weight="700" text-anchor="middle">① 输入是什么</text>
+		<line x1="84" y1="212" x2="284" y2="212" stroke="#BFDBFE" />
+		<text x="80" y="248" fill="#334155" font-size="15">· 提示词从哪来、覆盖面够不够</text>
+		<text x="80" y="282" fill="#334155" font-size="15">· 有没有长尾里的困难样本</text>
+		<text x="80" y="316" fill="#334155" font-size="15">· 单轮问答还是多轮对话</text>
+		<text x="80" y="350" fill="#334155" font-size="15">· 像考试题，还是像真实</text>
+		<text x="98" y="374" fill="#334155" font-size="15">用户的求助</text>
+
+		<!-- 2 调用 -->
+		<rect x="344" y="150" width="256" height="320" rx="16" fill="#FFF7ED" stroke="#FED7AA" />
+		<text x="472" y="194" fill="#C2410C" font-size="20" font-weight="700" text-anchor="middle">② 如何调用模型</text>
+		<line x1="372" y1="212" x2="572" y2="212" stroke="#FED7AA" />
+		<text x="368" y="248" fill="#334155" font-size="15">· 零样本 / 少样本 / 思维链</text>
+		<text x="368" y="282" fill="#334155" font-size="15">· 是否允许调用工具</text>
+		<text x="386" y="306" fill="#334155" font-size="15">（代码解释器、检索）</text>
+		<text x="368" y="340" fill="#334155" font-size="15">· 评的是"模型本身"</text>
+		<text x="386" y="364" fill="#334155" font-size="15">还是"整个系统"</text>
+
+		<!-- 3 评估输出 -->
+		<rect x="632" y="150" width="256" height="320" rx="16" fill="#ECFDF5" stroke="#A7F3D0" />
+		<text x="760" y="194" fill="#047857" font-size="20" font-weight="700" text-anchor="middle">③ 如何评估输出</text>
+		<line x1="660" y1="212" x2="860" y2="212" stroke="#A7F3D0" />
+		<text x="656" y="248" fill="#334155" font-size="15">· 参考答案本身对不对</text>
+		<text x="656" y="282" fill="#334155" font-size="15">· 指标怎么选：pass@1</text>
+		<text x="674" y="306" fill="#334155" font-size="15">还是 pass@10</text>
+		<text x="656" y="340" fill="#334155" font-size="15">· 错误是否不对称</text>
+		<text x="674" y="364" fill="#334155" font-size="15">（医疗幻觉代价极高）</text>
+		<text x="656" y="398" fill="#334155" font-size="15">· 开放生成：人评 / 模型</text>
+		<text x="674" y="422" fill="#334155" font-size="15">当裁判 / 用户反馈</text>
+
+		<!-- 4 解读 -->
+		<rect x="920" y="150" width="224" height="320" rx="16" fill="#FAF5FF" stroke="#E9D5FF" />
+		<text x="1032" y="194" fill="#6D28D9" font-size="20" font-weight="700" text-anchor="middle">④ 如何解读</text>
+		<line x1="948" y1="212" x2="1116" y2="212" stroke="#E9D5FF" />
+		<text x="944" y="248" fill="#334155" font-size="15">· 分数到底意味着</text>
+		<text x="962" y="272" fill="#334155" font-size="15">什么、能否部署</text>
+		<text x="944" y="306" fill="#334155" font-size="15">· 是真泛化还是</text>
+		<text x="962" y="330" fill="#334155" font-size="15">背下了答案</text>
+		<text x="944" y="364" fill="#334155" font-size="15">· 说清评的是研究</text>
+		<text x="962" y="388" fill="#334155" font-size="15">方法、产品模型</text>
+		<text x="962" y="412" fill="#334155" font-size="15">还是完整系统</text>
+
+		<!-- 箭头 -->
+		<line x1="316" y1="310" x2="340" y2="310" stroke="#94A3B8" stroke-width="2.5" marker-end="url(#ar)" />
+		<line x1="604" y1="310" x2="628" y2="310" stroke="#94A3B8" stroke-width="2.5" marker-end="url(#ar)" />
+		<line x1="892" y1="310" x2="916" y2="310" stroke="#94A3B8" stroke-width="2.5" marker-end="url(#ar)" />
+	</g>
+</svg>

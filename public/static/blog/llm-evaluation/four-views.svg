@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="540" viewBox="0 0 1200 540" fill="none" role="img" aria-labelledby="t d">
+	<title id="t">看待模型的四个视角</title>
+	<desc id="d">现实中评估一个模型至少有四个互补视角：基准分数、成本与性价比、用户的真实选择、社区口碑与主观评价。</desc>
+	<rect width="1200" height="540" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="492" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="68" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="27" font-weight="700">看待一个模型，至少有四个视角</text>
+	<text x="56" y="98" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="16">它们互相补充，没有任何单一指标能代表"模型好不好"。</text>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<!-- 卡片 1 -->
+		<rect x="56" y="130" width="540" height="170" rx="16" fill="#EFF6FF" stroke="#BFDBFE" />
+		<circle cx="96" cy="172" r="18" fill="#2563EB" />
+		<text x="96" y="178" fill="#FFFFFF" font-size="18" font-weight="700" text-anchor="middle">1</text>
+		<text x="130" y="170" fill="#1D4ED8" font-size="21" font-weight="700">基准测试分数</text>
+		<text x="130" y="200" fill="#334155" font-size="15.5">MMLU-Pro、GPQA、MATH 等标准榜单上的</text>
+		<text x="130" y="224" fill="#334155" font-size="15.5">客观得分，可复现、可横向对比，</text>
+		<text x="130" y="248" fill="#334155" font-size="15.5">但也最容易被刷榜和饱和。</text>
+
+		<!-- 卡片 2 -->
+		<rect x="616" y="130" width="528" height="170" rx="16" fill="#FFF7ED" stroke="#FED7AA" />
+		<circle cx="656" cy="172" r="18" fill="#EA580C" />
+		<text x="656" y="178" fill="#FFFFFF" font-size="18" font-weight="700" text-anchor="middle">2</text>
+		<text x="690" y="170" fill="#C2410C" font-size="21" font-weight="700">成本与性价比</text>
+		<text x="690" y="200" fill="#334155" font-size="15.5">把"智能"放到"每百万 token 价格"的</text>
+		<text x="690" y="224" fill="#334155" font-size="15.5">坐标上，看帕累托前沿——再聪明的</text>
+		<text x="690" y="248" fill="#334155" font-size="15.5">模型，太贵也没人用。</text>
+
+		<!-- 卡片 3 -->
+		<rect x="56" y="320" width="540" height="170" rx="16" fill="#ECFDF5" stroke="#A7F3D0" />
+		<circle cx="96" cy="362" r="18" fill="#059669" />
+		<text x="96" y="368" fill="#FFFFFF" font-size="18" font-weight="700" text-anchor="middle">3</text>
+		<text x="130" y="360" fill="#047857" font-size="21" font-weight="700">用户的真实选择</text>
+		<text x="130" y="390" fill="#334155" font-size="15.5">OpenRouter 的真实调用流量、</text>
+		<text x="130" y="414" fill="#334155" font-size="15.5">Chatbot Arena 的盲测投票——</text>
+		<text x="130" y="438" fill="#334155" font-size="15.5">用脚投票比任何分数都诚实。</text>
+
+		<!-- 卡片 4 -->
+		<rect x="616" y="320" width="528" height="170" rx="16" fill="#FAF5FF" stroke="#E9D5FF" />
+		<circle cx="656" cy="362" r="18" fill="#7C3AED" />
+		<text x="656" y="368" fill="#FFFFFF" font-size="18" font-weight="700" text-anchor="middle">4</text>
+		<text x="690" y="360" fill="#6D28D9" font-size="21" font-weight="700">社区口碑与主观评价</text>
+		<text x="690" y="390" fill="#334155" font-size="15.5">社交媒体上的"体感测评"</text>
+		<text x="690" y="414" fill="#334155" font-size="15.5">（vibe check）——不严谨，</text>
+		<text x="690" y="438" fill="#334155" font-size="15.5">却常常最早捕捉到真实手感。</text>
+	</g>
+</svg>
