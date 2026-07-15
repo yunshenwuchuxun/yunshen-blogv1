@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="470" viewBox="0 0 1200 470" fill="none" role="img" aria-labelledby="t d">
+	<title id="t">GRPO 的长度偏差</title>
+	<desc id="d">GRPO 按 token 数做归一化，使得同样"错"的答案，越长被惩罚得越轻；再加上除以标准差，会系统性地把模型往"更长的输出"上推。Dr.GRPO 去掉这两处归一化即可修正。</desc>
+	<rect width="1200" height="470" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="422" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="66" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="27" font-weight="700">GRPO 的暗礁：长度偏差</text>
+	<text x="56" y="96" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="16">同样是"错"，长答案被平摊后的每-token 惩罚更小 → 模型学会"用啰嗦规避惩罚"。</text>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<!-- 短的错误答案 -->
+		<text x="80" y="150" fill="#334155" font-size="15" font-weight="700">错误答案 A（短）</text>
+		<g transform="translate(80,164)">
+			<rect x="0" y="0" width="150" height="34" rx="6" fill="#FEE2E2" stroke="#F87171" />
+			<text x="75" y="22" fill="#B91C1C" font-size="13" text-anchor="middle">总惩罚 −1，÷ 8 token</text>
+			<text x="0" y="60" fill="#B91C1C" font-size="15" font-weight="700">每-token 惩罚 ≈ −0.125（重）</text>
+		</g>
+
+		<!-- 长的错误答案 -->
+		<text x="80" y="270" fill="#334155" font-size="15" font-weight="700">错误答案 B（长）</text>
+		<g transform="translate(80,284)">
+			<rect x="0" y="0" width="470" height="34" rx="6" fill="#FEE2E2" stroke="#F87171" />
+			<text x="235" y="22" fill="#B91C1C" font-size="13" text-anchor="middle">总惩罚 −1，÷ 40 token</text>
+			<text x="0" y="60" fill="#B91C1C" font-size="15" font-weight="700">每-token 惩罚 ≈ −0.025（轻！）</text>
+		</g>
+
+		<text x="80" y="410" fill="#7C2D12" font-size="15">→ 一样是错，模型却觉得"写长一点更划算" → 输出越来越啰嗦</text>
+
+		<!-- 右侧：Dr.GRPO 修正 -->
+		<rect x="680" y="128" width="440" height="290" rx="16" fill="#ECFDF5" stroke="#A7F3D0" />
+		<text x="704" y="164" fill="#047857" font-size="19" font-weight="700">Dr. GRPO 的修正</text>
+		<text x="704" y="200" fill="#334155" font-size="15">病根在两处归一化：</text>
+		<text x="704" y="230" fill="#334155" font-size="15">· 按长度（1/|o|）平摊 → 有偏梯度</text>
+		<text x="704" y="260" fill="#334155" font-size="15">· 除以组内标准差 → 难度不同的题</text>
+		<text x="704" y="284" fill="#334155" font-size="15">  权重被扭曲</text>
+		<rect x="704" y="308" width="392" height="88" rx="10" fill="#FFFFFF" stroke="#6EE7B7" />
+		<text x="724" y="338" fill="#047857" font-size="15" font-weight="700">去掉这两处归一化</text>
+		<text x="724" y="366" fill="#334155" font-size="14.5">即用"求和"代替"平均"，不除以 σ，</text>
+		<text x="724" y="388" fill="#334155" font-size="14.5">长度虚增消失，性能反而更好。</text>
+	</g>
+</svg>

@@ -1,0 +1,226 @@
+---
+title: 'CS336 第十二讲 · RLVR 可验证奖励的强化学习：从 GRPO 到 DeepSeek-R1'
+publishedAt: '2026-07-15'
+summary: 'RLHF 教模型"讨好人"，但奖励主观、有噪声、还容易被刷。可数学和代码有个更干净的信号——答案要么对要么错，能自动验证。这就是 RLVR。本文对应 Datawhale diy-llm 第十四章，按一条主线精炼重组：为什么需要 RLVR（RLHF 三大困境）→ 算法主角 GRPO（相比 PPO 扔掉价值网络、改用组内 z-score 优势，附极简代码与长度偏差/Dr.GRPO 修正）→ 三个里程碑案例（DeepSeek-R1 的纯 RL 与顿悟时刻、Kimi k1.5 的长度控制、Qwen3 的思维模式融合）→ 最后把三条路收敛成同一个配方：冷启动 SFT 稳格式、RL 放大推理、蒸馏搬进小模型。PPO 细节见前作，本文只做动机回顾。配重绘示意图与论文原图。'
+draft: false
+image: '/static/blog/rlvr/cover.svg'
+tags: [LLM, Reinforcement Learning, RLVR, GRPO, DeepSeek-R1, Tech Blog]
+---
+
+RLHF 让大模型学会了"好好说话"，但它有个绕不过去的软肋：奖励是<strong>人给的</strong>。人的偏好主观、彼此打架、标起来又贵，模型还很擅长钻空子——学会讨好奖励模型，而不是真把问题解决。
+
+可有一类任务不吃这一套：数学题算错了就是错了，代码跑不过测试就是跑不过。这里的对错<strong>可以被机器自动判定</strong>，于是我们能绕过人类偏好，直接把"做对了没有"当成强化学习的奖励。这就是 <strong>RLVR（Reinforcement Learning with Verifiable Rewards，可验证奖励的强化学习）</strong>——DeepSeek-R1、Kimi k1.5、Qwen3 这一批推理模型，靠的都是它。
+
+本文对应 Datawhale diy-llm 第十四章，把原文压成一条主线：<strong>为什么需要 RLVR → 算法主角 GRPO → 三个里程碑案例 → 收敛出的共同配方</strong>。其中 PPO 的完整推导（Policy Gradient、advantage、clip 目标）在前作 [PPO：从 Policy Gradient 到 Clipped Objective](/blog/ppo) 里已经讲透，这里只做动机回顾，把篇幅留给 GRPO 和案例。
+
+## 一、为什么需要 RLVR
+
+先看 RLHF 的三个困境，它们正是 RLVR 想绕开的：
+
+- <strong>奖励噪声高</strong>：奖励模型是拿人类偏好训出来的，而人的判断本就不一致，信号里天然带噪。
+- <strong>难以规模化</strong>：偏好数据要人一条条标，成本高、上不了量。
+- <strong>过优化（reward hacking）</strong>：优化久了，模型学会的是"讨好奖励模型"的表面花招（比如答得更长、更客气），而非真正把任务做对。
+
+RLVR 的思路是把打分员从"人训练的奖励模型"换成"<strong>可自动验证的机制</strong>"——单元测试、标准答案、形式化证明检查器。它只在<strong>对错可判定的窄域</strong>（数学推理、代码生成、形式化证明）里适用，但在这些领域，奖励一下子变得客观、精确、几乎零边际成本。
+
+![RLHF 与 RLVR 的奖励来源对比：人类偏好奖励模型 vs 自动验证器](/static/blog/rlvr/rlhf-vs-rlvr.svg)
+
+两者的定位差异一张表说清：
+
+| 维度 | RLHF | RLVR |
+|------|------|------|
+| 奖励来源 | 人类偏好（ranking） | 自动验证（测试 / 答案 / 规则） |
+| 任务领域 | 通用、开放域（聊天） | 窄域、结构化（数学、代码） |
+| 奖励质量 | 主观、有噪声、成本高 | 客观、精确、可扩展 |
+| 对齐目标 | "让人觉得好" | "在形式意义上正确" |
+
+## 二、算法主角：从 PPO 到 GRPO
+
+### PPO 的痛点（回顾）
+
+PPO 是 RLHF 的标准算法，核心是那个"裁剪"目标——用重要性采样比 $r_t(\theta)$ 复用旧策略的数据，同时把更新幅度限制在信任域内：
+
+$$
+L^{\text{CLIP}}(\theta) = \mathbb{E}_t\left[\min\left(r_t(\theta)\hat{A}_t,\ \text{clip}(r_t(\theta),\, 1-\epsilon,\, 1+\epsilon)\,\hat{A}_t\right)\right],\quad r_t(\theta)=\frac{\pi_\theta(a_t\mid s_t)}{\pi_{\theta_{\text{old}}}(a_t\mid s_t)}
+$$
+
+问题出在优势 $\hat{A}_t$ 的估计：PPO 要额外训练一个<strong>价值网络（Critic）</strong>来当基线、再做 GAE。这个 Critic 通常和策略模型<strong>一样大</strong>——显存直接翻倍，还多出一堆超参、训练也更容易不稳。对"一道题采样很多条解答"的推理任务来说，这个开销尤其不划算。
+
+### GRPO：把价值网络扔掉
+
+GRPO（Group Relative Policy Optimization，出自 DeepSeekMath）的洞见很朴素：<strong>要基线，何必再养一个大网络去估？同一个问题多采样几条答案，拿这一组的平均分当基线不就行了。</strong>
+
+![PPO 与 GRPO 的组件对比：GRPO 去掉 Critic，用组内平均当基线](/static/blog/rlvr/ppo-vs-grpo.svg)
+
+具体做法：对每个问题 $q$，用旧策略采样一组 $G$ 个答案 $\lbrace o_1,\dots,o_G\rbrace$，各自过验证器拿到奖励 $\lbrace r_1,\dots,r_G\rbrace$，然后用<strong>组内 z-score</strong> 作为每条答案的优势——比组内平均好就是正优势，差就是负优势：
+
+$$
+\hat{A}_i = \frac{r_i - \text{mean}(\lbrace r_1,\dots,r_G\rbrace)}{\text{std}(\lbrace r_1,\dots,r_G\rbrace)}
+$$
+
+![GRPO 的组内 z-score 优势：同一问题一组答案互相比较得出相对优势](/static/blog/rlvr/grpo-group-advantage.svg)
+
+同一条答案里的每个 token 共享这一个标量优势。把它套回 PPO 式的裁剪目标，再加一个对参考模型的 KL 约束，就是 GRPO 的目标函数：
+
+$$
+\mathcal{J}_{\text{GRPO}}(\theta) = \mathbb{E}_{q,\,\lbrace o_i\rbrace}\left[\frac{1}{G}\sum_{i=1}^{G}\left(\min\big(\rho_i\hat{A}_i,\ \text{clip}(\rho_i,1-\epsilon,1+\epsilon)\hat{A}_i\big) - \beta\, D_{\text{KL}}(\pi_\theta\Vert\pi_{\text{ref}})\right)\right],\quad \rho_i=\frac{\pi_\theta(o_i\mid q)}{\pi_{\theta_{\text{old}}}(o_i\mid q)}
+$$
+
+其中 KL 项用的是无偏且恒非负的 $k_3$ 估计（避免朴素估计出现负值）：
+
+$$
+D_{\text{KL}}(\pi_\theta\Vert\pi_{\text{ref}}) = \frac{\pi_{\text{ref}}(o_i\mid q)}{\pi_\theta(o_i\mid q)} - \log\frac{\pi_{\text{ref}}(o_i\mid q)}{\pi_\theta(o_i\mid q)} - 1
+$$
+
+### 代码：极简 GRPO
+
+GRPO 的魅力在于<strong>实现极简</strong>。优势计算的核心，去掉工程外壳后就是"分组 + z-score"这几行：
+
+```python
+# 每个问题采样 GENERATIONS_PER_SAMPLE 条答案，按组切分
+groups = [
+    list(range(i, i + GENERATIONS_PER_SAMPLE))
+    for i in range(0, len(all_generations), GENERATIONS_PER_SAMPLE)
+]
+
+for sample, group_indices in zip(samples, groups):
+    responses = [all_generations[i] for i in group_indices]
+    # 用验证器给一组答案打分（答对=1 / 答错=0，可叠加格式奖励）
+    rewards = np.array([compute_reward(r, sample) for r in responses])
+
+    # 核心就这一行：组内 z-score 归一化得到优势
+    advantages = (rewards - rewards.mean()) / (rewards.std() + 1e-4)
+
+    # 标量优势广播到该答案的每个 token
+    per_token_adv = [[a] * len(r) for a, r in zip(advantages, responses)]
+```
+
+损失部分同样清爽——没有价值网络，只有"策略梯度损失 + KL 惩罚"，最后按总响应长度归一：
+
+```python
+def compute_pg_loss(policy_model, batch, total_response_len, KL_COEF):
+    logps     = compute_token_log_probs(policy_model, batch)  # 当前策略 log-prob
+    ref_logps = batch["ref_log_probs"]                        # 参考策略 log-prob
+    mask      = batch["labels_mask"][..., 1:]                 # 只算回复部分
+
+    # KL 惩罚（Bregman 形式，恒 >= 0）
+    ref_logratio = ref_logps - logps
+    kl_penalty = (torch.exp(ref_logratio) - 1 - ref_logratio) * mask
+
+    # 策略梯度损失：-logp * advantage
+    policy_loss = -logps * batch["advantages"][..., 1:]
+    policy_loss = policy_loss * mask
+
+    loss = (policy_loss + KL_COEF * kl_penalty).sum() / total_response_len
+    return loss
+```
+
+### 效果与暗礁
+
+在 GSM8K、MATH 等数学基准上，GRPO 明显优于 RFT / Online-RFT 等做法，用更省的算法拿到更好的推理表现：
+
+![GRPO 与 RFT 等训练方法在 GSM8K / MATH 上的性能对比](/static/blog/rlvr/fig-grpo-vs-rft.png)
+
+但 GRPO 有个著名的暗礁——<strong>长度偏差（length bias）</strong>。它对损失按 token 数做了归一化（$1/|o|$），又除以了组内标准差。结果是：同样一条<strong>错误</strong>答案，写得越长，平摊到每个 token 的惩罚就越轻，于是模型偷偷学会了"用啰嗦规避惩罚"，输出越来越长。
+
+![GRPO 的长度偏差：长的错误答案每-token 惩罚更轻，Dr.GRPO 去掉两处归一化即可修正](/static/blog/rlvr/length-bias.svg)
+
+<strong>Dr. GRPO</strong> 的修正很干脆：把这两处归一化去掉（用求和代替按长度平均、不再除以标准差），长度虚增就消失了，性能反而更好。
+
+![Dr.GRPO 与标准 GRPO 的公式与性能对比](/static/blog/rlvr/fig-dr-grpo.png)
+
+## 三、三个里程碑案例
+
+算法讲完，来看它在真实模型上怎么用。三个案例风格迥异，但都验证了同一件事：<strong>可验证奖励的 RL 能把推理能力"练"出来</strong>。
+
+### DeepSeek-R1：纯 RL 也能涌现推理
+
+R1 最惊艳的是它的前身 <strong>R1-Zero</strong>：直接在 DeepSeek-V3-Base 上跑 GRPO，<strong>不做任何 SFT</strong>，奖励只有"答案对不对 + 格式对不对"两条规则。就这么训着，模型的推理能力和响应长度<strong>一起自发增长</strong>——它学会了主动写更长的思考链去解难题。
+
+![R1-Zero 训练中 AIME 准确率与平均响应长度同步增长](/static/blog/rlvr/fig-r1-zero-curve.png)
+
+训练中还出现了被称为 <strong>"顿悟时刻"（aha moment）</strong>的现象：模型会突然冒出"等等，让我重新算一下"这类自我反思，主动纠错、回溯。需要泼盆冷水的是：后续研究发现，基座模型 <strong>V3-Base 本身就已带有</strong>这类反思措辞，RL 更像是<strong>放大并强化</strong>了这种倾向，而非凭空创造——"顿悟"没那么玄。
+
+![训练中期出现的"顿悟时刻"：模型自发反思与回溯](/static/blog/rlvr/fig-aha-moment.png)
+
+R1-Zero 虽强，却有可读性差、中英混杂等毛病。正式的 <strong>DeepSeek-R1</strong> 因此走了一条<strong>四阶段</strong>的路，用少量冷启动数据把格式先"扶正"，再放大能力：
+
+| 阶段 | 做什么 | 目的 |
+|------|--------|------|
+| ① 冷启动 SFT | 用少量高质量长-CoT 数据微调 V3-Base | 解决可读性 / 语言混杂，给 RL 一个好起点 |
+| ② 推理 RL | 面向推理任务跑 GRPO（规则奖励） | 放大数学 / 代码推理能力 |
+| ③ 拒绝采样 + SFT | 用上一步模型采样、筛出好样本（约 60 万推理 + 20 万通用）再 SFT | 把能力扩展到通用场景 |
+| ④ 全域 RL | 对所有场景再做一轮 RL（规则 + 奖励模型） | 兼顾推理与人类偏好对齐 |
+
+![DeepSeek-R1 的四阶段开发流程](/static/blog/rlvr/fig-r1-pipeline.png)
+
+最终 R1 在多个推理基准上追平甚至超过 OpenAI o1：
+
+![DeepSeek-R1 与 o1 等模型的基准对比](/static/blog/rlvr/fig-r1-benchmark.png)
+
+R1 还带火了两个方向。一是<strong>蒸馏</strong>：把 R1 生成的推理数据拿去 SFT 一个小模型（如 Qwen2.5-7B/32B），小模型也能获得可观的推理能力——<strong>能力可以被"搬运"</strong>。二是"<strong>少即是多</strong>"：S1（1k 样本）、LIMO（800 样本）用极少高质量样本做 SFT，LIMR 用少量样本做 RL，都能显著撬动数学推理——暗示基座里的推理能力更多是被"<strong>激活</strong>"而非"灌入"。
+
+### Kimi k1.5：把长度也管起来
+
+Kimi k1.5 同样走"长-CoT SFT → RL"的路，但 RL 用的<strong>不是 GRPO</strong>，而是一个基于镜像下降（mirror descent）推导的自定义目标，带对参考策略的 KL 约束：
+
+$$
+\max_\theta\ \mathbb{E}_{(x,y^*)\sim D}\Big[\mathbb{E}_{(y,z)\sim\pi_\theta}\big[r(x,y,y^*)\big] - \tau\,\text{KL}\big(\pi_\theta(x)\Vert\pi_{\theta_i}(x)\big)\Big]
+$$
+
+它更有名的贡献是<strong>长度控制</strong>：直接给奖励里加一项<strong>长度奖励</strong>，鼓励"答对且简洁"、抑制"答对却啰嗦"，正面回应了 GRPO 的长度偏差：
+
+$$
+r_{\text{len}}(i)=\begin{cases}\lambda, & r_i=1\\[2pt]\min(0,\lambda), & r_i=0\end{cases},\qquad \lambda = 0.5 - \frac{\ell_i-\ell_{\min}}{\ell_{\max}-\ell_{\min}}
+$$
+
+即：对正确答案，越短奖励越高；对错误答案，长度只会带来惩罚而非奖励。训练中 Kimi 的准确率与长度同步上升，最终推理表现对标 o1。
+
+![Kimi k1.5 训练中各基准的准确率与响应长度变化](/static/blog/rlvr/fig-kimi-curve.png)
+
+### Qwen3：思维模式融合
+
+Qwen3 的特色是<strong>思维模式融合（thinking mode fusion）</strong>：<strong>同一个模型</strong>既能"带思考"（输出长 CoT）也能"不带思考"（直接答），由用户按需切换，省掉了维护两套模型的麻烦。它的后训练管道是四段式：
+
+| 阶段 | 内容 |
+|------|------|
+| ① 长-CoT SFT | 难度 / 质量过滤后的长思维链数据打底 |
+| ② 思维模式融合 | 混入"带思考 + 不带思考"数据，让一个模型学会两种模式 |
+| ③ 推理 RL | 在约 4k 高价值样本上跑 GRPO |
+| ④ 强到弱蒸馏 | 把大模型能力蒸馏进 Qwen3 各轻量版本 |
+
+![Qwen3 系列的后训练管道](/static/blog/rlvr/fig-qwen3-pipeline.png)
+
+由此还自然带来<strong>测试时扩展（Test-Time Scaling, TTS）</strong>：通过控制"思考预算"（比如截断 `</think>` 之前允许的 token 数），可以在推理时用更多算力换更高准确率——预算越大，难题上的表现越好。
+
+![Qwen3 性能随思考预算（thinking budget）增长](/static/blog/rlvr/fig-qwen3-thinking-budget.png)
+
+## 四、三条路，一个配方
+
+把三个案例并排看，细节各异，主线却惊人一致：
+
+![DeepSeek-R1 / Kimi k1.5 / Qwen3 收敛到同一条训练主线](/static/blog/rlvr/three-recipes.svg)
+
+- <strong>冷启动 SFT 稳住格式</strong>：纯 RL（R1-Zero）能涌现能力，但可读性差；先用少量高质量长-CoT 数据 SFT，给 RL 一个干净起点，几乎成了标配。
+- <strong>可验证奖励的 RL 放大推理</strong>：无论 GRPO 还是自定义目标，核心都是拿"对错可判定"的奖励，把基座里潜藏的推理能力练出来、放大。
+- <strong>蒸馏把能力搬进小模型</strong>：大模型练好后，用它的推理轨迹去教小模型，性价比极高。
+- <strong>长度是把双刃剑</strong>：能力增长常伴随响应变长（更长的思考），但归一化不当会催生虚假的啰嗦——于是有了 Dr.GRPO 的修正和 Kimi 的长度奖励。
+
+## 总结
+
+- <strong>RLVR</strong> 用"可自动验证的对错"替代人类偏好当奖励，专治 RLHF 的噪声、成本与 reward hacking——但只在数学 / 代码 / 证明这类窄域适用。
+- <strong>GRPO</strong> 是当下主角：相比 PPO 扔掉了和策略同样大的价值网络，改用"同一问题采样一组答案、组内 z-score 当优势"，实现极简、显存更省。
+- GRPO 有<strong>长度偏差</strong>，根源是按长度和标准差的两处归一化；<strong>Dr.GRPO</strong> 去掉它们即可修正，<strong>Kimi</strong> 则用长度奖励从奖励侧压制啰嗦。
+- 三个案例（<strong>R1 / Kimi / Qwen3</strong>）收敛到同一配方：<strong>冷启动 SFT → 可验证奖励 RL →（蒸馏）</strong>；R1-Zero 证明纯 RL 也能涌现长链思考，而"顿悟时刻"更像是对基座既有倾向的放大。
+- 一句话：<strong>当奖励能被自动验证，强化学习就从"讨好人"变成了"逼模型把题做对"——这正是这一代推理模型的引擎。</strong>
+
+## 参考资料
+
+- Datawhale diy-llm 第十四章《可验证奖励的强化学习》（[原文](https://datawhalechina.github.io/diy-llm/chapter14/chapter14_%E5%8F%AF%E9%AA%8C%E8%AF%81%E5%A5%96%E5%8A%B1%E7%9A%84%E5%BC%BA%E5%8C%96%E5%AD%A6%E4%B9%A0.html)）。
+- 本站前作：[PPO：从 Policy Gradient 到 Clipped Objective](/blog/ppo)。
+- Shao et al., 2024. <strong>DeepSeekMath</strong>（GRPO，arXiv:2402.03300）。
+- DeepSeek-AI, 2025. <strong>DeepSeek-R1</strong>（arXiv:2501.12948）。
+- Liu et al., 2025. <strong>Dr. GRPO</strong>（Understanding R1-Zero-Like Training）。
+- Kimi Team, 2025. <strong>Kimi k1.5</strong>。
+- Qwen Team, 2025. <strong>Qwen3 Technical Report</strong>。
+- Muennighoff et al., 2025. <strong>s1</strong>（arXiv:2501.19393）；Ye et al., 2025. <strong>LIMO</strong>（arXiv:2502.03387）；<strong>LIMR</strong>（arXiv:2502.11886）。

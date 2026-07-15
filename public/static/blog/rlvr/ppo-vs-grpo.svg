@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" fill="none" role="img" aria-labelledby="t d">
+	<title id="t">PPO 与 GRPO 的组件对比</title>
+	<desc id="d">PPO 需要一个和策略模型同样大的价值网络（Critic）来估计基线并做 GAE；GRPO 直接扔掉 Critic，改为一次采样一组答案，用组内平均奖励当基线、组内 z-score 当优势。</desc>
+	<rect width="1200" height="620" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="572" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="66" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="27" font-weight="700">GRPO 的核心：把价值网络（Critic）扔掉</text>
+	<text x="56" y="96" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="16">基线不再靠一个额外的大网络去"估"，而是靠同一问题的一组答案互相比较。</text>
+
+	<g font-family="Inter, Arial, sans-serif" font-size="15">
+		<!-- PPO 行 -->
+		<rect x="56" y="122" width="1088" height="212" rx="16" fill="#FEF2F2" stroke="#FECACA" />
+		<text x="80" y="156" fill="#B91C1C" font-size="20" font-weight="700">PPO：4 个模型，内存重</text>
+
+		<rect x="80" y="178" width="150" height="52" rx="10" fill="#FFFFFF" stroke="#94A3B8" />
+		<text x="155" y="209" fill="#0F172A" font-weight="700" text-anchor="middle">策略 Policy</text>
+		<rect x="80" y="246" width="150" height="52" rx="10" fill="#FFFFFF" stroke="#94A3B8" />
+		<text x="155" y="277" fill="#0F172A" font-weight="700" text-anchor="middle">参考 Ref</text>
+		<rect x="250" y="178" width="150" height="52" rx="10" fill="#FFFFFF" stroke="#94A3B8" />
+		<text x="325" y="203" fill="#0F172A" font-weight="700" text-anchor="middle">奖励模型</text>
+		<text x="325" y="221" fill="#64748B" font-size="12" text-anchor="middle">Reward</text>
+
+		<!-- Critic 高亮为"多出来的" -->
+		<rect x="250" y="246" width="150" height="52" rx="10" fill="#FEE2E2" stroke="#EF4444" stroke-width="2" stroke-dasharray="6 5" />
+		<text x="325" y="271" fill="#B91C1C" font-weight="700" text-anchor="middle">价值 Critic</text>
+		<text x="325" y="289" fill="#B91C1C" font-size="12" text-anchor="middle">≈ 和策略一样大</text>
+
+		<path d="M400 220 L 452 232" stroke="#DC2626" stroke-width="2" marker-end="url(#ar)" fill="none" />
+		<path d="M400 272 L 452 252" stroke="#DC2626" stroke-width="2" marker-end="url(#ar)" fill="none" />
+		<rect x="456" y="212" width="150" height="60" rx="10" fill="#FFFFFF" stroke="#F87171" />
+		<text x="531" y="238" fill="#0F172A" font-weight="700" text-anchor="middle">GAE</text>
+		<text x="531" y="257" fill="#64748B" font-size="12" text-anchor="middle">逐 token 优势</text>
+		<path d="M606 242 L 658 242" stroke="#DC2626" stroke-width="2" marker-end="url(#ar)" fill="none" />
+		<rect x="662" y="212" width="150" height="60" rx="10" fill="#FEF2F2" stroke="#F87171" />
+		<text x="737" y="248" fill="#B91C1C" font-weight="700" text-anchor="middle">策略更新</text>
+
+		<text x="852" y="212" fill="#7F1D1D" font-size="14.5" font-weight="700">痛点</text>
+		<text x="852" y="238" fill="#334155" font-size="14">· Critic 与策略同量级 → 显存翻倍</text>
+		<text x="852" y="262" fill="#334155" font-size="14">· 训练不稳、超参多（GAE 的 γ、λ…）</text>
+		<text x="852" y="286" fill="#334155" font-size="14">· 价值估计本身也可能不准</text>
+
+		<!-- GRPO 行 -->
+		<rect x="56" y="352" width="1088" height="220" rx="16" fill="#ECFDF5" stroke="#A7F3D0" />
+		<text x="80" y="386" fill="#047857" font-size="20" font-weight="700">GRPO：3 个模型，用"组内比较"当基线</text>
+
+		<rect x="80" y="408" width="150" height="52" rx="10" fill="#FFFFFF" stroke="#94A3B8" />
+		<text x="155" y="439" fill="#0F172A" font-weight="700" text-anchor="middle">策略 Policy</text>
+		<rect x="80" y="476" width="150" height="52" rx="10" fill="#FFFFFF" stroke="#94A3B8" />
+		<text x="155" y="507" fill="#0F172A" font-weight="700" text-anchor="middle">参考 Ref</text>
+		<rect x="250" y="442" width="150" height="52" rx="10" fill="#FFFFFF" stroke="#94A3B8" />
+		<text x="325" y="467" fill="#0F172A" font-weight="700" text-anchor="middle">奖励 / 验证器</text>
+		<text x="325" y="485" fill="#64748B" font-size="12" text-anchor="middle">Reward</text>
+
+		<path d="M232 434 C 340 420, 340 420, 452 430" stroke="#059669" stroke-width="2" marker-end="url(#ag2)" fill="none" />
+		<text x="330" y="415" fill="#047857" font-size="12.5" text-anchor="middle">采样一组 G 个答案</text>
+		<path d="M400 468 L 452 460" stroke="#059669" stroke-width="2" marker-end="url(#ag2)" fill="none" />
+
+		<rect x="456" y="418" width="176" height="72" rx="10" fill="#D1FAE5" stroke="#34D399" stroke-width="2" />
+		<text x="544" y="446" fill="#064E3B" font-weight="700" text-anchor="middle">组内 z-score</text>
+		<text x="544" y="468" fill="#065F46" font-size="12.5" text-anchor="middle">A = (r − 均值) / 标准差</text>
+		<text x="544" y="484" fill="#065F46" font-size="11.5" text-anchor="middle">整条回复共享一个标量优势</text>
+		<path d="M632 454 L 684 454" stroke="#059669" stroke-width="2" marker-end="url(#ag2)" fill="none" />
+		<rect x="688" y="424" width="150" height="60" rx="10" fill="#F0FDF4" stroke="#34D399" />
+		<text x="763" y="460" fill="#047857" font-weight="700" text-anchor="middle">策略更新</text>
+
+		<rect x="868" y="410" width="252" height="140" rx="12" fill="#FFFFFF" stroke="#86EFAC" />
+		<text x="888" y="438" fill="#047857" font-size="14.5" font-weight="700">收益</text>
+		<text x="888" y="464" fill="#334155" font-size="14">· 少一个大网络 → 省显存</text>
+		<text x="888" y="490" fill="#334155" font-size="14">· 实现极简（核心几行代码）</text>
+		<text x="888" y="516" fill="#334155" font-size="14">· 天然适配"一题多解"的</text>
+		<text x="888" y="538" fill="#334155" font-size="14">  可验证任务</text>
+	</g>
+	<defs>
+		<marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#DC2626" /></marker>
+		<marker id="ag2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#059669" /></marker>
+	</defs>
+</svg>

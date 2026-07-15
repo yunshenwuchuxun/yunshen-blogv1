@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" fill="none" role="img" aria-labelledby="t d">
+	<title id="t">RLHF 与 RLVR 的奖励来源对比</title>
+	<desc id="d">RLHF 用人类偏好训练出的奖励模型打分，主观、有噪声、易被 hack；RLVR 用可自动验证的机制（单元测试、标准答案、形式化规则）直接给出客观的 0/1 奖励。</desc>
+	<rect width="1200" height="560" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="512" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="70" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="27" font-weight="700">奖励从哪来：RLHF vs RLVR</text>
+	<text x="56" y="100" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="16">同样是强化学习，区别在"谁来打分"——这决定了信号的客观程度和可扩展性。</text>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<!-- RLHF 列 -->
+		<rect x="56" y="128" width="524" height="384" rx="16" fill="#FFF7ED" stroke="#FED7AA" />
+		<text x="80" y="166" fill="#C2410C" font-size="22" font-weight="700">RLHF · 讨好人</text>
+		<text x="80" y="192" fill="#9A3412" font-size="15">通用开放域（聊天、写作）</text>
+
+		<rect x="80" y="212" width="220" height="46" rx="10" fill="#FFFFFF" stroke="#FDBA74" />
+		<text x="190" y="240" fill="#7C2D12" font-size="15" font-weight="600" text-anchor="middle">策略模型生成回复</text>
+		<path d="M300 235 L 356 235" stroke="#EA580C" stroke-width="2" marker-end="url(#ao)" />
+		<rect x="356" y="212" width="200" height="46" rx="10" fill="#FFEDD5" stroke="#FB923C" />
+		<text x="456" y="234" fill="#7C2D12" font-size="14" font-weight="700" text-anchor="middle">奖励模型</text>
+		<text x="456" y="251" fill="#9A3412" font-size="12" text-anchor="middle">(人类偏好训练而来)</text>
+
+		<text x="80" y="300" fill="#7C2D12" font-size="15" font-weight="700">代价：</text>
+		<text x="80" y="330" fill="#334155" font-size="15">· 主观、有噪声（标注者意见不一）</text>
+		<text x="80" y="360" fill="#334155" font-size="15">· 难规模化（人工标注成本高）</text>
+		<text x="80" y="390" fill="#334155" font-size="15">· 过优化：模型学会"讨好"奖励模型</text>
+		<text x="80" y="414" fill="#334155" font-size="15">  而非真正解决问题（reward hacking）</text>
+		<rect x="80" y="440" width="476" height="48" rx="10" fill="#FEF2F2" stroke="#FCA5A5" />
+		<text x="100" y="470" fill="#B91C1C" font-size="15" font-weight="600">对齐目标 = "让人觉得好"</text>
+
+		<!-- RLVR 列 -->
+		<rect x="620" y="128" width="524" height="384" rx="16" fill="#ECFDF5" stroke="#A7F3D0" />
+		<text x="644" y="166" fill="#047857" font-size="22" font-weight="700">RLVR · 做对题</text>
+		<text x="644" y="192" fill="#065F46" font-size="15">窄域结构化（数学、代码、证明）</text>
+
+		<rect x="644" y="212" width="220" height="46" rx="10" fill="#FFFFFF" stroke="#6EE7B7" />
+		<text x="754" y="240" fill="#064E3B" font-size="15" font-weight="600" text-anchor="middle">策略模型生成回复</text>
+		<path d="M864 235 L 920 235" stroke="#059669" stroke-width="2" marker-end="url(#ag)" />
+		<rect x="920" y="212" width="200" height="46" rx="10" fill="#D1FAE5" stroke="#34D399" />
+		<text x="1020" y="234" fill="#064E3B" font-size="14" font-weight="700" text-anchor="middle">自动验证器</text>
+		<text x="1020" y="251" fill="#065F46" font-size="12" text-anchor="middle">(测试 / 答案 / 规则)</text>
+
+		<text x="644" y="300" fill="#065F46" font-size="15" font-weight="700">好处：</text>
+		<text x="644" y="330" fill="#334155" font-size="15">· 客观、精确（对错可自动判定）</text>
+		<text x="644" y="360" fill="#334155" font-size="15">· 可扩展（几乎零边际标注成本）</text>
+		<text x="644" y="390" fill="#334155" font-size="15">· 难以作弊：答案要么对要么错，</text>
+		<text x="644" y="414" fill="#334155" font-size="15">  没有"表面讨好"的空间</text>
+		<rect x="644" y="440" width="476" height="48" rx="10" fill="#F0FDF4" stroke="#86EFAC" />
+		<text x="664" y="470" fill="#047857" font-size="15" font-weight="600">对齐目标 = "在形式意义上正确"</text>
+	</g>
+	<defs>
+		<marker id="ao" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#EA580C" /></marker>
+		<marker id="ag" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#059669" /></marker>
+	</defs>
+</svg>

@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+	<title id="title">RLVR 可验证奖励的强化学习 封面</title>
+	<desc id="desc">RLVR 用可自动验证的奖励替代人类偏好：为一个问题采样一组答案，用验证器判对错，再用组内相对优势更新策略——从 GRPO 到 DeepSeek-R1。</desc>
+	<defs>
+		<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0" stop-color="#0b1120" />
+			<stop offset="0.5" stop-color="#111a2e" />
+			<stop offset="1" stop-color="#1e293b" />
+		</linearGradient>
+		<linearGradient id="accentA" x1="0" y1="0" x2="1" y2="0">
+			<stop offset="0" stop-color="#34d399" />
+			<stop offset="1" stop-color="#22d3ee" />
+		</linearGradient>
+	</defs>
+	<rect width="1200" height="630" fill="url(#bg)" />
+
+	<text x="80" y="116" fill="#6ee7b7" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="600" letter-spacing="3">DATAWHALE diy-llm · CH.14</text>
+	<text x="80" y="196" fill="#f8fafc" font-family="Inter, Arial, sans-serif" font-size="64" font-weight="800">可验证奖励的强化学习</text>
+	<text x="80" y="256" fill="url(#accentA)" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="700">RLVR：从 GRPO 到 DeepSeek-R1</text>
+
+	<text x="80" y="324" fill="#94a3b8" font-family="Inter, Arial, sans-serif" font-size="23">数学和代码的对错可以自动判定——于是我们绕过人类偏好，</text>
+	<text x="80" y="360" fill="#94a3b8" font-family="Inter, Arial, sans-serif" font-size="23">直接用"做对没有"当奖励，让模型自己涌现出长链思考。</text>
+
+	<!-- 右下：一个问题采样一组答案 → 验证器判对错 → 组内相对优势 -->
+	<g transform="translate(150,420)" font-family="Inter, Arial, sans-serif">
+		<circle cx="0" cy="60" r="26" fill="#1e293b" stroke="#38bdf8" stroke-width="2" />
+		<text x="0" y="66" fill="#7dd3fc" font-size="20" font-weight="700" text-anchor="middle">q</text>
+		<text x="0" y="112" fill="#64748b" font-size="14" text-anchor="middle">问题</text>
+
+		<g stroke="#475569" stroke-width="1.5" fill="none">
+			<path d="M28 52 C 90 20, 130 16, 190 22" />
+			<path d="M28 58 C 90 44, 130 44, 190 50" />
+			<path d="M28 64 C 90 72, 130 78, 190 82" />
+			<path d="M28 70 C 90 96, 130 108, 190 114" />
+		</g>
+
+		<!-- 一组采样答案 + 验证器判定 -->
+		<g font-size="15" font-weight="700">
+			<rect x="196" y="8"  width="150" height="30" rx="8" fill="#052e2b" stroke="#34d399" />
+			<text x="210" y="28" fill="#a7f3d0">o₁</text><text x="330" y="28" fill="#34d399" text-anchor="end">✓ +A</text>
+			<rect x="196" y="44" width="150" height="30" rx="8" fill="#3a0d12" stroke="#f87171" />
+			<text x="210" y="64" fill="#fecaca">o₂</text><text x="330" y="64" fill="#f87171" text-anchor="end">✗ −A</text>
+			<rect x="196" y="80" width="150" height="30" rx="8" fill="#052e2b" stroke="#34d399" />
+			<text x="210" y="100" fill="#a7f3d0">o₃</text><text x="330" y="100" fill="#34d399" text-anchor="end">✓ +A</text>
+			<rect x="196" y="116" width="150" height="30" rx="8" fill="#3a0d12" stroke="#f87171" />
+			<text x="210" y="136" fill="#fecaca">o₄</text><text x="330" y="136" fill="#f87171" text-anchor="end">✗ −A</text>
+		</g>
+
+		<g stroke="#475569" stroke-width="1.5" fill="none">
+			<path d="M348 23 C 400 40, 420 60, 456 74" />
+			<path d="M348 59 C 400 64, 420 68, 456 76" />
+			<path d="M348 95 C 400 88, 420 84, 456 78" />
+			<path d="M348 131 C 400 112, 420 92, 456 80" />
+		</g>
+		<rect x="458" y="52" width="176" height="56" rx="12" fill="#0f2436" stroke="#22d3ee" stroke-width="2" />
+		<text x="546" y="78" fill="#67e8f9" font-size="16" font-weight="700" text-anchor="middle">组内相对优势</text>
+		<text x="546" y="98" fill="#94a3b8" font-size="13" text-anchor="middle">A = (r − 均值) / 标准差</text>
+	</g>
+</svg>
