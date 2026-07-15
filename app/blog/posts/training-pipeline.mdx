@@ -1,0 +1,172 @@
+---
+title: 'CS336 第十二讲 · 大模型的基本训练流程：从预训练到对齐的三段式流水线'
+publishedAt: '2026-07-14'
+summary: '一个能用的大模型，从来不是"跑一次训练"就有的，而是一条流水线。本文对应 Datawhale diy-llm 第十三章，作为总览篇把三段串成一条线：预训练在 50–200T tokens 上用 next-token 自学通用知识（产出只会续写的基座）→ SFT 用少量高质量演示学会指令格式（质量比数量更重要，含 Alpaca/ChatML 数据格式、污染阈值、幻觉根源与"中期训练"退火）→ 偏好对齐用 RLHF / DPO / RLVR 把模型调得更合人意（含 DPO 把 RL 问题变监督问题的关键推导、过度优化风险）。各阶段的深水区细节直接链到本站已有专篇（PPO、RLVR、DPO），本文只负责讲清"它们怎么衔接、各自解决什么"。配重绘示意图与论文原图。'
+draft: false
+image: '/static/blog/training-pipeline/cover.svg'
+tags: [LLM, Pre-training, SFT, RLHF, DPO, Tech Blog]
+---
+
+打开任何一份大模型技术报告，你都会看到一串阶段名词：预训练、退火、SFT、奖励模型、PPO、DPO……容易让人以为"训练一个大模型"是件单一的事。恰恰相反——<strong>一个能用的模型是一条流水线的产物</strong>：先在海量文本上学通用知识，再用少量高质量演示学会"听话"，最后用偏好或可验证的奖励把它调得更合人心意。
+
+本文对应 Datawhale diy-llm 第十三章，定位是这条流水线的<strong>总览/串场</strong>：讲清三段各自解决什么、怎么衔接。至于每一段的深水区——PPO 的裁剪目标、GRPO/RLVR 的组内优势、DPO 的实战——本站已有专篇，正文会随手链过去，这里不重复推导。
+
+## 一、先分清三种学习范式
+
+三段流程各自建立在不同的学习范式上，先用一张表对齐概念：
+
+| 范式 | 一句话 | 有标准答案吗 | 在大模型里对应 |
+|------|--------|:---:|------|
+| 监督学习 | 给"输入→输出"成对样本，学映射 $f: x\mapsto y$ | 有 | <strong>SFT</strong>（模仿演示） |
+| 无监督 / 自监督 | 只有原始数据，自己造伪标签去学结构 | 无（自造） | <strong>预训练</strong>（next-token） |
+| 强化学习 | 用延迟、稀疏的奖励，靠试错摸索长期最优策略 | 无（只有奖励） | <strong>偏好对齐</strong>（RLHF/RLVR） |
+
+## 二、全景：一个模型要过三关
+
+![大模型训练的三段式全景：预训练→SFT→偏好对齐，及中期训练的桥接](/static/blog/training-pipeline/pipeline-overview.svg)
+
+三关环环相扣，<strong>后一关都建立在前一关的产物上</strong>：预训练给"知识"、SFT 给"格式与听话"、对齐给"合人意"。下面逐段展开。
+
+## 三、预训练：在海量文本上"自学"
+
+预训练的范式由 GPT-1 系统化：在海量无标注文本上做 <strong>next-token 预测</strong>，让模型学会续写，顺带把语言规律和世界知识压进参数里。
+
+$$
+\mathcal{L}_{\text{PT}} = -\sum_t \log P(x_t \mid x_1, x_2, \dots, x_{t-1})
+$$
+
+规模是这一阶段的关键词：一个 8B 模型（如 Qwen3-8B）就吃掉约 36T tokens，现代大模型普遍在 <strong>50–200T tokens</strong> 量级。数据从哪来、怎么洗、怎么配比，是另一门大学问——本站 [大模型数据工程](/blog/data-engineering) 专门讲过，这里不展开。
+
+真正的里程碑是 <strong>GPT-3</strong>：1750 亿参数、约 570GB 文本，第一次让"<strong>提示即编程</strong>"成立——不更新任何梯度，仅靠提示和少量示例就能完成任务，并展现出规模带来的能力涌现：
+
+| 任务 | 指标 | 成绩 |
+|------|------|------|
+| 英文阅读理解（RACE） | 准确率 | 86.8%，超人类平均（73%） |
+| 翻译（WMT'14 法→英） | BLEU | 43.9，逼近当时最佳有监督系统 |
+| 数学加法（2–5 位） | 准确率 | 随示例数从 0% 提升到约 80% |
+| 代码补全（HumanEval） | 通过率 | 37%（Codex 微调后达 72%） |
+
+预训练的产物是一个<strong>只会续写</strong>的基座模型：知识丰富，却不会好好回答问题，也不会拒绝有害请求。这就要交给下一关。
+
+## 四、SFT：从"会续写"到"会听话"
+
+监督微调（SFT）用<strong>专家演示数据</strong>微调基座，让它模仿演示里的行为——学会指令格式、多轮对话、工具调用、拒绝有害内容。数据量相比预训练骤降到 <strong>10k–100k 条</strong>。
+
+### 数据格式：只对"答案"计损
+
+SFT 数据主要两种格式。单轮用 Alpaca：
+
+```json
+{"instruction": "翻译成英文", "input": "你好", "output": "Hello"}
+```
+
+多轮用 ChatML / ShareGPT：
+
+```json
+{"messages": [
+  {"role": "system", "content": "你是客服助手"},
+  {"role": "user", "content": "怎么修改收货地址？"},
+  {"role": "assistant", "content": "请在订单详情页点击…"}
+]}
+```
+
+关键细节：<strong>损失只在 output / assistant 部分计算</strong>——我们要模型学"怎么答"，而不是学"怎么复述问题"。
+
+### 质量比数量更重要
+
+SFT 阶段一个被反复验证的结论是：<strong>数据质量的杠杆远大于数量</strong>。MergeIT 用约 1/11 的数据追平全量训练；李飞飞团队的 <strong>s1</strong> 只用 1000 条蒸馏自强模型的高质量推理样本做纯 SFT，就与 o1-preview 打平。这也暗示：基座里的能力更多是被"<strong>激活</strong>"，而非靠海量指令"灌入"。
+
+反过来，数据里的"脏"会实打实地拖垮效果。一项覆盖多算法、数千组的实验给出了可操作的阈值：
+
+| 污染机制 | 影响 | 经验阈值 |
+|------|------|------|
+| 标签错误 | 每翻转 1% 标签，性能线性掉 2–5% | ≥20% 翻转就"学不如猜" |
+| 特征噪声 | 线性衰减，小数据集方差更大 | 与标签错误类似 |
+| 缺失值 | 训练没见、测试见 → F1 掉约 10% | 训练期引入缺失可缓解 |
+| 重复样本 | 万级以上几乎无影响 | &lt;1k 样本、5% 重复会掉 4–6% |
+| 类别不平衡 | 少数类过少 → 性能滑向瞎猜基线 | 保证少数类不被淹没 |
+
+一条实用底线：<strong>标签准确率 ≥ 80% 大体可接受</strong>。（更系统的数据处理见 [SFT 数据工程](/blog/sft-data-engineering)。）
+
+### 两个坑：幻觉与灾难性遗忘
+
+SFT 有两个反直觉的坑。一是<strong>幻觉</strong>：如果 SFT 数据里塞了模型<strong>本不知道</strong>的事实，等于在教它"看到这种问题就要给出丰富引用"——于是它学会了<strong>编造</strong>来匹配这种深度。缓解办法是先确认模型已掌握相关事实再喂数据，并加入少量安全样本（约 500 例即可建立基本安全准则）。
+
+二是<strong>灾难性遗忘</strong>：猛做 SFT 会冲掉预训练学到的通用能力。现代做法是把两者<strong>融合</strong>成"中期训练（mid-training）"——在预训练末期的退火/衰减阶段（WSD 的 D），一边保留部分预训练数据、一边混入维基、代码、指令 / SFT 数据，让"扩规模"平滑过渡到"学格式"。
+
+![miniCPM 的双阶段训练：预训练末期融入高质量与指令数据](/static/blog/training-pipeline/fig-midtraining.png)
+
+SFT 的产物是一个<strong>会听话</strong>的指令模型。但"听话"不等于"合人意"——这就是第三关。
+
+## 五、偏好对齐：RLHF / DPO / RLVR 三条路
+
+对齐处在流程末端，却对模型行为影响极大。它的共同起点是<strong>人类偏好</strong>：同一个提示下，人更喜欢哪个回答。围绕怎么用这份偏好，分出了三条路。
+
+![RLHF 与 DPO 的流程对比：RLHF 绕经奖励模型 + PPO，DPO 直接用一个监督损失](/static/blog/training-pipeline/rlhf-vs-dpo.svg)
+
+### 路线一：RLHF —— 绕经奖励模型 + PPO
+
+经典 RLHF 分三步：先做 SFT 打底 → 再用偏好对训练一个<strong>奖励模型</strong>（复用 SFT 底座加一个打分头）→ 最后用 <strong>PPO</strong> 在奖励模型指导下强化学习，同时用对参考模型的 KL 惩罚防止"reward hacking"。它效果强，但链路长、要同时维护策略/参考/奖励/价值多个模型。PPO 的裁剪目标、优势估计等细节，见本站 [PPO：从 Policy Gradient 到 Clipped Objective](/blog/ppo)。
+
+一个值得记住的教训：RLHF 天生有<strong>长度偏见</strong>——人和 AI 评审都倾向给更长的回答打高分，模型于是越训越啰嗦。
+
+### 路线二：DPO —— 把 RL 问题变成监督问题
+
+DPO 的洞见是：既然奖励和策略之间存在解析关系，那<strong>根本不必真的训练一个奖励模型、再跑 RL</strong>。它从 Bradley-Terry 偏好模型出发，把隐式奖励用策略与参考模型的对数比表示：
+
+$$
+r(x,y) = \beta\log\frac{\pi_\theta(y\mid x)}{\pi_{\text{ref}}(y\mid x)} + C
+$$
+
+代回"人更偏好 $y_w$ 胜过 $y_l$"的概率，常数 $C$ 消去，就得到一个纯监督式的损失——拉高好答案、压低坏答案的相对对数概率：
+
+$$
+\mathcal{L}_{\text{DPO}} = -\,\mathbb{E}_{(x,y_w,y_l)}\left[\log\sigma\left(\beta\log\frac{\pi_\theta(y_w\mid x)}{\pi_{\text{ref}}(y_w\mid x)} - \beta\log\frac{\pi_\theta(y_l\mid x)}{\pi_{\text{ref}}(y_l\mid x)}\right)\right]
+$$
+
+没有奖励网络、没有 advantage、没有 clip、没有 RL 循环，训练起来就像普通微调。后续变体进一步精简：<strong>SimPO</strong> 连参考模型都去掉、改用长度归一化的对数概率并引入 margin；<strong>长度归一化 DPO</strong> 则专门抑制"靠写长作弊"。DPO 的偏好数据构造与实战踩坑，见本站 [DPO 偏好优化实战](/blog/dpo-v1-preference-optimization)。
+
+### 路线三：RLVR —— 让"对错可验证"当奖励
+
+当任务的对错能被机器自动判定（数学、代码、证明），就不必依赖主观的人类偏好——直接把"做对没有"当奖励，用 <strong>GRPO</strong> 这类算法训练。这正是 DeepSeek-R1、Qwen3 这批推理模型的引擎，本站 [RLVR 可验证奖励的强化学习](/blog/rlvr) 已专门讲过。
+
+三条路放在一起对比：
+
+| 路线 | 奖励来源 | 要奖励模型吗 | 要 RL 循环吗 | 最适合 |
+|------|------|:---:|:---:|------|
+| RLHF | 人类偏好 → 奖励模型 | 要 | 要（PPO） | 通用开放域对齐 |
+| DPO | 人类偏好对（直接用） | 不要 | 不要 | 资源有限、追求稳定复现 |
+| RLVR | 自动验证的对错 | 不要 | 要（GRPO） | 数学 / 代码等可验证窄域 |
+
+### 共同的暗礁：过度优化
+
+无论哪条路，只要是在"代理奖励"上优化，就都可能<strong>过度优化</strong>——本质是过拟合到奖励信号：代理指标一路上涨，真实的人类偏好胜率却不再同步提升，甚至掉头向下。实验显示，噪声越大的反馈越容易触发它。
+
+![过度优化：代理奖励持续上升，但真实人类偏好胜率开始偏离](/static/blog/training-pipeline/fig-overoptimization.png)
+
+还有一点要清醒：对齐的实验结论<strong>高度依赖环境</strong>。早期研究认为 PPO 优于 DPO，但 Tulu 3 用更精巧的 SFT 后发现二者差距消失、唯有标准化 DPO 仍占优。<strong>别把任何单一实验当金科玉律。</strong>
+
+## 六、串起来看
+
+把三关连成一句话：<strong>预训练给知识，SFT 给格式，对齐给偏好。</strong>
+
+- 阶段的边界正在<strong>变模糊</strong>：中期训练把预训练末期和 SFT 揉在一起，缓解遗忘、榨干数据。
+- 对齐的手段正在<strong>两极分化</strong>：一边是 DPO 把 RLHF 大幅简化（RL 问题 → 监督问题），一边是 RLVR 在可验证窄域把奖励做到极致客观。
+- 贯穿始终的一条主线是<strong>质量优先</strong>：从预训练的数据清洗、SFT 的"少而精"，到对齐时对过度优化的警惕，都是同一件事的不同侧面。
+
+## 总结
+
+- 大模型训练是<strong>三段式流水线</strong>：预训练（海量无标注、next-token、学知识）→ SFT（少量高质量演示、学格式与听话）→ 偏好对齐（把模型调得更合人意）。
+- <strong>预训练</strong>靠规模涌现能力（GPT-3 的"提示即编程"是里程碑），产出只会续写的基座；数据工程是它的护城河。
+- <strong>SFT</strong> 质量比数量更重要（s1 用 1000 条打平 o1-preview），要防幻觉与灾难性遗忘，现代靠"中期训练"平滑衔接。
+- <strong>对齐三条路</strong>：RLHF（奖励模型 + PPO，强但重）、DPO（直接把偏好写进监督损失，简而稳）、RLVR（可验证奖励，窄域最客观）；共同暗礁是过度优化，且结论高度依赖环境。
+- 深水区细节见本站专篇：[PPO](/blog/ppo)、[RLVR](/blog/rlvr)、[DPO 实战](/blog/dpo-v1-preference-optimization)、[数据工程](/blog/data-engineering)。
+
+## 参考资料
+
+- Datawhale diy-llm 第十三章《大模型的基本训练流程》（[原文](https://datawhalechina.github.io/diy-llm/chapter13/chapter13_%E7%AC%AC%E5%8D%81%E4%B8%89%E7%AB%A0%E5%A4%A7%E6%A8%A1%E5%9E%8B%E7%9A%84%E5%9F%BA%E6%9C%AC%E8%AE%AD%E7%BB%83%E6%B5%81%E7%A8%8B.html)）。
+- 本站前作：[PPO](/blog/ppo)、[RLVR 可验证奖励的强化学习](/blog/rlvr)、[DPO 偏好优化实战](/blog/dpo-v1-preference-optimization)、[大模型数据工程](/blog/data-engineering)。
+- Brown et al., 2020. <strong>GPT-3</strong>（Language Models are Few-Shot Learners）。
+- Ouyang et al., 2022. <strong>InstructGPT</strong>（RLHF 三阶段）。
+- Rafailov et al., 2023. <strong>DPO</strong>；Meng et al., 2024. <strong>SimPO</strong>。
+- Muennighoff et al., 2025. <strong>s1</strong>；Lambert et al., 2024. <strong>Tulu 3</strong>。

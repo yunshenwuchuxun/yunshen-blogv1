@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" fill="none" role="img" aria-labelledby="t d">
+	<title id="t">RLHF 与 DPO 的流程对比</title>
+	<desc id="d">RLHF 要先用偏好对训练一个奖励模型，再用 PPO 在奖励模型指导下做强化学习，链路长、要维护策略/参考/奖励/价值多个模型；DPO 把偏好直接写进一个比较式的监督损失，跳过奖励模型和 RL 循环，训练像普通微调一样简单。</desc>
+	<rect width="1200" height="520" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="472" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="66" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="27" font-weight="700">对齐偏好的两条路：RLHF 绕一圈，DPO 抄近道</text>
+	<text x="56" y="96" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="16">同样是"用偏好数据把模型调得更合人意"，DPO 把强化学习问题直接变成了监督学习问题。</text>
+
+	<g font-family="Inter, Arial, sans-serif" font-size="14">
+		<!-- RLHF 行 -->
+		<rect x="56" y="126" width="1088" height="168" rx="16" fill="#FEF2F2" stroke="#FECACA" />
+		<text x="80" y="160" fill="#B91C1C" font-size="19" font-weight="700">RLHF：偏好对 → 训奖励模型 → PPO 强化学习</text>
+
+		<rect x="80" y="180" width="160" height="54" rx="10" fill="#FFFFFF" stroke="#94A3B8" /><text x="160" y="206" fill="#0F172A" font-weight="600" text-anchor="middle">偏好对</text><text x="160" y="224" fill="#64748B" font-size="12" text-anchor="middle">(好 y_w / 坏 y_l)</text>
+		<path d="M240 207 L 292 207" stroke="#DC2626" stroke-width="2" marker-end="url(#ar)" />
+		<rect x="296" y="180" width="170" height="54" rx="10" fill="#FEE2E2" stroke="#F87171" /><text x="381" y="206" fill="#B91C1C" font-weight="700" text-anchor="middle">训练奖励模型</text><text x="381" y="224" fill="#9A3412" font-size="12" text-anchor="middle">Reward Model</text>
+		<path d="M466 207 L 518 207" stroke="#DC2626" stroke-width="2" marker-end="url(#ar)" />
+		<rect x="522" y="180" width="200" height="54" rx="10" fill="#FEE2E2" stroke="#F87171" /><text x="622" y="200" fill="#B91C1C" font-weight="700" text-anchor="middle">PPO 强化学习</text><text x="622" y="220" fill="#9A3412" font-size="12" text-anchor="middle">策略/参考/奖励/价值 4 模型</text>
+		<path d="M722 207 L 774 207" stroke="#DC2626" stroke-width="2" marker-end="url(#ar)" />
+		<rect x="778" y="180" width="150" height="54" rx="10" fill="#FFFFFF" stroke="#F87171" /><text x="853" y="212" fill="#B91C1C" font-weight="700" text-anchor="middle">对齐模型</text>
+
+		<text x="956" y="200" fill="#7F1D1D" font-size="13.5" font-weight="700">代价</text>
+		<text x="956" y="222" fill="#334155" font-size="13">链路长、显存重、</text>
+		<text x="956" y="242" fill="#334155" font-size="13">超参多、易 hack</text>
+
+		<!-- DPO 行 -->
+		<rect x="56" y="314" width="1088" height="168" rx="16" fill="#ECFDF5" stroke="#A7F3D0" />
+		<text x="80" y="348" fill="#047857" font-size="19" font-weight="700">DPO：偏好对 → 一个比较式监督损失，直接更新</text>
+
+		<rect x="80" y="368" width="160" height="54" rx="10" fill="#FFFFFF" stroke="#94A3B8" /><text x="160" y="394" fill="#0F172A" font-weight="600" text-anchor="middle">偏好对</text><text x="160" y="412" fill="#64748B" font-size="12" text-anchor="middle">(好 y_w / 坏 y_l)</text>
+		<path d="M240 395 L 300 395" stroke="#059669" stroke-width="2.5" marker-end="url(#ag)" />
+		<rect x="304" y="360" width="420" height="70" rx="10" fill="#D1FAE5" stroke="#34D399" stroke-width="2" />
+		<text x="514" y="388" fill="#064E3B" font-weight="700" text-anchor="middle">DPO 损失：拉高"好答案"、压低"坏答案"的相对概率</text>
+		<text x="514" y="412" fill="#065F46" font-size="12.5" text-anchor="middle">无奖励模型 · 无 advantage · 无 clip · 无 RL 循环</text>
+		<path d="M724 395 L 776 395" stroke="#059669" stroke-width="2.5" marker-end="url(#ag)" />
+		<rect x="780" y="368" width="150" height="54" rx="10" fill="#F0FDF4" stroke="#34D399" /><text x="855" y="400" fill="#047857" font-weight="700" text-anchor="middle">对齐模型</text>
+
+		<text x="956" y="388" fill="#065F46" font-size="13.5" font-weight="700">收益</text>
+		<text x="956" y="410" fill="#334155" font-size="13">训练像普通微调，</text>
+		<text x="956" y="430" fill="#334155" font-size="13">稳、省、易复现</text>
+	</g>
+	<defs>
+		<marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#DC2626" /></marker>
+		<marker id="ag" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#059669" /></marker>
+	</defs>
+</svg>

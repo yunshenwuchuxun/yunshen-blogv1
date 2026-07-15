@@ -1,5 +1,5 @@
 ---
-title: 'CS336 第十二讲 · RLVR 可验证奖励的强化学习：从 GRPO 到 DeepSeek-R1'
+title: 'CS336 第十三讲 · RLVR 可验证奖励的强化学习：从 GRPO 到 DeepSeek-R1'
 publishedAt: '2026-07-15'
 summary: 'RLHF 教模型"讨好人"，但奖励主观、有噪声、还容易被刷。可数学和代码有个更干净的信号——答案要么对要么错，能自动验证。这就是 RLVR。本文对应 Datawhale diy-llm 第十四章，按一条主线精炼重组：为什么需要 RLVR（RLHF 三大困境）→ 算法主角 GRPO（相比 PPO 扔掉价值网络、改用组内 z-score 优势，附极简代码与长度偏差/Dr.GRPO 修正）→ 三个里程碑案例（DeepSeek-R1 的纯 RL 与顿悟时刻、Kimi k1.5 的长度控制、Qwen3 的思维模式融合）→ 最后把三条路收敛成同一个配方：冷启动 SFT 稳格式、RL 放大推理、蒸馏搬进小模型。PPO 细节见前作，本文只做动机回顾。配重绘示意图与论文原图。'
 draft: false

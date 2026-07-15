@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="640" viewBox="0 0 1200 640" fill="none" role="img" aria-labelledby="t d">
+	<title id="t">大模型训练的三段式全景</title>
+	<desc id="d">预训练用海量无标注文本学通用知识，产出只会续写的基座；SFT 用少量高质量演示学会指令格式，产出会听话的模型；偏好对齐（RLHF/DPO/RLVR）用偏好或可验证奖励调得更合人意，产出生产级模型。SFT 常与预训练末期的退火阶段融合（中期训练）以缓解灾难性遗忘。</desc>
+	<rect width="1200" height="640" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1152" height="592" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="66" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="27" font-weight="700">从"一堆文本"到"能用的模型"，要过三关</text>
+	<text x="56" y="96" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="16">每一关的输入、做的事、产出都不同——后一关都建立在前一关的产物上。</text>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<!-- 阶段1 预训练 -->
+		<rect x="56" y="126" width="344" height="330" rx="16" fill="#EEF2FF" stroke="#C7D2FE" />
+		<circle cx="92" cy="164" r="17" fill="#6366F1" /><text x="92" y="170" fill="#fff" font-size="16" font-weight="700" text-anchor="middle">1</text>
+		<text x="120" y="170" fill="#4338CA" font-size="21" font-weight="700">预训练 Pre-training</text>
+		<text x="80" y="206" fill="#475569" font-size="14" font-weight="700">输入</text>
+		<text x="80" y="230" fill="#334155" font-size="14.5">50–200T tokens 海量无标注文本</text>
+		<text x="80" y="262" fill="#475569" font-size="14" font-weight="700">做什么</text>
+		<text x="80" y="286" fill="#334155" font-size="14.5">next-token 预测，自监督"自学"</text>
+		<text x="80" y="308" fill="#334155" font-size="14.5">语言规律与世界知识</text>
+		<text x="80" y="340" fill="#475569" font-size="14" font-weight="700">产出</text>
+		<rect x="80" y="352" width="296" height="46" rx="10" fill="#FFFFFF" stroke="#A5B4FC" />
+		<text x="228" y="381" fill="#4338CA" font-size="14.5" font-weight="600" text-anchor="middle">基座模型（只会续写）</text>
+		<text x="80" y="428" fill="#6366F1" font-size="13">代表：GPT-3 靠规模涌现"提示即编程"</text>
+
+		<!-- 阶段2 SFT -->
+		<rect x="428" y="126" width="344" height="330" rx="16" fill="#ECFEFF" stroke="#A5F3FC" />
+		<circle cx="464" cy="164" r="17" fill="#0891B2" /><text x="464" y="170" fill="#fff" font-size="16" font-weight="700" text-anchor="middle">2</text>
+		<text x="492" y="170" fill="#0E7490" font-size="21" font-weight="700">监督微调 SFT</text>
+		<text x="452" y="206" fill="#475569" font-size="14" font-weight="700">输入</text>
+		<text x="452" y="230" fill="#334155" font-size="14.5">10k–100k 条高质量"演示"</text>
+		<text x="452" y="252" fill="#334155" font-size="14.5">（指令 / 多轮对话，QA 对）</text>
+		<text x="452" y="284" fill="#475569" font-size="14" font-weight="700">做什么</text>
+		<text x="452" y="308" fill="#334155" font-size="14.5">模仿演示：学格式、会拒答、</text>
+		<text x="452" y="330" fill="#334155" font-size="14.5">遵循指令（质量 &gt; 数量）</text>
+		<text x="452" y="362" fill="#475569" font-size="14" font-weight="700">产出</text>
+		<rect x="452" y="374" width="296" height="46" rx="10" fill="#FFFFFF" stroke="#67E8F9" />
+		<text x="600" y="403" fill="#0E7490" font-size="14.5" font-weight="600" text-anchor="middle">会听话的指令模型</text>
+		<text x="452" y="444" fill="#0891B2" font-size="13">坑：幻觉、灾难性遗忘 → 靠中期训练缓解</text>
+
+		<!-- 阶段3 对齐 -->
+		<rect x="800" y="126" width="344" height="330" rx="16" fill="#ECFDF5" stroke="#A7F3D0" />
+		<circle cx="836" cy="164" r="17" fill="#059669" /><text x="836" y="170" fill="#fff" font-size="16" font-weight="700" text-anchor="middle">3</text>
+		<text x="864" y="170" fill="#047857" font-size="21" font-weight="700">偏好对齐 Align</text>
+		<text x="824" y="206" fill="#475569" font-size="14" font-weight="700">输入</text>
+		<text x="824" y="230" fill="#334155" font-size="14.5">偏好对(好/坏) 或 可验证奖励</text>
+		<text x="824" y="262" fill="#475569" font-size="14" font-weight="700">做什么（三条路）</text>
+		<text x="824" y="286" fill="#334155" font-size="14.5">· RLHF：奖励模型 + PPO</text>
+		<text x="824" y="308" fill="#334155" font-size="14.5">· DPO：直接用偏好对，去掉 RL</text>
+		<text x="824" y="330" fill="#334155" font-size="14.5">· RLVR：自动验证的对错当奖励</text>
+		<text x="824" y="362" fill="#475569" font-size="14" font-weight="700">产出</text>
+		<rect x="824" y="374" width="296" height="46" rx="10" fill="#FFFFFF" stroke="#6EE7B7" />
+		<text x="972" y="403" fill="#047857" font-size="14.5" font-weight="600" text-anchor="middle">生产级模型（合人意）</text>
+		<text x="824" y="444" fill="#059669" font-size="13">坑：过度优化（reward hacking）</text>
+
+		<!-- 阶段间箭头 -->
+		<path d="M400 291 L 426 291" stroke="#94A3B8" stroke-width="3" marker-end="url(#ap)" />
+		<path d="M772 291 L 798 291" stroke="#94A3B8" stroke-width="3" marker-end="url(#ap)" />
+
+		<!-- 底部：中期训练桥接说明 -->
+		<rect x="56" y="480" width="1088" height="112" rx="16" fill="#FFFBEB" stroke="#FDE68A" />
+		<text x="80" y="514" fill="#B45309" font-size="17" font-weight="700">现代做法：预训练与后训练不再泾渭分明 —— "中期训练（mid-training）"</text>
+		<text x="80" y="544" fill="#334155" font-size="14.5">预训练末期进入"退火/衰减阶段"（WSD 的 D）：一边保留部分预训练数据，一边混入维基、代码、指令 / SFT 数据，</text>
+		<text x="80" y="568" fill="#334155" font-size="14.5">让"扩规模"和"学格式"平滑衔接，既缓解<tspan font-weight="700">灾难性遗忘</tspan>，又更充分地利用数据。</text>
+	</g>
+	<defs>
+		<marker id="ap" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#94A3B8" /></marker>
+	</defs>
+</svg>
