@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="560" viewBox="0 0 960 560" role="img" aria-labelledby="title desc">
+	<title id="title">分词器的编码流程</title>
+	<desc id="desc">训练完成后的编码流程：原始文本经正规化、预切分、应用 BPE/WordPiece/Unigram 规则得到 token 序列，再经词表查找得到 token ID 序列。</desc>
+	<defs>
+		<linearGradient id="bge" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0" stop-color="#0b1120" />
+			<stop offset="1" stop-color="#1e293b" />
+		</linearGradient>
+		<marker id="are" markerWidth="10" markerHeight="10" refX="4.5" refY="4" orient="auto">
+			<path d="M0 0 L10 4 L0 8 z" fill="#64748b" />
+		</marker>
+	</defs>
+	<rect width="960" height="560" rx="28" fill="url(#bge)" />
+	<text x="40" y="52" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700" fill="#f8fafc">分词器的编码流程</text>
+	<text x="40" y="78" font-family="Inter, Arial, sans-serif" font-size="14" fill="#94a3b8">训练完成后，任意文本按 vocab / merges 转成 token ID —— 编码可逆</text>
+
+	<g font-family="Inter, Arial, sans-serif">
+		<!-- cross-column dashed guides linking each state to its worked value -->
+		<g stroke="#334155" stroke-width="1" stroke-dasharray="4 5">
+			<path d="M340 130 L500 130" />
+			<path d="M340 338 L500 338" />
+			<path d="M340 466 L500 466" />
+		</g>
+
+		<!-- LEFT: abstract pipeline (spine x=210) -->
+		<!-- state: 原始文本 -->
+		<rect x="80" y="104" width="260" height="52" rx="14" fill="rgba(251,113,133,0.14)" stroke="#fb7185" stroke-width="1.5" />
+		<text x="210" y="128" font-size="18" font-weight="700" fill="#f8fafc" text-anchor="middle">原始文本</text>
+		<text x="210" y="146" font-size="11" fill="#94a3b8" text-anchor="middle" font-family="JetBrains Mono, monospace">raw text</text>
+
+		<!-- op: 正规化 -->
+		<rect x="105" y="176" width="210" height="30" rx="15" fill="rgba(148,163,184,0.12)" stroke="#475569" stroke-width="1" />
+		<text x="210" y="196" font-size="13" fill="#cbd5e1" text-anchor="middle">① 正规化 · Normalize</text>
+		<!-- op: 预切分 -->
+		<rect x="105" y="216" width="210" height="30" rx="15" fill="rgba(148,163,184,0.12)" stroke="#475569" stroke-width="1" />
+		<text x="210" y="236" font-size="13" fill="#cbd5e1" text-anchor="middle">② 预切分 · Pre-tokenize</text>
+		<!-- op: 应用规则 (core, amber) -->
+		<rect x="60" y="256" width="300" height="30" rx="15" fill="rgba(251,191,36,0.14)" stroke="#fbbf24" stroke-width="1.2" />
+		<text x="210" y="276" font-size="13" font-weight="600" fill="#fbe8b0" text-anchor="middle">③ 应用 BPE / WordPiece / Unigram 规则</text>
+
+		<!-- state: token 序列 -->
+		<rect x="80" y="312" width="260" height="52" rx="14" fill="rgba(34,211,238,0.14)" stroke="#22d3ee" stroke-width="1.5" />
+		<text x="210" y="336" font-size="18" font-weight="700" fill="#f8fafc" text-anchor="middle">token 序列</text>
+		<text x="210" y="354" font-size="11" fill="#94a3b8" text-anchor="middle" font-family="JetBrains Mono, monospace">tokens</text>
+
+		<!-- op: 词表查找 -->
+		<rect x="105" y="384" width="210" height="30" rx="15" fill="rgba(148,163,184,0.12)" stroke="#475569" stroke-width="1" />
+		<text x="210" y="404" font-size="13" fill="#cbd5e1" text-anchor="middle">④ 词表查找 · vocab lookup</text>
+
+		<!-- state: token ID 序列 -->
+		<rect x="80" y="440" width="260" height="52" rx="14" fill="rgba(167,139,250,0.14)" stroke="#a78bfa" stroke-width="1.5" />
+		<text x="210" y="464" font-size="18" font-weight="700" fill="#f8fafc" text-anchor="middle">token ID 序列</text>
+		<text x="210" y="482" font-size="11" fill="#94a3b8" text-anchor="middle" font-family="JetBrains Mono, monospace">input_ids</text>
+
+		<!-- spine connectors -->
+		<g stroke="#475569" stroke-width="2" fill="none">
+			<path d="M210 156 L210 176" />
+			<path d="M210 206 L210 216" />
+			<path d="M210 246 L210 256" />
+			<path d="M210 286 L210 310" marker-end="url(#are)" />
+			<path d="M210 364 L210 384" />
+			<path d="M210 414 L210 438" marker-end="url(#are)" />
+		</g>
+
+		<!-- RIGHT: worked example -->
+		<rect x="470" y="104" width="450" height="388" rx="18" fill="rgba(255,255,255,0.03)" stroke="#334155" stroke-width="1" />
+		<text x="494" y="132" font-size="13" font-weight="600" fill="#94a3b8">示意 · 以 incredible 为例</text>
+
+		<!-- value: raw text (aligns 原始文本, y=130) -->
+		<rect x="500" y="152" width="390" height="40" rx="10" fill="rgba(251,113,133,0.10)" stroke="rgba(251,113,133,0.5)" stroke-width="1" />
+		<text x="520" y="177" font-size="15" fill="#e2e8f0" font-family="JetBrains Mono, monospace">incredible</text>
+
+		<!-- op notes -->
+		<text x="520" y="230" font-size="13" fill="#94a3b8">正规化：统一大小写 / Unicode 编码</text>
+		<text x="520" y="266" font-size="13" fill="#94a3b8">预切分：按空格 · 类别切成基础单元</text>
+		<text x="520" y="302" font-size="13" fill="#fbbf24">应用规则：BPE 合并 → in · credible</text>
+
+		<!-- value: tokens (aligns token 序列, y=338) -->
+		<rect x="500" y="318" width="390" height="40" rx="10" fill="rgba(34,211,238,0.10)" stroke="rgba(34,211,238,0.5)" stroke-width="1" />
+		<text x="520" y="343" font-size="15" fill="#e2e8f0" font-family="JetBrains Mono, monospace">["in", "credible"]</text>
+
+		<!-- op note -->
+		<text x="520" y="400" font-size="13" fill="#94a3b8">词表查找：每个 token → 唯一整数 ID</text>
+
+		<!-- value: ids (aligns token ID 序列, y=466) -->
+		<rect x="500" y="446" width="390" height="40" rx="10" fill="rgba(167,139,250,0.10)" stroke="rgba(167,139,250,0.5)" stroke-width="1" />
+		<text x="520" y="471" font-size="15" fill="#e2e8f0" font-family="JetBrains Mono, monospace">[287, 9930]</text>
+	</g>
+
+	<text x="40" y="528" font-family="Inter, Arial, sans-serif" font-size="12" fill="#64748b">注：ID 为示意值，实际取决于具体词表；解码时按同一 vocab / merges 反向还原（编码可逆）。</text>
+</svg>
