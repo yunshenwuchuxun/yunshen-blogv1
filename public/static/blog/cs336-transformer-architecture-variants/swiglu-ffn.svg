@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1300" height="540" viewBox="0 0 1300 540" fill="none" role="img" aria-labelledby="stitle sdesc">
+	<title id="stitle">SwiGLU 门控 FFN 的前向数据流</title>
+	<desc id="sdesc">输入 x 分叉为两条通路：up_proj 生成候选内容 u，gate_proj 经 SiLU 生成门控信号；两者逐元素相乘后由 down_proj 投影回 hidden 维度。</desc>
+	<rect width="1300" height="540" rx="28" fill="#F8FAFC" />
+	<rect x="24" y="24" width="1252" height="492" rx="24" fill="#FFFFFF" stroke="#D0D5DD" />
+	<text x="56" y="78" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="700">SwiGLU 门控 FFN：前向数据流</text>
+	<text x="56" y="112" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="17">x 分叉出候选内容 u（up_proj）与门控信号 g（gate_proj）；SiLU(g) 逐元素调制 u 后，由 down_proj 投影回 hidden。</text>
+
+	<defs>
+		<marker id="arr" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#64748B" /></marker>
+	</defs>
+
+	<g font-family="Inter, Arial, sans-serif" text-anchor="middle">
+		<!-- 连线 -->
+		<path d="M166,315 C235,300 240,220 300,220" stroke="#64748B" stroke-width="2.5" fill="none" marker-end="url(#arr)" />
+		<path d="M166,345 C235,360 240,430 300,430" stroke="#64748B" stroke-width="2.5" fill="none" marker-end="url(#arr)" />
+		<path d="M510,220 C650,220 680,304 772,313" stroke="#64748B" stroke-width="2.5" fill="none" marker-end="url(#arr)" />
+		<path d="M510,430 L556,430" stroke="#64748B" stroke-width="2.5" fill="none" marker-end="url(#arr)" />
+		<path d="M710,430 C745,430 745,360 772,349" stroke="#64748B" stroke-width="2.5" fill="none" marker-end="url(#arr)" />
+		<path d="M834,330 L876,330" stroke="#64748B" stroke-width="2.5" fill="none" marker-end="url(#arr)" />
+		<path d="M1090,330 L1136,330" stroke="#64748B" stroke-width="2.5" fill="none" marker-end="url(#arr)" />
+
+		<!-- 输入 x -->
+		<rect x="56" y="303" width="110" height="54" rx="12" fill="#E2E8F0" stroke="#94A3B8" /><text x="111" y="337" fill="#334155" font-size="20" font-weight="700">x</text>
+
+		<!-- 内容通路 up_proj -->
+		<text x="405" y="176" fill="#98A2B3" font-size="14">hidden → intermediate</text>
+		<rect x="300" y="193" width="210" height="54" rx="12" fill="#34D399" fill-opacity="0.20" stroke="#059669" /><text x="405" y="227" fill="#047857" font-size="20" font-weight="700">up_proj</text>
+		<text x="405" y="270" fill="#667085" font-size="15">候选内容 u</text>
+
+		<!-- 门控通路 gate_proj → SiLU -->
+		<rect x="300" y="403" width="210" height="54" rx="12" fill="#A78BFA" fill-opacity="0.20" stroke="#7C3AED" /><text x="405" y="437" fill="#6D28D9" font-size="20" font-weight="700">gate_proj</text>
+		<text x="405" y="480" fill="#667085" font-size="15">门控信号 g</text>
+		<rect x="556" y="403" width="154" height="54" rx="12" fill="#818CF8" fill-opacity="0.20" stroke="#6366F1" /><text x="633" y="437" fill="#4338CA" font-size="20" font-weight="700">SiLU(g)</text>
+
+		<!-- 逐元素相乘 -->
+		<circle cx="800" cy="330" r="34" fill="#FBBF24" fill-opacity="0.30" stroke="#D97706" /><text x="800" y="340" fill="#92400E" font-size="26" font-weight="700">⊙</text>
+		<text x="800" y="394" fill="#475467" font-family="ui-monospace, monospace" font-size="16" font-weight="700">h = SiLU(g) ⊙ u</text>
+
+		<!-- 降维投影 down_proj -->
+		<rect x="876" y="303" width="214" height="54" rx="12" fill="#F0ABFC" fill-opacity="0.25" stroke="#C026D3" /><text x="983" y="337" fill="#A21CAF" font-size="20" font-weight="700">down_proj</text>
+		<text x="983" y="392" fill="#98A2B3" font-size="14">intermediate → hidden</text>
+
+		<!-- 输出 y -->
+		<rect x="1136" y="303" width="104" height="54" rx="12" fill="#E2E8F0" stroke="#94A3B8" /><text x="1188" y="337" fill="#334155" font-size="20" font-weight="700">y</text>
+	</g>
+</svg>

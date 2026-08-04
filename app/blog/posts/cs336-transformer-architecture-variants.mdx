@@ -195,6 +195,10 @@ class SwiGLU(nn.Module):
         return self.w_down(F.silu(self.w_gate(x)) * self.w_up(x))  # 开关 ⊙ 内容
 ```
 
+把这段前向拆成数据流就一目了然——`w_up`/`w_gate`/`w_down` 即主流实现里的 `up_proj`/`gate_proj`/`down_proj`：
+
+![SwiGLU 门控 FFN 的前向数据流：x 分叉为候选内容 u 与门控信号 g，SiLU(g)⊙u 融合后经 down_proj 投影回 hidden](/static/blog/cs336-transformer-architecture-variants/swiglu-ffn.svg)
+
 不过要强调一点：<strong>GLU 带来的是持续但温和的收益，并非不可或缺。</strong> GPT-3 用普通 GeLU、Falcon 用 ReLU、Nemotron-340B 用平方 ReLU，都是高性能模型。所以"用不用 GLU"是优化项，不是必选项。
 
 ### 位置编码：RoPE 为什么赢了
