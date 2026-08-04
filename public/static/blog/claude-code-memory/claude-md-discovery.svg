@@ -1,0 +1,95 @@
+<svg width="1200" height="660" viewBox="0 0 1200 660" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="660" rx="28" fill="#F8FAFC"/>
+  <rect x="32" y="32" width="1136" height="596" rx="24" fill="white" stroke="#E2E8F0" stroke-width="2"/>
+
+  <text x="70" y="92" fill="#0F172A" font-size="30" font-family="Segoe UI, Arial, sans-serif" font-weight="700">CLAUDE.md 的发现与拼接</text>
+  <text x="70" y="126" fill="#475569" font-size="17" font-family="Segoe UI, Arial, sans-serif">从工作目录向上走目录树，收集到的文件全部拼接进上下文，优先级由「位置」表达</text>
+
+  <rect x="70" y="158" width="560" height="452" rx="20" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="2"/>
+  <text x="96" y="194" fill="#0F172A" font-size="17" font-family="Segoe UI, Arial, sans-serif" font-weight="700">① 目录树遍历</text>
+
+  <text x="96" y="234" fill="#0F172A" font-size="16" font-family="Consolas, monospace" font-weight="700">repo/</text>
+  <text x="200" y="234" fill="#B45309" font-size="14" font-family="Segoe UI, Arial, sans-serif">← git root：发现边界</text>
+
+  <path d="M108 244 L 108 501" stroke="#94A3B8" stroke-width="1.5"/>
+  <path d="M108 263 L 128 263" stroke="#94A3B8" stroke-width="1.5"/>
+  <path d="M108 297 L 128 297" stroke="#94A3B8" stroke-width="1.5"/>
+  <path d="M108 331 L 128 331" stroke="#94A3B8" stroke-width="1.5"/>
+  <path d="M108 501 L 128 501" stroke="#94A3B8" stroke-width="1.5"/>
+
+  <path d="M152 346 L 152 399" stroke="#94A3B8" stroke-width="1.5"/>
+  <path d="M152 365 L 172 365" stroke="#94A3B8" stroke-width="1.5"/>
+  <path d="M152 399 L 172 399" stroke="#94A3B8" stroke-width="1.5"/>
+
+  <path d="M196 414 L 196 467" stroke="#94A3B8" stroke-width="1.5"/>
+  <path d="M196 433 L 216 433" stroke="#94A3B8" stroke-width="1.5"/>
+  <path d="M196 467 L 216 467" stroke="#94A3B8" stroke-width="1.5"/>
+
+  <path d="M152 516 L 152 535" stroke="#94A3B8" stroke-width="1.5"/>
+  <path d="M152 535 L 172 535" stroke="#94A3B8" stroke-width="1.5"/>
+
+  <text x="134" y="268" fill="#1D4ED8" font-size="16" font-family="Consolas, monospace">CLAUDE.md</text>
+  <circle cx="470" cy="263" r="13" fill="#DBEAFE"/>
+  <text x="465" y="268" fill="#1D4ED8" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">1</text>
+
+  <text x="134" y="302" fill="#1D4ED8" font-size="16" font-family="Consolas, monospace">CLAUDE.local.md</text>
+  <circle cx="470" cy="297" r="13" fill="#DBEAFE"/>
+  <text x="465" y="302" fill="#1D4ED8" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">2</text>
+
+  <text x="134" y="336" fill="#475569" font-size="16" font-family="Consolas, monospace">apps/</text>
+
+  <text x="178" y="370" fill="#1D4ED8" font-size="16" font-family="Consolas, monospace">CLAUDE.md</text>
+  <circle cx="470" cy="365" r="13" fill="#DBEAFE"/>
+  <text x="465" y="370" fill="#1D4ED8" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">3</text>
+
+  <text x="178" y="404" fill="#0F172A" font-size="16" font-family="Consolas, monospace" font-weight="700">web/</text>
+  <text x="250" y="404" fill="#15803D" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">← 你在这里启动</text>
+
+  <text x="222" y="438" fill="#1D4ED8" font-size="16" font-family="Consolas, monospace">CLAUDE.md</text>
+  <circle cx="470" cy="433" r="13" fill="#BFDBFE"/>
+  <text x="465" y="438" fill="#1D4ED8" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">4</text>
+
+  <text x="222" y="472" fill="#1D4ED8" font-size="16" font-family="Consolas, monospace">CLAUDE.local.md</text>
+  <circle cx="470" cy="467" r="13" fill="#BFDBFE"/>
+  <text x="465" y="472" fill="#1D4ED8" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">5</text>
+
+  <text x="134" y="506" fill="#475569" font-size="16" font-family="Consolas, monospace">packages/ui/</text>
+  <text x="178" y="540" fill="#92400E" font-size="16" font-family="Consolas, monospace">CLAUDE.md</text>
+  <rect x="330" y="524" width="76" height="24" rx="8" fill="#FEF3C7"/>
+  <text x="344" y="541" fill="#B45309" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">惰性加载</text>
+
+  <text x="96" y="578" fill="#B45309" font-size="14" font-family="Segoe UI, Arial, sans-serif">启动时不读；等 Claude 真的去读这个目录里的文件，才注入</text>
+
+  <path d="M632 384 L 664 384" stroke="#94A3B8" stroke-width="2"/>
+  <polygon points="664,378 676,384 664,390" fill="#94A3B8"/>
+
+  <rect x="684" y="158" width="446" height="452" rx="20" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="2"/>
+  <text x="710" y="194" fill="#0F172A" font-size="17" font-family="Segoe UI, Arial, sans-serif" font-weight="700">② 在上下文里的最终顺序</text>
+
+  <rect x="710" y="212" width="394" height="42" rx="12" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1.5"/>
+  <text x="726" y="239" fill="#1D4ED8" font-size="15" font-family="Consolas, monospace">1  repo/CLAUDE.md</text>
+  <path d="M907 258 L 907 266" stroke="#94A3B8" stroke-width="2"/>
+  <polygon points="901,266 907,276 913,266" fill="#94A3B8"/>
+
+  <rect x="710" y="278" width="394" height="42" rx="12" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1.5"/>
+  <text x="726" y="305" fill="#1D4ED8" font-size="15" font-family="Consolas, monospace">2  repo/CLAUDE.local.md</text>
+  <path d="M907 324 L 907 332" stroke="#94A3B8" stroke-width="2"/>
+  <polygon points="901,332 907,342 913,332" fill="#94A3B8"/>
+
+  <rect x="710" y="344" width="394" height="42" rx="12" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1.5"/>
+  <text x="726" y="371" fill="#1D4ED8" font-size="15" font-family="Consolas, monospace">3  apps/CLAUDE.md</text>
+  <path d="M907 390 L 907 398" stroke="#94A3B8" stroke-width="2"/>
+  <polygon points="901,398 907,408 913,398" fill="#94A3B8"/>
+
+  <rect x="710" y="410" width="394" height="42" rx="12" fill="#DBEAFE" stroke="#60A5FA" stroke-width="2"/>
+  <text x="726" y="437" fill="#1D4ED8" font-size="15" font-family="Consolas, monospace">4  apps/web/CLAUDE.md</text>
+  <path d="M907 456 L 907 464" stroke="#94A3B8" stroke-width="2"/>
+  <polygon points="901,464 907,474 913,464" fill="#94A3B8"/>
+
+  <rect x="710" y="476" width="394" height="42" rx="12" fill="#DBEAFE" stroke="#60A5FA" stroke-width="2"/>
+  <text x="726" y="503" fill="#1D4ED8" font-size="15" font-family="Consolas, monospace">5  apps/web/CLAUDE.local.md</text>
+
+  <rect x="710" y="534" width="394" height="60" rx="12" fill="#FEF2F2" stroke="#FECACA" stroke-width="1.5"/>
+  <text x="726" y="558" fill="#B91C1C" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">不覆盖，也不 merge —— 只拼接</text>
+  <text x="726" y="580" fill="#991B1B" font-size="13" font-family="Segoe UI, Arial, sans-serif">越靠后被读到的内容，权重越高</text>
+</svg>

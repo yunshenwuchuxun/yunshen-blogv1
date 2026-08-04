@@ -1,0 +1,36 @@
+<svg width="1200" height="560" viewBox="0 0 1200 560" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="560" rx="28" fill="#F8FAFC"/>
+  <rect x="32" y="32" width="1136" height="496" rx="24" fill="white" stroke="#E2E8F0" stroke-width="2"/>
+
+  <text x="70" y="92" fill="#0F172A" font-size="30" font-family="Segoe UI, Arial, sans-serif" font-weight="700">记忆边界，和身份边界对齐</text>
+  <text x="70" y="126" fill="#475569" font-size="17" font-family="Segoe UI, Arial, sans-serif">是不是「同一个我」，决定要不要共享记忆 —— 这条规则解释了 subagent 与 fork 的差别</text>
+
+  <rect x="70" y="200" width="300" height="228" rx="18" fill="#DBEAFE" stroke="#93C5FD" stroke-width="2"/>
+  <text x="94" y="238" fill="#1D4ED8" font-size="20" font-family="Segoe UI, Arial, sans-serif" font-weight="700">主对话</text>
+  <path d="M94 252 L 346 252" stroke="#93C5FD" stroke-width="1.5"/>
+  <rect x="94" y="268" width="252" height="40" rx="10" fill="white"/>
+  <text x="110" y="293" fill="#1D4ED8" font-size="14" font-family="Consolas, monospace">CLAUDE.md 四层拼接</text>
+  <rect x="94" y="318" width="252" height="40" rx="10" fill="white"/>
+  <text x="110" y="343" fill="#15803D" font-size="14" font-family="Consolas, monospace">MEMORY.md 索引</text>
+  <rect x="94" y="368" width="252" height="40" rx="10" fill="white"/>
+  <text x="110" y="393" fill="#334155" font-size="14" font-family="Consolas, monospace">对话历史 / 工具结果</text>
+
+  <path d="M376 314 L 404 314 L 404 247 L 424 247" stroke="#94A3B8" stroke-width="2" fill="none"/>
+  <polygon points="424,241 436,247 424,253" fill="#94A3B8"/>
+  <path d="M376 314 L 404 314 L 404 401 L 424 401" stroke="#94A3B8" stroke-width="2" fill="none"/>
+  <polygon points="424,395 436,401 424,407" fill="#94A3B8"/>
+
+  <rect x="440" y="180" width="690" height="134" rx="18" fill="#FEF2F2" stroke="#FCA5A5" stroke-width="2"/>
+  <text x="466" y="216" fill="#B91C1C" font-size="19" font-family="Segoe UI, Arial, sans-serif" font-weight="700">Subagent（Agent 工具派出的子 agent）</text>
+  <text x="466" y="248" fill="#B91C1C" font-size="15" font-family="Segoe UI, Arial, sans-serif" font-weight="700">✗ 不继承主对话的 auto memory</text>
+  <text x="466" y="274" fill="#991B1B" font-size="14" font-family="Segoe UI, Arial, sans-serif">✓ 但可以通过 subagent 定义里的 memory 字段，拥有一份完全独立的记忆目录</text>
+  <text x="466" y="298" fill="#991B1B" font-size="14" font-family="Segoe UI, Arial, sans-serif">它是「另一个 agent」，所以默认从干净的上下文起步，不背主对话的包袱</text>
+
+  <rect x="440" y="334" width="690" height="134" rx="18" fill="#F0FDF4" stroke="#86EFAC" stroke-width="2"/>
+  <text x="466" y="370" fill="#15803D" font-size="19" font-family="Segoe UI, Arial, sans-serif" font-weight="700">Fork（唯一的例外）</text>
+  <text x="466" y="402" fill="#15803D" font-size="15" font-family="Segoe UI, Arial, sans-serif" font-weight="700">✓ 继承父对话的完整上下文与 system prompt</text>
+  <text x="466" y="428" fill="#166534" font-size="14" font-family="Segoe UI, Arial, sans-serif">所以主对话的 auto memory 也一并带过去</text>
+  <text x="466" y="452" fill="#166534" font-size="14" font-family="Segoe UI, Arial, sans-serif">因为 fork 在语义上是「同一个我，分出一条支线」，而不是另一个 agent</text>
+
+  <text x="70" y="504" fill="#0F172A" font-size="15" font-family="Segoe UI, Arial, sans-serif" font-weight="700">推论：给 subagent 配记忆时，要按「它是谁」来划目录，而不是图省事复用主对话那一份。</text>
+</svg>

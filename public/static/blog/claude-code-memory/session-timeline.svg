@@ -1,0 +1,67 @@
+<svg width="1200" height="660" viewBox="0 0 1200 660" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="660" rx="28" fill="#F8FAFC"/>
+  <rect x="32" y="32" width="1136" height="596" rx="24" fill="white" stroke="#E2E8F0" stroke-width="2"/>
+
+  <text x="70" y="92" fill="#0F172A" font-size="30" font-family="Segoe UI, Arial, sans-serif" font-weight="700">一次会话里，上下文是分四次装配的</text>
+  <text x="70" y="126" fill="#475569" font-size="17" font-family="Segoe UI, Arial, sans-serif">不是启动时一把塞满，而是随着 Claude 的动作逐步追加</text>
+
+  <path d="M70 170 L 1118 170" stroke="#CBD5E1" stroke-width="3"/>
+  <polygon points="1118,163 1132,170 1118,177" fill="#CBD5E1"/>
+  <circle cx="195" cy="170" r="8" fill="#3B82F6"/>
+  <circle cx="465" cy="170" r="8" fill="#F59E0B"/>
+  <circle cx="735" cy="170" r="8" fill="#22C55E"/>
+  <circle cx="1005" cy="170" r="8" fill="#8B5CF6"/>
+
+  <rect x="70" y="196" width="250" height="376" rx="16" fill="#DBEAFE" stroke="#93C5FD" stroke-width="2"/>
+  <text x="90" y="232" fill="#1D4ED8" font-size="18" font-family="Segoe UI, Arial, sans-serif" font-weight="700">① 会话启动</text>
+  <path d="M90 246 L 300 246" stroke="#93C5FD" stroke-width="1.5"/>
+  <text x="90" y="278" fill="#1E40AF" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">managed / user / project</text>
+  <text x="90" y="300" fill="#1E40AF" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">/ local 四层 CLAUDE.md</text>
+  <text x="90" y="322" fill="#1E40AF" font-size="13" font-family="Segoe UI, Arial, sans-serif">全量加载，不受长度限制</text>
+  <text x="90" y="368" fill="#1E40AF" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">.claude/rules/ 中</text>
+  <text x="90" y="390" fill="#1E40AF" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">不带 paths 的那些规则</text>
+  <text x="90" y="412" fill="#1E40AF" font-size="13" font-family="Segoe UI, Arial, sans-serif">和项目 CLAUDE.md 同级</text>
+  <text x="90" y="458" fill="#1E40AF" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">MEMORY.md 的前 200 行</text>
+  <text x="90" y="480" fill="#1E40AF" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">或 25KB，取先到的那个</text>
+  <text x="90" y="502" fill="#1E40AF" font-size="13" font-family="Segoe UI, Arial, sans-serif">主题文件一个都不加载</text>
+
+  <rect x="340" y="196" width="250" height="376" rx="16" fill="#FEF3C7" stroke="#FCD34D" stroke-width="2"/>
+  <text x="360" y="232" fill="#B45309" font-size="18" font-family="Segoe UI, Arial, sans-serif" font-weight="700">② 工作过程中</text>
+  <path d="M360 246 L 570 246" stroke="#FCD34D" stroke-width="1.5"/>
+  <text x="360" y="270" fill="#92400E" font-size="12" font-family="Segoe UI, Arial, sans-serif">三种惰性追加，都由动作触发</text>
+  <text x="360" y="306" fill="#92400E" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">读到子目录里的文件</text>
+  <text x="360" y="328" fill="#92400E" font-size="13" font-family="Segoe UI, Arial, sans-serif">→ 注入该目录的 CLAUDE.md</text>
+  <text x="360" y="374" fill="#92400E" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">文件路径命中某条 glob</text>
+  <text x="360" y="396" fill="#92400E" font-size="13" font-family="Segoe UI, Arial, sans-serif">→ 注入这条 path-scoped 规则</text>
+  <text x="360" y="442" fill="#92400E" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">需要某个具体细节</text>
+  <text x="360" y="464" fill="#92400E" font-size="13" font-family="Segoe UI, Arial, sans-serif">→ Read 对应的主题文件</text>
+  <text x="360" y="510" fill="#B45309" font-size="12" font-family="Segoe UI, Arial, sans-serif">没触发的内容，全程不占位置</text>
+
+  <rect x="610" y="196" width="250" height="376" rx="16" fill="#DCFCE7" stroke="#86EFAC" stroke-width="2"/>
+  <text x="630" y="232" fill="#15803D" font-size="18" font-family="Segoe UI, Arial, sans-serif" font-weight="700">③ 记忆写入</text>
+  <path d="M630 246 L 840 246" stroke="#86EFAC" stroke-width="1.5"/>
+  <text x="630" y="278" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif">界面上出现的</text>
+  <text x="630" y="300" fill="#15803D" font-size="13" font-family="Consolas, monospace" font-weight="700">Saved N memories</text>
+  <text x="630" y="322" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif">就是这一步</text>
+  <text x="630" y="368" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">更新索引，或新建一个</text>
+  <text x="630" y="390" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">主题文件承接细节</text>
+  <text x="630" y="436" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">写完立刻触发限额校验</text>
+  <text x="630" y="458" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif">（就是上一张图的回路）</text>
+  <text x="630" y="504" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif">已有 frontmatter 的文件，</text>
+  <text x="630" y="526" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif">会被补上 modified 时间戳</text>
+
+  <rect x="880" y="196" width="250" height="376" rx="16" fill="#EDE9FE" stroke="#C4B5FD" stroke-width="2"/>
+  <text x="900" y="232" fill="#7C3AED" font-size="18" font-family="Segoe UI, Arial, sans-serif" font-weight="700">④ /compact 之后</text>
+  <path d="M900 246 L 1110 246" stroke="#C4B5FD" stroke-width="1.5"/>
+  <text x="900" y="270" fill="#6D28D9" font-size="12" font-family="Segoe UI, Arial, sans-serif">压缩会重置上下文，谁能回来？</text>
+  <text x="900" y="306" fill="#15803D" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">✓ 项目根 CLAUDE.md</text>
+  <text x="900" y="328" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif">从磁盘重新读入并注入</text>
+  <text x="900" y="374" fill="#B91C1C" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">✗ 嵌套的 CLAUDE.md</text>
+  <text x="900" y="396" fill="#991B1B" font-size="13" font-family="Segoe UI, Arial, sans-serif">不自动重注入，要等下次</text>
+  <text x="900" y="418" fill="#991B1B" font-size="13" font-family="Segoe UI, Arial, sans-serif">读到那个目录才回来</text>
+  <text x="900" y="464" fill="#B91C1C" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">✗ 只在对话里说过的话</text>
+  <text x="900" y="486" fill="#991B1B" font-size="13" font-family="Segoe UI, Arial, sans-serif">没有磁盘副本，直接丢失</text>
+
+  <rect x="70" y="588" width="1060" height="0" rx="0" fill="none"/>
+  <text x="70" y="606" fill="#0F172A" font-size="15" font-family="Segoe UI, Arial, sans-serif" font-weight="700">所以：想让一条约束活过 compact，它必须落在磁盘上的某个文件里 —— 在对话里讲一遍是不够的。</text>
+</svg>

@@ -1,0 +1,61 @@
+<svg width="1200" height="620" viewBox="0 0 1200 620" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="620" rx="28" fill="#F8FAFC"/>
+  <rect x="32" y="32" width="1136" height="556" rx="24" fill="white" stroke="#E2E8F0" stroke-width="2"/>
+
+  <text x="70" y="92" fill="#0F172A" font-size="30" font-family="Segoe UI, Arial, sans-serif" font-weight="700">注入位置决定了约束强度</text>
+  <text x="70" y="126" fill="#475569" font-size="17" font-family="Segoe UI, Arial, sans-serif">CLAUDE.md 不在 system prompt 里，而是作为其后的一条 user message —— 所以它是建议，不是规则</text>
+
+  <rect x="70" y="158" width="470" height="412" rx="20" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="2"/>
+  <text x="96" y="194" fill="#0F172A" font-size="17" font-family="Segoe UI, Arial, sans-serif" font-weight="700">一次请求里的上下文顺序</text>
+
+  <rect x="96" y="212" width="418" height="72" rx="12" fill="#E0E7FF" stroke="#A5B4FC" stroke-width="1.5"/>
+  <text x="116" y="240" fill="#3730A3" font-size="16" font-family="Segoe UI, Arial, sans-serif" font-weight="700">system prompt</text>
+  <text x="116" y="266" fill="#4338CA" font-size="14" font-family="Segoe UI, Arial, sans-serif">工具定义 · 运行环境 · 身份与硬性协议</text>
+
+  <rect x="96" y="296" width="418" height="80" rx="12" fill="#DBEAFE" stroke="#3B82F6" stroke-width="2.5"/>
+  <text x="116" y="324" fill="#1D4ED8" font-size="16" font-family="Segoe UI, Arial, sans-serif" font-weight="700">user message ← CLAUDE.md 在这里</text>
+  <text x="116" y="350" fill="#1E40AF" font-size="14" font-family="Segoe UI, Arial, sans-serif">四层作用域拼接后的全部内容</text>
+  <text x="116" y="370" fill="#1E40AF" font-size="14" font-family="Segoe UI, Arial, sans-serif">+ .claude/rules/ 中不带 paths 的规则</text>
+
+  <rect x="96" y="388" width="418" height="64" rx="12" fill="#DCFCE7" stroke="#86EFAC" stroke-width="1.5"/>
+  <text x="116" y="416" fill="#15803D" font-size="16" font-family="Segoe UI, Arial, sans-serif" font-weight="700">user message ← MEMORY.md 索引</text>
+  <text x="116" y="440" fill="#166534" font-size="14" font-family="Segoe UI, Arial, sans-serif">仅前 200 行 / 25KB</text>
+
+  <rect x="96" y="464" width="418" height="56" rx="12" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="1.5"/>
+  <text x="116" y="492" fill="#334155" font-size="16" font-family="Segoe UI, Arial, sans-serif" font-weight="700">对话历史 / 工具结果</text>
+  <text x="116" y="512" fill="#475569" font-size="13" font-family="Segoe UI, Arial, sans-serif">越往后，模型给的权重越高</text>
+
+  <text x="96" y="550" fill="#B91C1C" font-size="14" font-family="Segoe UI, Arial, sans-serif">身处 user message，就意味着它和用户说的话同一层级</text>
+
+  <rect x="580" y="158" width="550" height="196" rx="20" fill="#FEF3C7" stroke="#FCD34D" stroke-width="2"/>
+  <text x="606" y="194" fill="#92400E" font-size="17" font-family="Segoe UI, Arial, sans-serif" font-weight="700">软约束路径：CLAUDE.md</text>
+  <rect x="606" y="212" width="126" height="46" rx="12" fill="white" stroke="#FCD34D" stroke-width="1.5"/>
+  <text x="628" y="240" fill="#B45309" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">写下的指令</text>
+  <path d="M736 235 L 758 235" stroke="#B45309" stroke-width="2"/>
+  <polygon points="758,229 770,235 758,241" fill="#B45309"/>
+  <rect x="776" y="212" width="126" height="46" rx="12" fill="white" stroke="#FCD34D" stroke-width="1.5"/>
+  <text x="798" y="240" fill="#B45309" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">模型自行判断</text>
+  <path d="M906 235 L 928 235" stroke="#B45309" stroke-width="2"/>
+  <polygon points="928,229 940,235 928,241" fill="#B45309"/>
+  <rect x="946" y="212" width="158" height="46" rx="12" fill="white" stroke="#FCD34D" stroke-width="1.5"/>
+  <text x="968" y="240" fill="#B45309" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">可能遵守，也可能不</text>
+  <text x="606" y="292" fill="#92400E" font-size="14" font-family="Segoe UI, Arial, sans-serif">指令越模糊、越互相冲突，命中率越低。</text>
+  <text x="606" y="316" fill="#92400E" font-size="14" font-family="Segoe UI, Arial, sans-serif">两个文件给出矛盾要求时，模型可能任选一个。</text>
+  <text x="606" y="340" fill="#92400E" font-size="14" font-family="Segoe UI, Arial, sans-serif">适合表达：规范、约定、架构背景、偏好。</text>
+
+  <rect x="580" y="374" width="550" height="196" rx="20" fill="#FEE2E2" stroke="#FCA5A5" stroke-width="2"/>
+  <text x="606" y="410" fill="#991B1B" font-size="17" font-family="Segoe UI, Arial, sans-serif" font-weight="700">硬约束路径：PreToolUse hook</text>
+  <rect x="606" y="428" width="126" height="46" rx="12" fill="white" stroke="#FCA5A5" stroke-width="1.5"/>
+  <text x="628" y="456" fill="#B91C1C" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">模型要调工具</text>
+  <path d="M736 451 L 758 451" stroke="#B91C1C" stroke-width="2"/>
+  <polygon points="758,445 770,451 758,457" fill="#B91C1C"/>
+  <rect x="776" y="428" width="126" height="46" rx="12" fill="#FECACA" stroke="#EF4444" stroke-width="2.5"/>
+  <text x="806" y="456" fill="#B91C1C" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">hook 拦截</text>
+  <path d="M906 451 L 928 451" stroke="#B91C1C" stroke-width="2"/>
+  <polygon points="928,445 940,451 928,457" fill="#B91C1C"/>
+  <rect x="946" y="428" width="158" height="46" rx="12" fill="white" stroke="#FCA5A5" stroke-width="1.5"/>
+  <text x="984" y="456" fill="#B91C1C" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">放行 / 拒绝</text>
+  <text x="606" y="508" fill="#991B1B" font-size="14" font-family="Segoe UI, Arial, sans-serif">由 harness 以 shell 命令执行，在固定生命周期点触发。</text>
+  <text x="606" y="532" fill="#991B1B" font-size="14" font-family="Segoe UI, Arial, sans-serif">和模型怎么想无关，写了就一定跑。</text>
+  <text x="606" y="556" fill="#991B1B" font-size="14" font-family="Segoe UI, Arial, sans-serif">适合表达：必须在某个时刻发生的动作、必须禁止的操作。</text>
+</svg>

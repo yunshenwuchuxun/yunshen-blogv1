@@ -1,0 +1,74 @@
+<svg width="1200" height="700" viewBox="0 0 1200 700" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="700" rx="28" fill="#F8FAFC"/>
+  <rect x="32" y="32" width="1136" height="636" rx="24" fill="white" stroke="#E2E8F0" stroke-width="2"/>
+
+  <text x="70" y="92" fill="#0F172A" font-size="30" font-family="Segoe UI, Arial, sans-serif" font-weight="700">写后自检回路：用模型修模型的输出</text>
+  <text x="70" y="126" fill="#475569" font-size="17" font-family="Segoe UI, Arial, sans-serif">索引超限时不做硬截断，而是返回错误，让模型自己重写</text>
+
+  <rect x="130" y="176" width="300" height="88" rx="14" fill="#DBEAFE" stroke="#93C5FD" stroke-width="2"/>
+  <text x="152" y="212" fill="#1D4ED8" font-size="17" font-family="Segoe UI, Arial, sans-serif" font-weight="700">① Claude 写入 MEMORY.md</text>
+  <text x="152" y="240" fill="#1E40AF" font-size="13" font-family="Segoe UI, Arial, sans-serif">新增一条记忆，或整理已有条目</text>
+
+  <path d="M436 220 L 448 220" stroke="#94A3B8" stroke-width="2"/>
+  <polygon points="448,214 460,220 448,226" fill="#94A3B8"/>
+
+  <rect x="466" y="176" width="300" height="88" rx="14" fill="#EDE9FE" stroke="#C4B5FD" stroke-width="2"/>
+  <text x="488" y="212" fill="#7C3AED" font-size="17" font-family="Segoe UI, Arial, sans-serif" font-weight="700">② 先剥掉不会被加载的部分</text>
+  <text x="488" y="240" fill="#6D28D9" font-size="13" font-family="Segoe UI, Arial, sans-serif">YAML frontmatter + 块级 HTML 注释</text>
+
+  <path d="M772 220 L 784 220" stroke="#94A3B8" stroke-width="2"/>
+  <polygon points="784,214 796,220 784,226" fill="#94A3B8"/>
+
+  <rect x="802" y="176" width="300" height="88" rx="14" fill="#FEF3C7" stroke="#FCD34D" stroke-width="2"/>
+  <text x="824" y="212" fill="#B45309" font-size="17" font-family="Segoe UI, Arial, sans-serif" font-weight="700">③ 度量真正会加载的内容</text>
+  <text x="824" y="240" fill="#92400E" font-size="13" font-family="Segoe UI, Arial, sans-serif">按 200 行 / 25KB 两个阈值判定</text>
+
+  <path d="M952 266 L 952 292" stroke="#94A3B8" stroke-width="2"/>
+  <path d="M244 292 L 952 292" stroke="#94A3B8" stroke-width="2"/>
+  <path d="M244 292 L 244 310" stroke="#94A3B8" stroke-width="2"/>
+  <polygon points="238,310 244,322 250,310" fill="#94A3B8"/>
+  <path d="M610 292 L 610 310" stroke="#94A3B8" stroke-width="2"/>
+  <polygon points="604,310 610,322 616,310" fill="#94A3B8"/>
+  <path d="M952 292 L 952 310" stroke="#94A3B8" stroke-width="2"/>
+  <polygon points="946,310 952,322 958,310" fill="#94A3B8"/>
+
+  <rect x="130" y="326" width="228" height="130" rx="14" fill="#DCFCE7" stroke="#22C55E" stroke-width="2"/>
+  <text x="152" y="356" fill="#15803D" font-size="24" font-family="Segoe UI, Arial, sans-serif" font-weight="700">✓ 在限额内</text>
+  <path d="M152 370 L 336 370" stroke="#86EFAC" stroke-width="1.5"/>
+  <text x="152" y="394" fill="#166534" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">直接通过</text>
+  <text x="152" y="420" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif">不打扰模型，</text>
+  <text x="152" y="440" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif">继续原来的任务。</text>
+
+  <rect x="382" y="326" width="456" height="130" rx="14" fill="#FFEDD5" stroke="#FB923C" stroke-width="2"/>
+  <text x="404" y="356" fill="#C2410C" font-size="24" font-family="Segoe UI, Arial, sans-serif" font-weight="700">⚠ 接近限额</text>
+  <path d="M404 370 L 816 370" stroke="#FDBA74" stroke-width="1.5"/>
+  <text x="404" y="394" fill="#9A3412" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">写入成功，同时提醒模型精简，并给出具体做法</text>
+  <rect x="404" y="404" width="130" height="26" rx="8" fill="white"/>
+  <text x="416" y="422" fill="#C2410C" font-size="12" font-family="Segoe UI, Arial, sans-serif">一条记忆只占一行</text>
+  <rect x="544" y="404" width="130" height="26" rx="8" fill="white"/>
+  <text x="556" y="422" fill="#C2410C" font-size="12" font-family="Segoe UI, Arial, sans-serif">细节挪到主题文件</text>
+  <rect x="684" y="404" width="130" height="26" rx="8" fill="white"/>
+  <text x="696" y="422" fill="#C2410C" font-size="12" font-family="Segoe UI, Arial, sans-serif">合并或删除过期条目</text>
+  <text x="404" y="446" fill="#9A3412" font-size="13" font-family="Segoe UI, Arial, sans-serif">提醒是「建议」，模型可以选择这一轮先不整理。</text>
+
+  <rect x="862" y="326" width="240" height="130" rx="14" fill="#FEE2E2" stroke="#EF4444" stroke-width="2.5"/>
+  <text x="884" y="356" fill="#B91C1C" font-size="24" font-family="Segoe UI, Arial, sans-serif" font-weight="700">✗ 已超限</text>
+  <path d="M884 370 L 1080 370" stroke="#FCA5A5" stroke-width="1.5"/>
+  <text x="884" y="394" fill="#991B1B" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">写入仍然成功，</text>
+  <text x="884" y="416" fill="#991B1B" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">但返回一个 error：</text>
+  <text x="884" y="442" fill="#B91C1C" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">「去重写这份索引」</text>
+
+  <path d="M610 458 L 610 500" stroke="#F97316" stroke-width="2" stroke-dasharray="7 5"/>
+  <path d="M982 458 L 982 500" stroke="#EF4444" stroke-width="2" stroke-dasharray="7 5"/>
+  <path d="M96 500 L 982 500" stroke="#F97316" stroke-width="2" stroke-dasharray="7 5"/>
+  <path d="M96 500 L 96 220" stroke="#F97316" stroke-width="2" stroke-dasharray="7 5"/>
+  <path d="M96 220 L 118 220" stroke="#F97316" stroke-width="2"/>
+  <polygon points="118,214 130,220 118,226" fill="#F97316"/>
+  <rect x="330" y="482" width="300" height="30" rx="10" fill="white" stroke="#FDBA74" stroke-width="1.5"/>
+  <text x="346" y="502" fill="#C2410C" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">模型重写索引 → 回到第 ① 步再校验一遍</text>
+
+  <rect x="130" y="530" width="972" height="106" rx="16" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="2"/>
+  <text x="154" y="562" fill="#1D4ED8" font-size="17" font-family="Segoe UI, Arial, sans-serif" font-weight="700">为什么值得抄这一条</text>
+  <text x="154" y="592" fill="#1E40AF" font-size="14" font-family="Segoe UI, Arial, sans-serif">硬截断也能守住限额，但它会<tspan font-weight="700">静默丢信息</tspan>：索引被砍掉半句，模型下次读到的是一份残缺清单，而且无从知晓。</text>
+  <text x="154" y="618" fill="#1E40AF" font-size="14" font-family="Segoe UI, Arial, sans-serif">报错则把「哪些该留、哪些该合并」这个判断交还给唯一有语义信息的一方 —— 写下这些内容的模型自己。</text>
+</svg>

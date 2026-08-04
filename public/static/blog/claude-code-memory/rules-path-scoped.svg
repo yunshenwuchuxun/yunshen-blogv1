@@ -1,0 +1,64 @@
+<svg width="1200" height="600" viewBox="0 0 1200 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="600" rx="28" fill="#F8FAFC"/>
+  <rect x="32" y="32" width="1136" height="536" rx="24" fill="white" stroke="#E2E8F0" stroke-width="2"/>
+
+  <text x="70" y="92" fill="#0F172A" font-size="30" font-family="Segoe UI, Arial, sans-serif" font-weight="700">把作用域和加载时机绑在一起</text>
+  <text x="70" y="126" fill="#475569" font-size="17" font-family="Segoe UI, Arial, sans-serif">带 paths 的规则只在 Claude 读到匹配文件时才进入上下文，平时不占位置</text>
+
+  <rect x="70" y="158" width="386" height="392" rx="20" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="2"/>
+  <text x="96" y="194" fill="#0F172A" font-size="17" font-family="Segoe UI, Arial, sans-serif" font-weight="700">.claude/rules/</text>
+
+  <rect x="96" y="212" width="334" height="86" rx="12" fill="#DBEAFE" stroke="#93C5FD" stroke-width="1.5"/>
+  <text x="114" y="238" fill="#1D4ED8" font-size="15" font-family="Consolas, monospace" font-weight="700">code-style.md</text>
+  <text x="114" y="262" fill="#1E40AF" font-size="13" font-family="Segoe UI, Arial, sans-serif">无 paths 字段</text>
+  <rect x="114" y="272" width="116" height="22" rx="7" fill="white"/>
+  <text x="126" y="288" fill="#1D4ED8" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">启动即无条件加载</text>
+
+  <rect x="96" y="312" width="334" height="86" rx="12" fill="#DBEAFE" stroke="#93C5FD" stroke-width="1.5"/>
+  <text x="114" y="338" fill="#1D4ED8" font-size="15" font-family="Consolas, monospace" font-weight="700">testing.md</text>
+  <text x="114" y="362" fill="#1E40AF" font-size="13" font-family="Segoe UI, Arial, sans-serif">无 paths 字段</text>
+  <rect x="114" y="372" width="116" height="22" rx="7" fill="white"/>
+  <text x="126" y="388" fill="#1D4ED8" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">启动即无条件加载</text>
+
+  <rect x="96" y="412" width="334" height="118" rx="12" fill="#FEF3C7" stroke="#FCD34D" stroke-width="2.5"/>
+  <text x="114" y="438" fill="#B45309" font-size="15" font-family="Consolas, monospace" font-weight="700">api-design.md</text>
+  <rect x="114" y="450" width="298" height="30" rx="7" fill="white"/>
+  <text x="126" y="470" fill="#92400E" font-size="13" font-family="Consolas, monospace">paths: [ "src/api/**/*.ts" ]</text>
+  <rect x="114" y="490" width="94" height="22" rx="7" fill="white"/>
+  <text x="126" y="506" fill="#B45309" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">条件加载</text>
+  <text x="218" y="506" fill="#92400E" font-size="12" font-family="Segoe UI, Arial, sans-serif">启动时不占任何上下文</text>
+
+  <path d="M462 470 L 494 470" stroke="#94A3B8" stroke-width="2"/>
+  <polygon points="494,464 506,470 494,476" fill="#94A3B8"/>
+
+  <rect x="516" y="158" width="614" height="392" rx="20" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="2"/>
+  <text x="542" y="194" fill="#0F172A" font-size="17" font-family="Segoe UI, Arial, sans-serif" font-weight="700">会话进行中：两次 Read，两种结果</text>
+
+  <rect x="542" y="216" width="562" height="140" rx="14" fill="#F0FDF4" stroke="#86EFAC" stroke-width="2"/>
+  <rect x="562" y="238" width="200" height="42" rx="10" fill="white" stroke="#86EFAC" stroke-width="1.5"/>
+  <text x="578" y="265" fill="#15803D" font-size="14" font-family="Consolas, monospace">Read src/api/user.ts</text>
+  <path d="M766 259 L 790 259" stroke="#15803D" stroke-width="2"/>
+  <polygon points="790,253 802,259 790,265" fill="#15803D"/>
+  <rect x="808" y="238" width="122" height="42" rx="10" fill="#DCFCE7" stroke="#22C55E" stroke-width="2"/>
+  <text x="832" y="265" fill="#15803D" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">glob 命中</text>
+  <path d="M934 259 L 958 259" stroke="#15803D" stroke-width="2"/>
+  <polygon points="958,253 970,259 958,265" fill="#15803D"/>
+  <rect x="976" y="238" width="108" height="42" rx="10" fill="white" stroke="#86EFAC" stroke-width="1.5"/>
+  <text x="994" y="265" fill="#15803D" font-size="20" font-family="Segoe UI, Arial, sans-serif" font-weight="700">✓ 注入</text>
+  <text x="562" y="308" fill="#166534" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">api-design.md 此刻才被追加到上下文</text>
+  <text x="562" y="334" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif">规则在真正需要它的那一刻到场，而不是从头占着位置</text>
+
+  <rect x="542" y="376" width="562" height="140" rx="14" fill="#FEF2F2" stroke="#FECACA" stroke-width="2"/>
+  <rect x="562" y="398" width="200" height="42" rx="10" fill="white" stroke="#FECACA" stroke-width="1.5"/>
+  <text x="578" y="425" fill="#B91C1C" font-size="14" font-family="Consolas, monospace">Read docs/guide.md</text>
+  <path d="M766 419 L 790 419" stroke="#B91C1C" stroke-width="2"/>
+  <polygon points="790,413 802,419 790,425" fill="#B91C1C"/>
+  <rect x="808" y="398" width="122" height="42" rx="10" fill="#FEE2E2" stroke="#EF4444" stroke-width="2"/>
+  <text x="826" y="425" fill="#B91C1C" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">glob 未命中</text>
+  <path d="M934 419 L 958 419" stroke="#B91C1C" stroke-width="2"/>
+  <polygon points="958,413 970,419 958,425" fill="#B91C1C"/>
+  <rect x="976" y="398" width="108" height="42" rx="10" fill="white" stroke="#FECACA" stroke-width="1.5"/>
+  <text x="990" y="425" fill="#B91C1C" font-size="20" font-family="Segoe UI, Arial, sans-serif" font-weight="700">✗ 不注入</text>
+  <text x="562" y="468" fill="#991B1B" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">写文档的时候，看不到 API 规范</text>
+  <text x="562" y="494" fill="#991B1B" font-size="13" font-family="Segoe UI, Arial, sans-serif">这正是想要的效果：无关规则不进来干扰，也不花 token</text>
+</svg>

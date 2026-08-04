@@ -1,0 +1,57 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="630" rx="28" fill="#F8FAFC"/>
+  <rect x="32" y="32" width="1136" height="566" rx="24" fill="white" stroke="#E2E8F0" stroke-width="2"/>
+
+  <text x="70" y="96" fill="#0F172A" font-size="34" font-family="Segoe UI, Arial, sans-serif" font-weight="700">Claude Code Memory Architecture</text>
+  <text x="70" y="132" fill="#475569" font-size="18" font-family="Segoe UI, Arial, sans-serif">两套正交的记忆系统，架在同一层 API 原语之上</text>
+
+  <rect x="70" y="170" width="680" height="118" rx="18" fill="#DBEAFE"/>
+  <text x="98" y="209" fill="#1D4ED8" font-size="26" font-family="Consolas, monospace" font-weight="700">CLAUDE.md</text>
+  <text x="98" y="238" fill="#1E40AF" font-size="16" font-family="Segoe UI, Arial, sans-serif">人写 · 声明式指令 · 每次会话全量加载</text>
+  <rect x="98" y="252" width="92" height="26" rx="8" fill="white" stroke="#93C5FD" stroke-width="1.5"/>
+  <text x="112" y="270" fill="#1D4ED8" font-size="13" font-family="Segoe UI, Arial, sans-serif">managed</text>
+  <rect x="200" y="252" width="66" height="26" rx="8" fill="white" stroke="#93C5FD" stroke-width="1.5"/>
+  <text x="216" y="270" fill="#1D4ED8" font-size="13" font-family="Segoe UI, Arial, sans-serif">user</text>
+  <rect x="276" y="252" width="76" height="26" rx="8" fill="white" stroke="#93C5FD" stroke-width="1.5"/>
+  <text x="290" y="270" fill="#1D4ED8" font-size="13" font-family="Segoe UI, Arial, sans-serif">project</text>
+  <rect x="362" y="252" width="66" height="26" rx="8" fill="white" stroke="#93C5FD" stroke-width="1.5"/>
+  <text x="378" y="270" fill="#1D4ED8" font-size="13" font-family="Segoe UI, Arial, sans-serif">local</text>
+  <text x="452" y="270" fill="#1E40AF" font-size="13" font-family="Segoe UI, Arial, sans-serif">四层作用域，按位置表达优先级</text>
+
+  <rect x="70" y="306" width="680" height="118" rx="18" fill="#DCFCE7"/>
+  <text x="98" y="345" fill="#15803D" font-size="26" font-family="Segoe UI, Arial, sans-serif" font-weight="700">Auto Memory</text>
+  <text x="98" y="374" fill="#166534" font-size="16" font-family="Segoe UI, Arial, sans-serif">Claude 自写 · 索引常驻 · 细节按需读取</text>
+  <rect x="98" y="388" width="132" height="26" rx="8" fill="white" stroke="#86EFAC" stroke-width="1.5"/>
+  <text x="112" y="406" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif">MEMORY.md 索引</text>
+  <rect x="240" y="388" width="84" height="26" rx="8" fill="white" stroke="#86EFAC" stroke-width="1.5"/>
+  <text x="254" y="406" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif">主题文件</text>
+  <rect x="334" y="388" width="126" height="26" rx="8" fill="white" stroke="#86EFAC" stroke-width="1.5"/>
+  <text x="348" y="406" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif">按 git repo 隔离</text>
+  <text x="480" y="406" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif">只有索引进上下文</text>
+
+  <rect x="70" y="442" width="680" height="113" rx="18" fill="#EDE9FE"/>
+  <text x="98" y="481" fill="#7C3AED" font-size="26" font-family="Segoe UI, Arial, sans-serif" font-weight="700">Memory Tool</text>
+  <text x="98" y="510" fill="#6D28D9" font-size="16" font-family="Segoe UI, Arial, sans-serif">API 原语 · 由你的应用执行 · /memories 前缀</text>
+  <rect x="98" y="520" width="368" height="28" rx="8" fill="white" stroke="#C4B5FD" stroke-width="1.5"/>
+  <text x="112" y="539" fill="#7C3AED" font-size="12" font-family="Consolas, monospace">view create str_replace insert delete rename</text>
+  <text x="482" y="539" fill="#6D28D9" font-size="13" font-family="Segoe UI, Arial, sans-serif">六个命令就是全部接口</text>
+
+  <path d="M752 229 L 776 229" stroke="#94A3B8" stroke-width="2"/>
+  <polygon points="776,224 786,229 776,234" fill="#94A3B8"/>
+  <path d="M752 365 L 776 365" stroke="#94A3B8" stroke-width="2"/>
+  <polygon points="776,360 786,365 776,370" fill="#94A3B8"/>
+  <path d="M752 498 L 776 498" stroke="#94A3B8" stroke-width="2"/>
+  <polygon points="776,493 786,498 776,503" fill="#94A3B8"/>
+
+  <rect x="790" y="170" width="340" height="385" rx="20" fill="#FFF7ED" stroke="#FED7AA" stroke-width="2"/>
+  <text x="818" y="208" fill="#9A3412" font-size="18" font-family="Segoe UI, Arial, sans-serif" font-weight="700">三者共享的同一个前提</text>
+  <text x="818" y="256" fill="#C2410C" font-size="30" font-family="Segoe UI, Arial, sans-serif" font-weight="700">ASSUME</text>
+  <text x="818" y="294" fill="#C2410C" font-size="30" font-family="Segoe UI, Arial, sans-serif" font-weight="700">INTERRUPTION</text>
+  <text x="818" y="336" fill="#7C2D12" font-size="16" font-family="Segoe UI, Arial, sans-serif">上下文窗口随时可能被重置，</text>
+  <text x="818" y="362" fill="#7C2D12" font-size="16" font-family="Segoe UI, Arial, sans-serif">没有落到磁盘的进度都会丢失。</text>
+  <path d="M818 390 L 1102 390" stroke="#FDBA74" stroke-width="2"/>
+  <text x="818" y="428" fill="#7C2D12" font-size="16" font-family="Segoe UI, Arial, sans-serif">所以记忆的目标不是</text>
+  <text x="818" y="462" fill="#C2410C" font-size="22" font-family="Segoe UI, Arial, sans-serif" font-weight="700">「记住更多」</text>
+  <text x="818" y="496" fill="#7C2D12" font-size="16" font-family="Segoe UI, Arial, sans-serif">而是</text>
+  <text x="818" y="530" fill="#C2410C" font-size="22" font-family="Segoe UI, Arial, sans-serif" font-weight="700">「中断后能恢复」</text>
+</svg>

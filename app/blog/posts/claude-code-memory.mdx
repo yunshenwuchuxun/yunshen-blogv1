@@ -1,0 +1,299 @@
+---
+title: 'Claude Code 的记忆系统是怎么设计的：CLAUDE.md、Auto Memory 与 Memory Tool'
+publishedAt: '2026-08-04T10:00:00'
+summary: '拆解 Claude Code 的记忆架构：两套正交系统加一层 API 原语。从目录树遍历、拼接优先级、注入位置，到索引加载预算与写后自检回路，讲清每个设计选择背后的取舍，以及自己实现时值得照抄的四条。'
+draft: false
+image: '/static/blog/claude-code-memory/memory-overview.svg'
+tags: [AI, Agent, Tooling, Tech Blog]
+---
+
+每次打开 Claude Code，上下文都是空的。可它却知道这个仓库用 pnpm、知道测试要先起 Redis、知道你上周纠正过的那个写法。这些信息是从哪回来的？
+
+答案不是"一个更大的上下文窗口"，而是一套<strong>把知识存在磁盘上、按需搬进上下文</strong>的机制。这套机制的设计相当克制，也相当值得研究：它几乎没有引入新概念，全部建立在 Markdown 文件、目录树遍历和一个六命令的文件操作接口之上。
+
+这篇文章拆解它的三层结构，重点不在"有哪些功能"，而在<strong>每个设计选择解决了什么问题、放弃了什么</strong>。文末给出自己实现类似系统时值得照抄的四条。
+
+## 一个前提：假设随时被中断
+
+先看一段 prompt。当你在 Claude API 请求里挂上 memory tool，API 会自动往 system prompt 里追加这么一段：
+
+```text
+IMPORTANT: ALWAYS VIEW YOUR MEMORY DIRECTORY BEFORE DOING ANYTHING ELSE.
+MEMORY PROTOCOL:
+1. Use the `view` command of your `memory` tool to check for earlier progress.
+2. ... (work on the task) ...
+   - As you make progress, record status / progress / thoughts etc in your memory.
+ASSUME INTERRUPTION: Your context window might be reset at any moment,
+so you risk losing any progress that is not recorded in your memory directory.
+```
+
+最后那句是整套设计的心理模型：<strong>假设随时会被中断</strong>。
+
+这句话决定了记忆系统的目标函数。如果目标是"记住更多"，你会去优化召回率、堆检索、扩容量；而如果目标是"<strong>上下文重置后能恢复</strong>"，你优化的就变成另外三件事：什么必须落盘、落盘的东西怎么在有限预算里排序、以及重置之后谁能自动回来。
+
+Claude Code 的所有设计取舍，都能从这个目标函数推出来。
+
+## 全景：两套系统 + 一层原语
+
+![Claude Code 记忆架构全景：CLAUDE.md、Auto Memory 与 Memory Tool 三层，共享同一个「假设随时被中断」的前提](/static/blog/claude-code-memory/memory-overview.svg)
+
+三层各自解决不同的问题：
+
+| 层 | 谁写 | 内容 | 加载方式 |
+| --- | --- | --- | --- |
+| CLAUDE.md | 人 | 指令、规范、架构背景 | 每次会话<strong>全量</strong> |
+| Auto Memory | Claude 自己 | 学到的事实、被纠正的结论、偏好 | 索引常驻，<strong>细节按需</strong> |
+| Memory Tool | —— | API 层的文件操作原语 | 由你的应用执行 |
+
+上两层是<strong>正交</strong>的：一层管"我要它怎么做"，一层管"它自己学到了什么"，两者互不覆盖，也不共用存储。这个划分比看起来重要 —— 它让"人写的规范"和"机器攒的经验"能分别演进，不会在同一个文件里互相污染。
+
+有一句话要先说清楚，它是后面很多细节的前提：<strong>这两层都是上下文，不是强制配置</strong>。官方文档明确写了不保证严格遵守。要硬拦某个动作，得用 hook，不是写在 CLAUDE.md 里。第三节会展开为什么。
+
+## CLAUDE.md：人写的那一半
+
+### 发现机制：向上遍历，然后拼接
+
+![CLAUDE.md 的发现与拼接：从工作目录向上走目录树，五个文件按根到 cwd 的顺序拼接进上下文，子目录的文件惰性加载](/static/blog/claude-code-memory/claude-md-discovery.svg)
+
+四层作用域按从广到窄排列：
+
+| 作用域 | 位置 | 谁能看到 |
+| --- | --- | --- |
+| Managed policy | macOS `/Library/Application Support/ClaudeCode/CLAUDE.md`<br />Linux `/etc/claude-code/CLAUDE.md` | 全组织，个人设置无法排除 |
+| User | `~/.claude/CLAUDE.md` | 只有你，所有项目 |
+| Project | `./CLAUDE.md` 或 `./.claude/CLAUDE.md` | 团队，随版本控制走 |
+| Local | `./CLAUDE.local.md` | 只有你，当前项目 |
+
+这里有一个我认为最值得注意的设计选择：<strong>不是覆盖，是拼接</strong>。
+
+所有发现到的文件按"根目录 → 工作目录"顺序<strong>全部</strong>串进上下文。没有 merge 语义，没有 key 冲突解析，没有"子级覆盖父级"的规则表。优先级完全靠<strong>位置</strong>表达 —— 越靠后被读到的内容，权重越高。
+
+这个选择有两个好处。实现上，它把一个配置合并问题降级成了字符串拼接。语义上，它正好利用了 LLM"后文权重更高"的特性 —— 优先级不需要显式编码，它本来就在注意力机制里。
+
+代价是：<strong>矛盾不会被消解，只会被稀释</strong>。两个文件给出冲突要求时，模型可能任选其一。所以官方的建议是定期审查、删掉过期规则，而不是指望某种优先级规则帮你兜底。
+
+还有一处细节：<strong>子目录里的 CLAUDE.md 启动时不加载</strong>。等 Claude 真的去读那个目录里的文件，才注入。这是本文会反复出现的模式 —— 把作用域和加载时机绑在一起。
+
+几个容易踩的点：
+
+- `@path/to/file` 语法可以导入其他文件，最多 4 跳，解析时会跳过代码块。所以写 `` `@README` ``（带反引号）不会触发导入，写 `@README` 会。
+- 项目级文件里指向工作目录之外的导入（比如 `@~/.claude/my-notes.md`）会弹一次审批框。这是防别人往共享仓库里塞指向你本机的导入。用户级文件里的导入不弹 —— 那是你自己写的。
+- 块级 HTML 注释在注入前被剥掉。给人看的维护笔记不花 token。
+- 导入<strong>不省上下文</strong>，只是整理结构 —— 被导入的文件在启动时一样全量进上下文。想省，得用下面的 path-scoped rules。
+
+### 注入位置决定了约束强度
+
+![注入位置决定约束强度：CLAUDE.md 作为 system prompt 之后的 user message 注入，属软约束；PreToolUse hook 在工具调用处拦截，属硬约束](/static/blog/claude-code-memory/injection-position.svg)
+
+CLAUDE.md <strong>不在 system prompt 里</strong>。它是 system prompt 之后的一条 user message。
+
+这解释了一个很多人踩过的坑：为什么写在 CLAUDE.md 里的"必须"有时不生效。因为它和用户在对话里说的话处在同一层级 —— 是很强的上下文信号，但终究要经过模型判断。
+
+于是产生了一条清晰的分工：
+
+| 你想表达的东西 | 应该放哪 |
+| --- | --- |
+| 规范、约定、架构背景、偏好 | CLAUDE.md（软约束，靠模型判断） |
+| "每次提交前必须跑 lint" | Hook（硬约束，harness 执行） |
+| "禁止碰这个目录" | `permissions.deny`（硬约束，客户端拦截） |
+| 一次性的任务方法论 | Skill（按需加载，不常驻） |
+
+判据很简单：<strong>如果这件事必须在某个确定时刻发生，或必须被无条件禁止，它就不该写在 CLAUDE.md 里</strong>。CLAUDE.md 负责塑造判断，不负责执行判断。
+
+### 用 paths 把作用域和加载时机绑起来
+
+CLAUDE.md 的硬伤是它全量常驻。官方建议单个文件控制在 200 行以内，理由不只是省 token —— 是<strong>越长越不容易被遵守</strong>。
+
+`.claude/rules/` 给出了解法：
+
+![path-scoped rules：带 paths 字段的规则只在 Claude 读到匹配文件时才注入上下文，未命中则完全不占位置](/static/blog/claude-code-memory/rules-path-scoped.svg)
+
+一条带 `paths` 的规则长这样：
+
+```markdown
+---
+paths:
+  - "src/api/**/*.ts"
+---
+
+# API 开发规范
+
+- 所有接口必须做入参校验
+- 使用统一的错误响应格式
+- 补齐 OpenAPI 文档注释
+```
+
+不带 `paths` 的规则启动即加载，和项目 CLAUDE.md 同级。带 `paths` 的只在 Claude 读到匹配文件时才注入。
+
+这是同一个模式的第二次出现：<strong>规则在真正需要它的那一刻到场</strong>。写文档的时候看不到 API 规范，这不是缺陷，正是想要的效果 —— 无关规则既不干扰判断，也不花预算。
+
+顺手记几个工程细节：`.claude/rules/` 支持软链，可以跨项目共享一份规则；`~/.claude/rules/` 是用户级，先于项目级加载（所以项目级优先）；monorepo 里被别的团队的 CLAUDE.md 污染时，用 `claudeMdExcludes` 按 glob 排除。
+
+## Auto Memory：Claude 自写的那一半
+
+### 索引常驻，细节按需
+
+![Auto Memory 目录结构与加载预算：MEMORY.md 只有前 200 行或 25KB 进上下文，超出部分静默丢弃，主题文件靠 Read 按需读取](/static/blog/claude-code-memory/auto-memory-layout.svg)
+
+存储位置是 `~/.claude/projects/<项目>/memory/`，其中项目路径<strong>由 git repo 派生</strong>。这个小决定有实际效果：同一仓库的所有 worktree 和子目录共享同一份记忆 —— 你在 `worktree-a` 里教它的事，在 `worktree-b` 里依然算数。但它是机器本地的，不跨机同步。
+
+目录里是<strong>一个索引 + 若干主题文件</strong>：
+
+```text
+~/.claude/projects/<项目>/memory/
+├── MEMORY.md          # 索引，每次会话加载（前 200 行 / 25KB）
+├── debugging.md       # 主题文件，按需 Read
+├── api-conventions.md
+└── repo-topology.md
+```
+
+索引长这样（示意）：
+
+```markdown
+# Memory Index
+
+- [构建与测试](build-and-test.md) — pnpm 而非 npm；集成测试需要本地 Redis
+- [仓库拓扑](repo-topology.md) — 三个 git 位置，哪个可公开、哪个不能
+- [验证优先](verify-first.md) — 全量跑之前先做最小单元烟测，且要有明确通过判据
+```
+
+一条一行，每行只有<strong>"去哪找" + 一句钩子</strong>。主题文件承接细节，启动时一个都不加载，靠 Read 工具在需要时取。
+
+主题文件带 frontmatter，实际形态大致是：
+
+```markdown
+---
+name: repo-topology
+description: 三个 git 位置的分工，哪个面向审阅者、哪个绝不能公开
+metadata:
+  type: project
+  originSessionId: 0e8bc3ff-c8e9-4900-8b50-9a99c77f6ff1
+modified: 2026-08-04T09:51:00
+---
+
+正文：一条事实，加上「为什么重要」和「怎么用」。
+```
+
+两个字段值得单独说。`originSessionId` 记住了这条记忆是哪次会话写下的 —— 出问题时可以回溯来源。`modified` 是写入时自动补的 ISO 8601 时间戳，作用是<strong>让模型读到记忆时知道它有多新</strong>；一条两个月前的"当前进度"和昨天的，可信度完全不同。注意它只补给<strong>已经有 frontmatter</strong> 的文件，不会给没有的文件凭空加上。
+
+### 写后自检回路
+
+限额是 200 行或 25KB，取先到的那个。超出部分下次加载时被<strong>静默</strong>丢弃 —— 静默的意思是你不会收到任何提示。
+
+那怎么保证索引不越界？这是我认为整套设计里最精巧的一环：
+
+![写后自检回路：写入后先剥离 frontmatter 与注释再度量，按限额分三个分支，超限时返回错误让模型重写索引](/static/blog/claude-code-memory/memory-write-loop.svg)
+
+三个分支的处理各不相同：
+
+| 度量结果 | 行为 |
+| --- | --- |
+| 在限额内 | 直接通过，不打扰模型 |
+| 接近限额 | 写入成功，附一条提醒：一条记忆只占一行、细节挪主题文件、合并或删除过期条目 |
+| 已超限 | <strong>写入仍然成功，但返回一个 error</strong>，要求模型重写索引 |
+
+关键在第三行：<strong>不做硬截断，而是报错</strong>。
+
+硬截断也能守住限额，但它会静默丢信息 —— 索引被砍掉半句，模型下次读到一份残缺清单，而且无从知晓。报错则把"哪些该留、哪些该合并、哪些能删"这个判断交还给唯一掌握语义的一方：<strong>写下这些内容的模型自己</strong>。
+
+还有一个容易忽略但同样重要的细节：<strong>度量的是剥离之后的内容</strong>。frontmatter 和块级 HTML 注释先被去掉，再算行数和字节。因为这两样本来就不会进上下文 —— 拿它们占额度是错的。这个 bug 在 v2.1.211 之前真实存在过：写了长 frontmatter 的文件明明加载后不超限，却触发了超限错误。
+
+## 上下文装配的四个时刻
+
+把前面几节串起来，一次会话里的上下文并不是启动时一把塞满的，而是分四次装配：
+
+![会话中上下文的四次装配：启动全量加载、工作中惰性追加、记忆写入、compact 之后哪些能自动回来](/static/blog/claude-code-memory/session-timeline.svg)
+
+第四列最值得记住。`/compact` 会压掉上下文，之后：
+
+- 项目根 CLAUDE.md <strong>会</strong>从磁盘重新读入并注入
+- 嵌套的 CLAUDE.md <strong>不会</strong>自动重注入，要等下次读到那个目录
+- 只在对话里说过的话，<strong>直接丢失</strong>
+
+所以有条实践判据：<strong>想让一条约束活过 compact，它必须落在磁盘上的某个文件里</strong>。在对话里讲一遍是不够的。如果你发现"聊着聊着它就忘了某个要求"，八成就是这个原因 —— 那条要求从来没有磁盘副本。
+
+## 记忆边界：subagent 与 fork
+
+![记忆边界与身份边界对齐：subagent 不继承主对话 auto memory 但可有独立目录，fork 继承父对话完整上下文](/static/blog/claude-code-memory/memory-boundary.svg)
+
+规则只有一条，但推导出的结论很干净：<strong>是不是"同一个我"，决定要不要共享记忆</strong>。
+
+- <strong>Subagent</strong>（Agent 工具派出的）：不继承主对话的 auto memory。它是另一个 agent，默认从干净上下文起步。但可以通过 subagent 定义里的 `memory` 字段拥有一份<strong>独立</strong>的记忆目录。
+- <strong>Fork</strong>：唯一的例外，继承父对话的完整上下文和 system prompt，因此 auto memory 也一并带过去。fork 在语义上是"同一个我，分出一条支线"。
+
+推论是：给 subagent 配记忆时，要按"它是谁"来划目录，而不是图省事复用主对话那一份。一个 code-reviewer 攒的经验和一个 doc-writer 攒的经验混在一起，两边都会变差。
+
+## 底层：API 的 memory tool
+
+上面两层是 Claude Code 这个 harness 的实现。往下一层，Claude API 提供的原语只有一个 tool：
+
+```json
+{ "type": "memory_20250818", "name": "memory" }
+```
+
+这就是全部配置 —— 不用写 input schema。它是 <strong>client-side</strong> 工具：模型只发出请求，<strong>你的应用负责执行</strong>。六个命令：
+
+| 命令 | 作用 |
+| --- | --- |
+| `view` | 列目录，或读文件（可带 `view_range`） |
+| `create` | 创建文件 |
+| `str_replace` | 替换文件里的一段文本 |
+| `insert` | 在指定行后插入 |
+| `delete` | 删除文件或目录 |
+| `rename` | 重命名 / 移动 |
+
+`/memories` 只是个<strong>虚拟前缀</strong>。你的 handler 把它映射到真实存储 —— 本地目录、数据库、对象存储、按用户隔离的加密文件都行。这个间接层是有意的：它让"记忆"这个概念和具体存储解耦。
+
+两件事必须自己做：
+
+<strong>路径穿越防护。</strong>`/memories/../../secrets.env` 这种路径必须挡掉。做法是解析成规范路径后校验它仍在记忆根目录内（Python 用 `pathlib.Path.resolve()` 配 `relative_to()`），并拦掉 `../`、`..\\` 以及 URL 编码变体 `%2e%2e%2f`。别只做字符串黑名单。
+
+<strong>容量与过期。</strong>限制单文件大小、给 `view` 的返回长度设上限让模型用 `view_range` 分页、定期清理长期未访问的文件。这些在 Claude Code 里对应的就是那套 200 行 / 25KB 加载预算。
+
+这层原语还有一个设计意图：它和 <strong>context editing</strong>（客户端清理旧工具结果）、<strong>compaction</strong>（服务端摘要压缩）配合使用。三者分工是——compaction 压缩会话内的历史，context editing 清理会话内的噪声，memory 保住<strong>必须跨越摘要而存活</strong>的信息。
+
+## 补一条侧面线索
+
+有一个 Rust 重写的 harness [claw-code](https://github.com/ultraworkers/claw-code)，它自己没实现 auto memory，只做到了 CLAUDE.md 的加载对齐：根指令文件优先级为 `CLAUDE.md` → `CLAW.md` → `AGENTS.md`，发现范围以 git root 为界，并在 `status --output-format json` 里把每个已加载文件的 `path` / `source` / `origin` / `scope_path` / `outside_project` / `chars` / `contributes` 全部暴露出来。这个可观测性设计值得借鉴 —— 记忆系统最难调的就是"到底加载了什么"。
+
+它仓库里还镜像了一份归档 TypeScript 源码的<strong>模块名清单</strong>（只有文件名，没有代码）：
+
+```text
+memdir/findRelevantMemories.ts   memdir/memoryAge.ts
+memdir/memdir.ts                 memdir/memoryScan.ts
+memdir/memoryTypes.ts            memdir/paths.ts
+memdir/teamMemPaths.ts           memdir/teamMemPrompts.ts
+```
+
+从命名能读出两件官方文档没提的事：`memoryAge.ts` 暗示记忆有<strong>老化/时效</strong>概念，`findRelevantMemories.ts` 暗示索引之外还有一步<strong>相关性检索</strong>。这两条是从模块名做的推测，属二手信息，我没有找到能证实的公开资料，写在这里仅作参考。
+
+## 如果你要自己实现：四条值得抄的设计
+
+<strong>一、拼接优于合并。</strong>多层配置不要做 merge 语义，按作用域从广到窄拼接，用位置表达优先级。实现从"配置合并"降级为"字符串拼接"，且正好吃到模型"后文权重高"的特性。代价是矛盾不会被消解 —— 接受它，然后定期审查。
+
+<strong>二、索引强制限额，细节按需读。</strong>常驻部分只放"知道去哪找"，且给它一个硬预算。细节放独立文件，靠工具调用在需要时取。这是渐进式披露在记忆场景的直接应用。
+
+<strong>三、超限报错，不要静默截断。</strong>这条最反直觉，也最有价值。硬截断守住了限额但丢了信息，且不留痕迹。报错则把"该留什么"的语义判断交回给模型 —— 用模型修模型的输出。相应地，<strong>度量的必须是真正会被加载的那部分内容</strong>，而不是原始文件。
+
+<strong>四、作用域绑定加载时机。</strong>凡是只在特定条件下有用的上下文（某个目录、某类文件、某个任务阶段），都不要常驻，让它在条件命中的那一刻才注入。
+
+## 总结
+
+Claude Code 的记忆系统没有引入任何新颖的技术：Markdown 文件、目录树遍历、六个文件操作命令，全部是现成的东西。它的价值在<strong>取舍</strong>：
+
+- 用<strong>拼接</strong>替代配置合并，把复杂度压到最低
+- 用<strong>注入位置</strong>区分软硬约束，让 CLAUDE.md 和 hook 各司其职
+- 用<strong>索引 + 按需读取</strong>把无界的记忆装进有界的预算
+- 用<strong>报错回路</strong>替代硬截断，让模型自己维护索引质量
+- 用<strong>身份边界</strong>决定记忆边界，subagent 与 fork 分道
+
+最后回到那个前提。整套系统真正在优化的从来不是"记住更多"，而是"<strong>中断之后能不能捡回来</strong>"。这也是判断一条记忆该不该写的标准：不是"这个信息有意思吗"，而是"<strong>下一次会话没有它，会不会重复踩坑</strong>"。
+
+## 参考资料
+
+- [How Claude remembers your project](https://code.claude.com/docs/en/memory) — Claude Code 记忆机制官方文档，本文 CLAUDE.md 与 Auto Memory 部分的主要依据
+- [Memory tool](https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool) — Claude API 的 memory tool 规范，含六命令返回格式与安全要求
+- [Context editing](https://platform.claude.com/docs/en/build-with-claude/context-editing) 与 [Compaction](https://platform.claude.com/docs/en/build-with-claude/compaction) — 与 memory 配合的两种上下文管理手段
+- [Effective context engineering for AI agents](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents) — just-in-time 上下文检索这一模式的完整论述
+- [Effective harnesses for long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents) — 多会话软件开发中把记忆当作恢复机制的案例
+- [ultraworkers/claw-code](https://github.com/ultraworkers/claw-code) — Rust 重写的 harness，CLAUDE.md 加载对齐与可观测性设计可参考
