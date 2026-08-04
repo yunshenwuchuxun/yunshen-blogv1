@@ -4,7 +4,7 @@ publishedAt: '2026-06-23'
 summary: '今天大模型的钱，大头不在训练而在推理——OpenAI 每天生成上千亿词，推理是 7×24 小时在烧。可推理慢有个反直觉的真相：多数时候 GPU 不是在算，而是在等数据。本文对应 Datawhale diy-llm 第十章，按一条主线重组：先讲清推理与训练"算力 vs 带宽"的瓶颈区别，再拆开 Prefill/Decode 两阶段与 KV Cache，用"算术强度"点破内存受限的本质与批处理的拼车效应，理清延迟与吞吐的矛盾，最后把线性注意力/扩散、推测解码/MTP、提示词压缩等五花八门的优化技术归到三条路线上，配以重绘的示意图与论文原图。'
 draft: false
 image: '/static/blog/llm-inference/cover.svg'
-tags: [Deep Learning, LLM, Inference, Tech Blog]
+tags: [DL, LLM, GPU, Tech Blog]
 ---
 
 今天的大模型，钱的大头不在训练，而在推理。OpenAI 每天要生成超过 1000 亿个词，Cursor 每天产出数十亿行被用户采纳的代码——训练是一次性投入，推理却是 7×24 小时不停地烧。于是"把推理做快、做便宜"，成了和"把模型训得更强"同等重要的工程命题。

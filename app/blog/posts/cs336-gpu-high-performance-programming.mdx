@@ -4,7 +4,7 @@ publishedAt: '2026-06-14'
 summary: '上一讲讲清了 GPU 优化的靶心——减少访存、提高复用；这一讲是动手篇：你怎么知道自己打中了？答案只有一个——测量。全文沿一条工程闭环展开：先用基准测试"测得准"（绕开异步执行的计时陷阱），再用性能剖析"找得到"瓶颈 kernel，最后用算子融合"改得对"，并把 CUDA C++、Triton、torch.compile 三条落地路径放到同一个 GELU 上对比，最后给出"什么时候才值得亲自写 kernel"的决策框架。'
 draft: false
 image: '/static/blog/cs336-gpu-high-performance-programming/cover.svg'
-tags: [Deep Learning, GPU, LLM, Triton, Tech Blog]
+tags: [DL, GPU, LLM, Tech Blog]
 ---
 
 [上一讲](/blog/cs336-gpu-optimization)我们建立了一条主线：**GPU 算得太快，喂不饱数据**，所以几乎所有优化都收敛到同一个目标——减少对慢速显存的访问、让数据在片上反复复用。那一讲回答的是「**该往哪儿优化**」。

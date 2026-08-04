@@ -4,7 +4,7 @@ publishedAt: '2026-06-14'
 summary: '一条主线贯穿全文——GPU 的瓶颈从来不在算力，而在访存。先看清 CPU 与 GPU 的设计哲学差异，再拆解 GPU 的执行模型与分层内存，用屋顶线模型确立"减少访存、提高复用"这一优化总纲；随后把低精度、算子融合、重计算、内存合并、分块五种技术统一到这条主线上，最后落到两个经典案例：训练/推理通用的 FlashAttention 与推理期 KV Cache 管理的 PagedAttention。'
 draft: false
 image: '/static/blog/cs336-gpu-optimization/cover.svg'
-tags: [Deep Learning, GPU, LLM, Tech Blog]
+tags: [DL, GPU, LLM, Tech Blog]
 ---
 
 把一块现代 GPU 比作一座工厂，它的"机器"（计算单元）多到几乎用不完，真正的瓶颈是"传送带"（访存带宽）——原料喂不进来，再多机器也只能空转。这句话听起来像个比喻，却几乎是理解所有 GPU 优化的钥匙：**GPU 算得太快，喂不饱数据**。于是绝大多数优化技巧，无论名字多花哨，最终都收敛到同一个目标——<strong>减少对慢速显存的访问，让数据尽量在快速的片上存储里被反复复用</strong>。

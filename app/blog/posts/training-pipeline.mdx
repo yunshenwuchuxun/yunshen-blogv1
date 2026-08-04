@@ -4,7 +4,7 @@ publishedAt: '2026-07-14'
 summary: '一个能用的大模型，从来不是"跑一次训练"就有的，而是一条流水线。本文对应 Datawhale diy-llm 第十三章，作为总览篇把三段串成一条线：预训练在 50–200T tokens 上用 next-token 自学通用知识（产出只会续写的基座）→ SFT 用少量高质量演示学会指令格式（质量比数量更重要，含 Alpaca/ChatML 数据格式、污染阈值、幻觉根源与"中期训练"退火）→ 偏好对齐用 RLHF / DPO / RLVR 把模型调得更合人意（含 DPO 把 RL 问题变监督问题的关键推导、过度优化风险）。各阶段的深水区细节直接链到本站已有专篇（PPO、RLVR、DPO），本文只负责讲清"它们怎么衔接、各自解决什么"。配重绘示意图与论文原图。'
 draft: false
 image: '/static/blog/training-pipeline/cover.svg'
-tags: [LLM, Pre-training, SFT, RLHF, DPO, Tech Blog]
+tags: [LLM, Training, SFT, RL, Tech Blog]
 ---
 
 打开任何一份大模型技术报告，你都会看到一串阶段名词：预训练、退火、SFT、奖励模型、PPO、DPO……容易让人以为"训练一个大模型"是件单一的事。恰恰相反——<strong>一个能用的模型是一条流水线的产物</strong>：先在海量文本上学通用知识，再用少量高质量演示学会"听话"，最后用偏好或可验证的奖励把它调得更合人心意。

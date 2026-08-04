@@ -4,7 +4,7 @@ publishedAt: '2026-06-02'
 summary: '从分词器在 LLM 中的定位出发，拆解其四步训练流程，对比词级 / 字符级 / 字节级三种粒度，逐一讲清 BPE、BBPE、WordPiece、Unigram 的核心准则与差异，并以 DeepSeek 分词器收尾。'
 draft: false
 image: '/static/blog/tokenizer/cover.svg'
-tags: [NLP, Tokenizer, LLM, BPE, Tech Blog]
+tags: [NLP, Tokenizer, LLM, Tech Blog]
 ---
 
 模型并不直接「读懂文字」，它只能处理数字。分词器（Tokenizer）做的事，就是把原始文本切成一个个词元（token），再映射成整数 ID 供模型计算。它常被当作模型的一部分，实际上却是一个**独立训练、训练完即冻结**的模块：先在大规模语料上统计出一套 `词元 → ID` 的对应表（词表，vocab），之后任意文本都按这张表被转换成离散的数字序列。

@@ -4,7 +4,7 @@ publishedAt: '2026-06-10'
 summary: '从稠密 FFN 的算力瓶颈出发，讲清 MoE "容量大但计算稀疏"的核心思想：通用门控公式、三种路由方向（Token 选专家 TC / 专家选 Token EC / 哈希路由）的取舍、负载均衡如何改写训练目标（辅助损失 / Router z-loss / 无辅助损失偏置）与容量溢出机制，再串起 Switch Transformer、DeepSpeed-MoE、DeepSeekMoE 到 DeepSeek-V4 的演进主线，配以可运行的最小实现代码。'
 draft: false
 image: '/static/blog/cs336-mixture-of-experts/cover.svg'
-tags: [Deep Learning, MoE, LLM, Tech Blog]
+tags: [DL, Transformer, LLM, Tech Blog]
 ---
 
 当你想让一个语言模型"更强"，最朴素的办法是把它做大。但稠密（Dense）模型有个绕不开的代价：<strong>每多一份参数，每个 token 的前向计算就多花一份算力</strong>——参数量和计算量被死死绑在一起。于是出现一个尴尬的局面：我们明明知道"参数越多通常越强"，却被推理成本卡住了脖子。

@@ -4,7 +4,7 @@ publishedAt: '2026-06-15'
 summary: '前两讲都在单张卡上做文章——可当模型大到一张卡根本装不下，故事就变了。这一讲把战场搬到多卡多机：先看清新瓶颈不再是 HBM 访存，而是慢得多的"卡间通信"；再用一条恒等式（All-Reduce = Reduce-Scatter + All-Gather）讲透集合通信的成本；然后把数据、张量、流水线、序列四种并行统一到"一份负载、四种切法"的框架里，逐一拆解 ZeRO/FSDP 如何把单卡显存从 120GB 压到 1.9GB、张量并行为何只能关在节点内、流水线的气泡怎么挤掉；最后落到"先快后慢、由内向外"的组合法则。'
 draft: false
 image: '/static/blog/cs336-distributed-training/cover.svg'
-tags: [Deep Learning, GPU, LLM, Distributed Training, Tech Blog]
+tags: [DL, GPU, LLM, Training, Tech Blog]
 ---
 
 [第五讲](/blog/cs336-gpu-optimization)和[第六讲](/blog/cs336-gpu-high-performance-programming)我们一直在一张卡上较劲：GPU 算得太快、喂不饱数据，于是所有优化都收敛到「减少对慢速 HBM 的访问」。但有一个前提被悄悄假设了——<strong>模型能装进一张卡</strong>。

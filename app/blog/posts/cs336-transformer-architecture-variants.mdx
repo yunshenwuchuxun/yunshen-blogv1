@@ -4,7 +4,7 @@ publishedAt: '2026-06-08'
 summary: '先回顾原始 Transformer 的五大组件，再沿归一化、前馈、激活、位置编码四条主线梳理现代变体为何收敛到 RMSNorm + SwiGLU + RoPE 的 LLaMA 范式，最后补上注意力效率变体（KV Cache、MQA/GQA/MLA、稀疏注意力）与训练稳定性技巧（z-loss、QK-Norm、软截断）。'
 draft: false
 image: '/static/blog/cs336-transformer-architecture-variants/cover.svg'
-tags: [Deep Learning, Transformer, LLM, Tech Blog]
+tags: [DL, Transformer, LLM, Tech Blog]
 ---
 
 2017 年《Attention Is All You Need》提出 Transformer 之后，它就成了几乎所有现代语言模型的骨架。但今天你打开 LLaMA、Qwen 或 Gemma 的代码，会发现它和原始论文已经"长得不太一样"了：LayerNorm 换成了 RMSNorm，ReLU 换成了 SwiGLU，正弦位置编码换成了 RoPE，偏置项被大面积删掉。

@@ -4,7 +4,7 @@ publishedAt: '2026-06-24'
 summary: '都说"数据比模型结构更关键"，可数据工程到底在做什么？本文对应 Datawhale diy-llm 第十一章，把一条完整的数据流水线讲透：数据从哪来（三阶段训练的数据角色、Common Crawl/代码/书籍/数学，到 OLMo 2 与 Qwen3 的现代配方）→ 怎么洗（C4 启发式、CCNet 困惑度过滤）→ 怎么智能筛选（KenLM、FastText、DSIR 重要性重采样）→ 怎么去重（精确去重、Bloom Filter、LSH 的 k-shingling/MinHash/分桶与 S 型曲线）→ 怎么配比与合成（真实数据奠基、合成数据精调）→ 以及版权、数据投毒（250 份文档即可植入后门）、记忆与评估等风险。配以重绘的示意图与论文原图。'
 draft: false
 image: '/static/blog/data-engineering/cover.svg'
-tags: [Deep Learning, LLM, Data Engineering, Tech Blog]
+tags: [DL, LLM, Training, Tech Blog]
 ---
 
 聊大模型，大家爱聊参数量、聊架构、聊算力，却常常忽略一个更朴素的事实：<strong>决定一个模型上限的，往往是它吃进去的数据</strong>。同样的 Transformer，喂垃圾就得到垃圾，喂精挑细选的语料才能炼出强模型。研究界对此的共识越来越直白——"数据往往比模型结构本身更关键"。
