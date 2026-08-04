@@ -1,0 +1,49 @@
+<svg width="1200" height="620" viewBox="0 0 1200 620" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="620" rx="28" fill="#F8FAFC"/>
+  <rect x="32" y="32" width="1136" height="556" rx="24" fill="white" stroke="#E2E8F0" stroke-width="2"/>
+
+  <text x="70" y="92" fill="#0F172A" font-size="30" font-family="Segoe UI, Arial, sans-serif" font-weight="700">token 花在哪：只有一块在单调增长</text>
+  <text x="70" y="126" fill="#475569" font-size="17" font-family="Segoe UI, Arial, sans-serif">系统提示和记忆是固定成本；对话缓慢增长；工具结果一路狂奔 —— 所以它才是优化重点</text>
+
+  <path d="M120 520 L 700 520" stroke="#94A3B8" stroke-width="2"/>
+  <path d="M120 180 L 120 520" stroke="#94A3B8" stroke-width="2"/>
+  <text x="70" y="186" fill="#64748B" font-size="12" font-family="Segoe UI, Arial, sans-serif">上下文占用</text>
+
+  <rect x="160" y="490" width="120" height="30" fill="#C7D2FE"/>
+  <rect x="160" y="465" width="120" height="25" fill="#BBF7D0"/>
+  <rect x="160" y="445" width="120" height="20" fill="#FDE68A"/>
+  <rect x="160" y="430" width="120" height="15" fill="#FCA5A5"/>
+  <text x="196" y="545" fill="#334155" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">第 1 轮</text>
+
+  <rect x="360" y="490" width="120" height="30" fill="#C7D2FE"/>
+  <rect x="360" y="465" width="120" height="25" fill="#BBF7D0"/>
+  <rect x="360" y="420" width="120" height="45" fill="#FDE68A"/>
+  <rect x="360" y="320" width="120" height="100" fill="#FCA5A5"/>
+  <text x="390" y="545" fill="#334155" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">第 20 轮</text>
+
+  <rect x="560" y="490" width="120" height="30" fill="#C7D2FE"/>
+  <rect x="560" y="465" width="120" height="25" fill="#BBF7D0"/>
+  <rect x="560" y="390" width="120" height="75" fill="#FDE68A"/>
+  <rect x="560" y="190" width="120" height="200" fill="#FCA5A5"/>
+  <text x="590" y="545" fill="#334155" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">第 50 轮</text>
+
+  <rect x="744" y="180" width="386" height="34" rx="8" fill="#FEE2E2"/>
+  <text x="762" y="203" fill="#B91C1C" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">工具结果 —— 单调增长，且增速最快</text>
+  <text x="762" y="238" fill="#991B1B" font-size="13" font-family="Segoe UI, Arial, sans-serif">一次 grep 可能几百行，一次读文件默认上限 2000 行，</text>
+  <text x="762" y="260" fill="#991B1B" font-size="13" font-family="Segoe UI, Arial, sans-serif">一次网页抓取就是一整页。而且它们永不过期地留着。</text>
+
+  <rect x="744" y="286" width="386" height="34" rx="8" fill="#FEF3C7"/>
+  <text x="762" y="309" fill="#B45309" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">对话文本 —— 缓慢增长</text>
+  <text x="762" y="344" fill="#92400E" font-size="13" font-family="Segoe UI, Arial, sans-serif">人和模型的自然语言，一轮几百 token 量级。</text>
+
+  <rect x="744" y="370" width="386" height="34" rx="8" fill="#DCFCE7"/>
+  <text x="762" y="393" fill="#15803D" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">指令与记忆 —— 固定</text>
+  <text x="762" y="428" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif">四层 CLAUDE.md 拼接 + 记忆索引，每次会话开头一次性装好。</text>
+
+  <rect x="744" y="454" width="386" height="34" rx="8" fill="#E0E7FF"/>
+  <text x="762" y="477" fill="#3730A3" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">系统提示与工具 schema —— 固定</text>
+  <text x="762" y="512" fill="#3730A3" font-size="13" font-family="Segoe UI, Arial, sans-serif">工具越多这块越大，但它不随轮次变化。</text>
+
+  <rect x="744" y="530" width="386" height="42" rx="10" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5"/>
+  <text x="762" y="556" fill="#0F172A" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">优化固定成本收益有限；工具结果才是那个会撑爆窗口的。</text>
+</svg>

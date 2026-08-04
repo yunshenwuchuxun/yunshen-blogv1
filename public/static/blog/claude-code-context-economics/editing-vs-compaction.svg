@@ -1,0 +1,68 @@
+<svg width="1200" height="640" viewBox="0 0 1200 640" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="640" rx="28" fill="#F8FAFC"/>
+  <rect x="32" y="32" width="1136" height="576" rx="24" fill="white" stroke="#E2E8F0" stroke-width="2"/>
+
+  <text x="70" y="92" fill="#0F172A" font-size="30" font-family="Segoe UI, Arial, sans-serif" font-weight="700">剪枝与摘要：两种不同的「已进来再处理」</text>
+  <text x="70" y="126" fill="#475569" font-size="17" font-family="Segoe UI, Arial, sans-serif">一个让内容消失但结构保留，一个让内容变短但语义保留 —— 别当成同一件事</text>
+
+  <rect x="70" y="152" width="520" height="424" rx="18" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="2"/>
+  <text x="94" y="186" fill="#1D4ED8" font-size="19" font-family="Segoe UI, Arial, sans-serif" font-weight="700">剪枝（context editing）</text>
+  <text x="94" y="210" fill="#1E40AF" font-size="13" font-family="Segoe UI, Arial, sans-serif">把确定不再需要的旧工具结果直接清掉</text>
+
+  <text x="94" y="242" fill="#1E40AF" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">处理前</text>
+  <rect x="94" y="250" width="110" height="34" rx="6" fill="#C7D2FE"/>
+  <text x="112" y="272" fill="#3730A3" font-size="12" font-family="Segoe UI, Arial, sans-serif">稳定前缀</text>
+  <rect x="208" y="250" width="86" height="34" rx="6" fill="#FCA5A5"/>
+  <text x="220" y="272" fill="#7F1D1D" font-size="12" font-family="Segoe UI, Arial, sans-serif">旧结果 A</text>
+  <rect x="298" y="250" width="86" height="34" rx="6" fill="#FCA5A5"/>
+  <text x="310" y="272" fill="#7F1D1D" font-size="12" font-family="Segoe UI, Arial, sans-serif">旧结果 B</text>
+  <rect x="388" y="250" width="178" height="34" rx="6" fill="#BBF7D0"/>
+  <text x="406" y="272" fill="#15803D" font-size="12" font-family="Segoe UI, Arial, sans-serif">最新对话与工具结果</text>
+
+  <path d="M330 292 L 330 310" stroke="#1D4ED8" stroke-width="2"/>
+  <polygon points="324,310 330,320 336,310" fill="#1D4ED8"/>
+
+  <text x="94" y="344" fill="#1E40AF" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">处理后</text>
+  <rect x="94" y="352" width="110" height="34" rx="6" fill="#C7D2FE"/>
+  <text x="112" y="374" fill="#3730A3" font-size="12" font-family="Segoe UI, Arial, sans-serif">稳定前缀</text>
+  <rect x="208" y="352" width="86" height="34" rx="6" fill="white" stroke="#CBD5E1" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <text x="232" y="374" fill="#94A3B8" font-size="12" font-family="Segoe UI, Arial, sans-serif">已清空</text>
+  <rect x="298" y="352" width="86" height="34" rx="6" fill="white" stroke="#CBD5E1" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <text x="322" y="374" fill="#94A3B8" font-size="12" font-family="Segoe UI, Arial, sans-serif">已清空</text>
+  <rect x="388" y="352" width="178" height="34" rx="6" fill="#BBF7D0"/>
+  <text x="406" y="374" fill="#15803D" font-size="12" font-family="Segoe UI, Arial, sans-serif">最新对话与工具结果</text>
+
+  <text x="94" y="422" fill="#1D4ED8" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">内容消失，对话结构完整保留</text>
+  <text x="94" y="452" fill="#1E40AF" font-size="13" font-family="Segoe UI, Arial, sans-serif">· 由你在客户端配置，按阈值触发</text>
+  <text x="94" y="476" fill="#1E40AF" font-size="13" font-family="Segoe UI, Arial, sans-serif">· 两种策略：清工具结果 / 清思考块</text>
+  <text x="94" y="500" fill="#1E40AF" font-size="13" font-family="Segoe UI, Arial, sans-serif">· 清工具结果时还可以顺带清掉调用入参</text>
+  <text x="94" y="530" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">适用：那些结果确定不会再被引用的调用</text>
+  <text x="94" y="556" fill="#991B1B" font-size="12" font-family="Segoe UI, Arial, sans-serif">清错了就是真的没了，模型无从找回</text>
+
+  <rect x="610" y="152" width="520" height="424" rx="18" fill="#F5F3FF" stroke="#C4B5FD" stroke-width="2"/>
+  <text x="634" y="186" fill="#7C3AED" font-size="19" font-family="Segoe UI, Arial, sans-serif" font-weight="700">摘要（compaction）</text>
+  <text x="634" y="210" fill="#6D28D9" font-size="13" font-family="Segoe UI, Arial, sans-serif">把早期历史在服务端压成一个摘要块</text>
+
+  <text x="634" y="242" fill="#6D28D9" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">处理前</text>
+  <rect x="634" y="250" width="290" height="34" rx="6" fill="#DDD6FE"/>
+  <text x="700" y="272" fill="#5B21B6" font-size="12" font-family="Segoe UI, Arial, sans-serif">很长的早期对话与工具结果</text>
+  <rect x="928" y="250" width="178" height="34" rx="6" fill="#BBF7D0"/>
+  <text x="946" y="272" fill="#15803D" font-size="12" font-family="Segoe UI, Arial, sans-serif">最新对话与工具结果</text>
+
+  <path d="M870 292 L 870 310" stroke="#7C3AED" stroke-width="2"/>
+  <polygon points="864,310 870,320 876,310" fill="#7C3AED"/>
+
+  <text x="634" y="344" fill="#6D28D9" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">处理后</text>
+  <rect x="634" y="352" width="120" height="34" rx="6" fill="#A78BFA"/>
+  <text x="656" y="374" fill="white" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">摘要 block</text>
+  <rect x="758" y="352" width="348" height="34" rx="6" fill="#BBF7D0"/>
+  <text x="850" y="374" fill="#15803D" font-size="12" font-family="Segoe UI, Arial, sans-serif">最新对话与工具结果</text>
+
+  <text x="634" y="422" fill="#7C3AED" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">内容变短，语义尽量保留</text>
+  <text x="634" y="452" fill="#6D28D9" font-size="13" font-family="Segoe UI, Arial, sans-serif">· 服务端自动进行，接近窗口阈值时触发</text>
+  <text x="634" y="476" fill="#6D28D9" font-size="13" font-family="Segoe UI, Arial, sans-serif">· 你不需要判断该丢哪一段，模型自己摘</text>
+  <text x="634" y="500" fill="#6D28D9" font-size="13" font-family="Segoe UI, Arial, sans-serif">· 适用：整段历史都还有语义价值的时候</text>
+  <rect x="634" y="514" width="472" height="52" rx="10" fill="#FEE2E2" stroke="#EF4444" stroke-width="2"/>
+  <text x="652" y="536" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">最大的坑：必须把整个 response.content 回传</text>
+  <text x="652" y="556" fill="#991B1B" font-size="12" font-family="Segoe UI, Arial, sans-serif">只抽出 text 字段追加，摘要状态会被静默丢弃</text>
+</svg>

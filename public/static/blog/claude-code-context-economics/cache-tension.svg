@@ -1,0 +1,53 @@
+<svg width="1200" height="640" viewBox="0 0 1200 640" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="640" rx="28" fill="#F8FAFC"/>
+  <rect x="32" y="32" width="1136" height="576" rx="24" fill="white" stroke="#E2E8F0" stroke-width="2"/>
+
+  <text x="70" y="92" fill="#0F172A" font-size="30" font-family="Segoe UI, Arial, sans-serif" font-weight="700">省上下文的代价：缓存前缀被打断</text>
+  <text x="70" y="126" fill="#475569" font-size="17" font-family="Segoe UI, Arial, sans-serif">提示缓存是前缀匹配 —— 从中间动一刀，后面全部要按全价重算</text>
+
+  <rect x="70" y="152" width="1060" height="216" rx="18" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="2"/>
+  <text x="94" y="184" fill="#0F172A" font-size="17" font-family="Segoe UI, Arial, sans-serif" font-weight="700">剪枝之前：整条前缀都能命中缓存</text>
+
+  <rect x="94" y="198" width="200" height="40" rx="6" fill="#DCFCE7" stroke="#22C55E" stroke-width="1.5"/>
+  <text x="112" y="223" fill="#15803D" font-size="12" font-family="Segoe UI, Arial, sans-serif">系统提示 + 工具 schema</text>
+  <rect x="298" y="198" width="150" height="40" rx="6" fill="#DCFCE7" stroke="#22C55E" stroke-width="1.5"/>
+  <text x="316" y="223" fill="#15803D" font-size="12" font-family="Segoe UI, Arial, sans-serif">指令与记忆索引</text>
+  <rect x="452" y="198" width="130" height="40" rx="6" fill="#DCFCE7" stroke="#22C55E" stroke-width="1.5"/>
+  <text x="480" y="223" fill="#15803D" font-size="12" font-family="Segoe UI, Arial, sans-serif">旧结果 A</text>
+  <rect x="586" y="198" width="130" height="40" rx="6" fill="#DCFCE7" stroke="#22C55E" stroke-width="1.5"/>
+  <text x="614" y="223" fill="#15803D" font-size="12" font-family="Segoe UI, Arial, sans-serif">旧结果 B</text>
+  <rect x="720" y="198" width="130" height="40" rx="6" fill="#DCFCE7" stroke="#22C55E" stroke-width="1.5"/>
+  <text x="748" y="223" fill="#15803D" font-size="12" font-family="Segoe UI, Arial, sans-serif">旧结果 C</text>
+  <rect x="854" y="198" width="252" height="40" rx="6" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="1.5"/>
+  <text x="908" y="223" fill="#334155" font-size="12" font-family="Segoe UI, Arial, sans-serif">最新一轮（未缓存）</text>
+  <text x="94" y="258" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">绿色部分按缓存读价计费，约为全价的十分之一</text>
+
+  <text x="94" y="294" fill="#0F172A" font-size="17" font-family="Segoe UI, Arial, sans-serif" font-weight="700">剪掉「旧结果 A」之后</text>
+  <rect x="94" y="308" width="200" height="40" rx="6" fill="#DCFCE7" stroke="#22C55E" stroke-width="1.5"/>
+  <text x="112" y="333" fill="#15803D" font-size="12" font-family="Segoe UI, Arial, sans-serif">系统提示 + 工具 schema</text>
+  <rect x="298" y="308" width="150" height="40" rx="6" fill="#DCFCE7" stroke="#22C55E" stroke-width="1.5"/>
+  <text x="316" y="333" fill="#15803D" font-size="12" font-family="Segoe UI, Arial, sans-serif">指令与记忆索引</text>
+  <rect x="452" y="308" width="130" height="40" rx="6" fill="white" stroke="#CBD5E1" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <text x="494" y="333" fill="#94A3B8" font-size="12" font-family="Segoe UI, Arial, sans-serif">已清空</text>
+  <rect x="586" y="308" width="130" height="40" rx="6" fill="#FEE2E2" stroke="#EF4444" stroke-width="2"/>
+  <text x="606" y="333" fill="#B91C1C" font-size="12" font-family="Segoe UI, Arial, sans-serif">重算 B</text>
+  <rect x="720" y="308" width="130" height="40" rx="6" fill="#FEE2E2" stroke="#EF4444" stroke-width="2"/>
+  <text x="740" y="333" fill="#B91C1C" font-size="12" font-family="Segoe UI, Arial, sans-serif">重算 C</text>
+  <rect x="854" y="308" width="252" height="40" rx="6" fill="#FEE2E2" stroke="#EF4444" stroke-width="2"/>
+  <text x="900" y="333" fill="#B91C1C" font-size="12" font-family="Segoe UI, Arial, sans-serif">重算最新一轮</text>
+
+  <rect x="70" y="384" width="1060" height="192" rx="18" fill="#FEF3C7" stroke="#FCD34D" stroke-width="2"/>
+  <text x="94" y="416" fill="#B45309" font-size="17" font-family="Segoe UI, Arial, sans-serif" font-weight="700">另一个更隐蔽的坑：断点只回看 20 个内容块</text>
+  <text x="94" y="442" fill="#92400E" font-size="13" font-family="Segoe UI, Arial, sans-serif">缓存断点向前寻找可复用前缀时，最多回看 20 个 content block。而一个 agentic 回合里塞进</text>
+  <text x="94" y="464" fill="#92400E" font-size="13" font-family="Segoe UI, Arial, sans-serif">三十个工具调用与结果是很常见的事 —— 于是下一轮的断点根本找不到上一轮的缓存。</text>
+
+  <rect x="94" y="480" width="470" height="76" rx="12" fill="#FEE2E2" stroke="#FCA5A5" stroke-width="1.5"/>
+  <text x="112" y="504" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">症状：静默 miss</text>
+  <text x="112" y="526" fill="#991B1B" font-size="12" font-family="Segoe UI, Arial, sans-serif">不报错、不告警，只是 cache_read 一直是 0，</text>
+  <text x="112" y="546" fill="#991B1B" font-size="12" font-family="Segoe UI, Arial, sans-serif">账单默默按全价走。</text>
+
+  <rect x="586" y="480" width="520" height="76" rx="12" fill="#DCFCE7" stroke="#86EFAC" stroke-width="1.5"/>
+  <text x="604" y="504" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">解法：长回合里插中间断点</text>
+  <text x="604" y="526" fill="#166534" font-size="12" font-family="Segoe UI, Arial, sans-serif">每积累约 15 个 content block 就放一个断点，保证下一个断点</text>
+  <text x="604" y="546" fill="#166534" font-size="12" font-family="Segoe UI, Arial, sans-serif">总能在 20 个回看窗口内找到可复用的前缀。</text>
+</svg>

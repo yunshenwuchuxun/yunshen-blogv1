@@ -1,0 +1,50 @@
+<svg width="1200" height="580" viewBox="0 0 1200 580" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="580" rx="28" fill="#F8FAFC"/>
+  <rect x="32" y="32" width="1136" height="516" rx="24" fill="white" stroke="#E2E8F0" stroke-width="2"/>
+
+  <text x="70" y="92" fill="#0F172A" font-size="30" font-family="Segoe UI, Arial, sans-serif" font-weight="700">先学会读账，再谈优化</text>
+  <text x="70" y="126" fill="#475569" font-size="17" font-family="Segoe UI, Arial, sans-serif">最常见的误读：把 input_tokens 当成这次请求的提示总量</text>
+
+  <rect x="70" y="152" width="560" height="368" rx="18" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="2"/>
+  <text x="94" y="186" fill="#1D4ED8" font-size="18" font-family="Segoe UI, Arial, sans-serif" font-weight="700">提示总量由三个字段拼成</text>
+
+  <rect x="94" y="204" width="270" height="44" rx="8" fill="#BFDBFE"/>
+  <text x="112" y="232" fill="#1D4ED8" font-size="13" font-family="Consolas, monospace">cache_read_input_tokens</text>
+  <rect x="368" y="204" width="130" height="44" rx="8" fill="#93C5FD"/>
+  <text x="380" y="232" fill="#1E3A8A" font-size="12" font-family="Consolas, monospace">cache_creation</text>
+  <rect x="502" y="204" width="104" height="44" rx="8" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="1.5"/>
+  <text x="514" y="232" fill="#334155" font-size="12" font-family="Consolas, monospace">input_tokens</text>
+
+  <path d="M94 260 L 606 260" stroke="#1D4ED8" stroke-width="2"/>
+  <text x="266" y="282" fill="#1D4ED8" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">三者之和 = 真实提示总量</text>
+
+  <rect x="94" y="300" width="512" height="30" rx="8" fill="#FEE2E2"/>
+  <text x="112" y="320" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">input_tokens 只是「没能命中缓存的那部分余量」</text>
+
+  <text x="94" y="360" fill="#1E40AF" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">一个具体的误判场景</text>
+  <text x="94" y="386" fill="#1E40AF" font-size="13" font-family="Segoe UI, Arial, sans-serif">一个 agent 连续跑了几小时，你去看 usage，</text>
+  <text x="94" y="408" fill="#1E40AF" font-size="13" font-family="Segoe UI, Arial, sans-serif">发现 input_tokens 只有 4K —— 于是以为很省。</text>
+  <text x="94" y="436" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">实际上另外几十万 token 都在 cache_read 里，</text>
+  <text x="94" y="458" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">只是单价便宜，不是没花。</text>
+
+  <rect x="94" y="476" width="512" height="30" rx="8" fill="#DCFCE7"/>
+  <text x="112" y="496" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">反过来：cache_read 长期为 0，说明有东西在打断前缀</text>
+
+  <rect x="650" y="152" width="480" height="368" rx="18" fill="#F5F3FF" stroke="#C4B5FD" stroke-width="2"/>
+  <text x="674" y="186" fill="#7C3AED" font-size="18" font-family="Segoe UI, Arial, sans-serif" font-weight="700">两种「上限」不要混</text>
+
+  <rect x="674" y="204" width="432" height="132" rx="12" fill="white" stroke="#DDD6FE" stroke-width="1.5"/>
+  <text x="692" y="230" fill="#7C3AED" font-size="15" font-family="Consolas, monospace" font-weight="700">max_tokens</text>
+  <text x="692" y="256" fill="#6D28D9" font-size="13" font-family="Segoe UI, Arial, sans-serif">强制上限，<tspan font-weight="700">模型看不见它</tspan>。</text>
+  <text x="692" y="280" fill="#6D28D9" font-size="13" font-family="Segoe UI, Arial, sans-serif">撞上就地截断，可能停在半句话中间，</text>
+  <text x="692" y="304" fill="#6D28D9" font-size="13" font-family="Segoe UI, Arial, sans-serif">你只能从 stop_reason 事后发现。</text>
+  <text x="692" y="328" fill="#B91C1C" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">注意：它同时约束思考与正文两部分。</text>
+
+  <rect x="674" y="352" width="432" height="148" rx="12" fill="#EDE9FE" stroke="#8B5CF6" stroke-width="2"/>
+  <text x="692" y="378" fill="#7C3AED" font-size="15" font-family="Consolas, monospace" font-weight="700">task_budget</text>
+  <text x="692" y="404" fill="#6D28D9" font-size="13" font-family="Segoe UI, Arial, sans-serif">给模型一个<tspan font-weight="700">它能看到的倒计时</tspan>。</text>
+  <text x="692" y="428" fill="#6D28D9" font-size="13" font-family="Segoe UI, Arial, sans-serif">它会据此调整节奏，主动收尾，而不是</text>
+  <text x="692" y="452" fill="#6D28D9" font-size="13" font-family="Segoe UI, Arial, sans-serif">写到一半被切断。最低 20000。</text>
+  <text x="692" y="474" fill="#15803D" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">它是给模型的提示，不是硬性拦截 ——</text>
+  <text x="692" y="492" fill="#15803D" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">真要设硬上限，仍然得靠 max_tokens。</text>
+</svg>

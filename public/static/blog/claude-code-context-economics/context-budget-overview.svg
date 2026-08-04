@@ -1,0 +1,41 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="630" rx="28" fill="#F8FAFC"/>
+  <rect x="32" y="32" width="1136" height="566" rx="24" fill="white" stroke="#E2E8F0" stroke-width="2"/>
+
+  <text x="70" y="92" fill="#0F172A" font-size="32" font-family="Segoe UI, Arial, sans-serif" font-weight="700">Context Economics</text>
+  <text x="70" y="126" fill="#475569" font-size="18" font-family="Segoe UI, Arial, sans-serif">上下文是预算，而工具输出是最大的开销项 —— 四层各有节流手段</text>
+
+  <rect x="70" y="164" width="680" height="94" rx="16" fill="#DBEAFE"/>
+  <text x="96" y="196" fill="#1D4ED8" font-size="20" font-family="Segoe UI, Arial, sans-serif" font-weight="700">① 工具层：输出自带节流</text>
+  <text x="96" y="222" fill="#1E40AF" font-size="14" font-family="Segoe UI, Arial, sans-serif">超长结果落盘只回路径 · 分页读取 · 用精确查询代替全量拉取</text>
+  <text x="96" y="246" fill="#1E40AF" font-size="13" font-family="Segoe UI, Arial, sans-serif">最便宜的一层：不该进来的内容，一开始就别让它进来</text>
+
+  <rect x="70" y="268" width="680" height="94" rx="16" fill="#DCFCE7"/>
+  <text x="96" y="300" fill="#15803D" font-size="20" font-family="Segoe UI, Arial, sans-serif" font-weight="700">② 调用层：中间结果绕开上下文</text>
+  <text x="96" y="326" fill="#166534" font-size="14" font-family="Segoe UI, Arial, sans-serif">程序化工具调用把多次调用压进一段脚本 · 子 agent 隔离上下文</text>
+  <text x="96" y="350" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif">只让结论回到主上下文，过程留在别处</text>
+
+  <rect x="70" y="372" width="680" height="94" rx="16" fill="#FEF3C7"/>
+  <text x="96" y="404" fill="#B45309" font-size="20" font-family="Segoe UI, Arial, sans-serif" font-weight="700">③ 会话层：已进来的内容再处理</text>
+  <text x="96" y="430" fill="#92400E" font-size="14" font-family="Segoe UI, Arial, sans-serif">剪枝清掉旧工具结果（内容消失） · 摘要压缩早期历史（内容变短）</text>
+  <text x="96" y="454" fill="#92400E" font-size="13" font-family="Segoe UI, Arial, sans-serif">补救手段，代价是要动已经缓存好的前缀</text>
+
+  <rect x="70" y="476" width="680" height="90" rx="16" fill="#EDE9FE"/>
+  <text x="96" y="508" fill="#7C3AED" font-size="20" font-family="Segoe UI, Arial, sans-serif" font-weight="700">④ 预算层：让模型知道还剩多少</text>
+  <text x="96" y="534" fill="#6D28D9" font-size="14" font-family="Segoe UI, Arial, sans-serif">任务预算给模型一个可见的倒计时，它会自己收尾而不是被硬截断</text>
+  <text x="96" y="556" fill="#6D28D9" font-size="13" font-family="Segoe UI, Arial, sans-serif">和 max_tokens 不同：后者是模型看不见的上限</text>
+
+  <rect x="790" y="164" width="340" height="402" rx="20" fill="#FEF2F2" stroke="#FCA5A5" stroke-width="2"/>
+  <text x="816" y="200" fill="#B91C1C" font-size="17" font-family="Segoe UI, Arial, sans-serif" font-weight="700">贯穿四层的一个张力</text>
+  <text x="816" y="246" fill="#991B1B" font-size="22" font-family="Segoe UI, Arial, sans-serif" font-weight="700">省上下文</text>
+  <text x="816" y="280" fill="#991B1B" font-size="22" font-family="Segoe UI, Arial, sans-serif" font-weight="700">和保缓存</text>
+  <text x="816" y="314" fill="#991B1B" font-size="22" font-family="Segoe UI, Arial, sans-serif" font-weight="700">是在打架</text>
+  <path d="M816 340 L 1104 340" stroke="#FCA5A5" stroke-width="2"/>
+  <text x="816" y="374" fill="#7F1D1D" font-size="14" font-family="Segoe UI, Arial, sans-serif">提示缓存是前缀匹配。你从中间</text>
+  <text x="816" y="398" fill="#7F1D1D" font-size="14" font-family="Segoe UI, Arial, sans-serif">剪掉一段旧的工具结果，剪切点</text>
+  <text x="816" y="422" fill="#7F1D1D" font-size="14" font-family="Segoe UI, Arial, sans-serif">之后的缓存就全部失效了。</text>
+  <text x="816" y="462" fill="#B91C1C" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">省下的 token 是按全价算的，</text>
+  <text x="816" y="486" fill="#B91C1C" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">重算的部分也是。</text>
+  <text x="816" y="526" fill="#7F1D1D" font-size="14" font-family="Segoe UI, Arial, sans-serif">所以第 ① ② 层永远优先于第 ③ 层：</text>
+  <text x="816" y="550" fill="#7F1D1D" font-size="14" font-family="Segoe UI, Arial, sans-serif">不让它进来，比进来再清掉划算。</text>
+</svg>

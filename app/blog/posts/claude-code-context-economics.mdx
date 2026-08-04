@@ -1,0 +1,263 @@
+---
+title: '上下文经济学：Agent 的工具输出如何不炸掉上下文'
+publishedAt: '2026-08-04T18:00:00'
+summary: '上下文是预算，工具输出是最大的开销项。从工具层节流、程序化工具调用与子 agent 隔离，到剪枝与摘要的区别，拆解四层节流手段，以及贯穿其中的省上下文与保缓存之争。'
+draft: false
+image: '/static/blog/claude-code-context-economics/context-budget-overview.svg'
+tags: [AI, Agent, Tooling, Tech Blog]
+---
+
+上一篇讲工具边界时留了个尾巴：把动作拆成专用工具，harness 就获得了审批、校验、渲染和并行的能力。但工具带来的另一件事没提 —— <strong>它们的返回值要占上下文，而且一旦进来就赖着不走</strong>。
+
+一次 `grep` 可能几百行，一次读文件默认上限 2000 行，一次网页抓取就是一整页。跑五十轮之后，撑爆窗口的从来不是对话，是这些工具结果。
+
+这篇拆的就是这件事：<strong>上下文作为预算怎么花</strong>。四层节流手段，从最便宜的一层讲到最贵的一层，以及贯穿其中一个很容易被忽略的账 —— 省上下文的手段几乎都在和提示缓存打架。
+
+## 先看清 token 花在哪
+
+优化之前得先知道钱花在哪。把一次 agentic 会话的上下文按来源拆开，会看到一件很清楚的事：
+
+![一次会话中上下文占用的构成随轮次变化：系统提示与记忆固定、对话缓慢增长、工具结果快速增长](/static/blog/claude-code-context-economics/where-tokens-go.svg)
+
+| 来源 | 增长曲线 | 优化空间 |
+| --- | --- | --- |
+| 系统提示 + 工具 schema | 固定 | 减工具数量，但收益有上限 |
+| 指令与记忆索引 | 固定 | 上一篇讲过的 200 行预算 |
+| 对话文本 | 缓慢增长 | 一轮几百 token 量级 |
+| <strong>工具结果</strong> | <strong>快速且单调增长</strong> | <strong>这才是重点</strong> |
+
+前两项是固定成本，会话开头一次性装好，之后不再变化 —— 优化它们收益有限。工具结果不一样：它随每次调用累积，而且<strong>永不过期</strong>。第三轮读的那个文件，到第五十轮还完整躺在上下文里。
+
+所以这篇文章的所有手段，本质上都在回答同一个问题：<strong>怎么让工具结果少占地方</strong>。
+
+## 四层节流，从便宜到贵
+
+![上下文预算的四层节流手段：工具层、调用层、会话层、预算层，以及省上下文与保缓存的张力](/static/blog/claude-code-context-economics/context-budget-overview.svg)
+
+四层的顺序不是随便排的，它就是<strong>优先级</strong>：
+
+1. <strong>工具层</strong> —— 不该进来的内容，一开始就别让它进来
+2. <strong>调用层</strong> —— 让中间结果绕开上下文，只把结论送进来
+3. <strong>会话层</strong> —— 已经进来的内容再处理（剪枝或摘要）
+4. <strong>预算层</strong> —— 让模型知道自己还剩多少，好自己收尾
+
+前两层是<strong>预防</strong>，第三层是<strong>补救</strong>。后面会看到，补救的代价比预防高得多 —— 不只是多花一次调用，而是会打断已经缓存好的前缀。
+
+## 第一层：工具层
+
+![工具层的三种节流：超长输出落盘、分页读取、用查询代替全量搬运](/static/blog/claude-code-context-economics/output-throttling.svg)
+
+### 超长输出落盘
+
+Managed Agents 的沙箱里有一条自动规则值得学：<strong>工具返回超过 10 万字符时，输出被自动写进沙箱里的一个文件，模型只收到一段截断预览加上文件路径</strong>。想看细节，它自己去读那个文件。不需要任何配置，内置工具和 MCP 工具都适用。
+
+两个细节容易踩：阈值是<strong>按字符</strong>算的，不是按 token —— 中文和代码的字符/token 比例差别很大，别用 token 去估算什么时候会被截断。另外这是 Managed Agents 沙箱的行为，不要直接假设你自己的 harness 也有；但这个模式完全可以照抄到任何自建 agent 上。
+
+### 分页而不是整读
+
+我的 `Read` 工具描述里有两句很实用的话：
+
+```text
+Reads up to 2000 lines by default.
+When you already know which part of the file you need, only read that part.
+This can be important for larger files.
+```
+
+为了改第 12 行而把 3000 行全拉进上下文，是很常见的浪费。知道位置就用 `offset` / `limit`：
+
+```text
+Read(file_path="app/page.tsx", offset=1, limit=50)
+```
+
+还有一条反直觉的省法，同样写在工具描述里：
+
+```text
+Do NOT re-read a file you just edited to verify — Edit/Write would have errored
+if the change failed, and the harness tracks file state for you.
+```
+
+改完回读一遍确认，感觉上更稳妥，实际上纯属浪费 —— 写入失败本来就会报错。这类"出于谨慎的冗余读取"，在长会话里累积起来很可观。
+
+### 用查询代替搬运
+
+这是性价比最高的一招，而且<strong>同时省 token 和提高准确率</strong>。
+
+写这篇文章的过程中我统计标签分布，用的不是把 86 篇文章全读进来自己数，而是让 shell 先算完：
+
+```bash
+grep -h "^tags:" app/blog/posts/*.mdx | tr ',' '\n' | sed 's/^ *//' | sort | uniq -c | sort -rn
+```
+
+回到上下文的只是一张已经聚合好的小表，几十行。如果换成 `cat` 全部文件再让模型数，既要花掉几十万 token，还很可能数错 —— 让模型在几万行文本里做精确计数，本来就是让它做最不擅长的事。
+
+<strong>确定性的计算交给代码，判断留给模型</strong>。这条原则在上一篇讲工具边界时也出现过，在这里的收益是双份的。
+
+## 第二层：调用层
+
+工具层管的是单次调用的体积。调用层管的是：<strong>能不能让中间结果压根不进上下文</strong>。
+
+### 程序化工具调用
+
+标准工具调用是一次一个往返：模型调用、结果进上下文、模型再推理、再调用。链上三个工具，就是三次往返加三份完整的中间结果。
+
+![标准工具调用的三次往返与程序化工具调用的一次往返对比](/static/blog/claude-code-context-economics/ptc-vs-roundtrip.svg)
+
+程序化工具调用把这个循环换了个位置：<strong>让模型写一段脚本，脚本在代码执行容器里跑</strong>。脚本调用工具时，容器暂停、调用执行、<strong>结果返回给运行中的代码</strong>——而不是返回给模型的上下文。脚本用普通控制流筛选、聚合、拼装，只有最终输出回到上下文。
+
+声明方式是在代码执行工具之外，给自定义工具加一个 `allowed_callers`：
+
+```json
+{
+  "tools": [
+    { "type": "code_execution_20260120", "name": "code_execution" },
+    {
+      "name": "get_orders",
+      "description": "…",
+      "input_schema": { "type": "object", "properties": {} },
+      "allowed_callers": ["code_execution_20260120"]
+    }
+  ]
+}
+```
+
+收益是 token 开销<strong>随最终输出增长，而不是随调用次数增长</strong>。适用场景很明确：链上调用多，或者中间结果很大但你只需要其中一小部分。
+
+代价也要说清楚：它不兼容 `strict` 模式、不兼容强制 `tool_choice`、不兼容 `disable_parallel_tool_use`，也不能用在 MCP 工具上。还有一个实现细节 —— 回应一个待处理的程序化调用时，那条 user message 里<strong>只能有 `tool_result` 块，不能夹带文本</strong>。
+
+### 子 agent：一次性的隔离层
+
+另一条路更简单：把读取工作整个派出去。
+
+![主 agent 自己读 20 个文件 vs 派子 agent 读、只回一段结论的上下文占用对比](/static/blog/claude-code-context-economics/subagent-isolation.svg)
+
+我的 Agent 工具描述把这件事说得很直接：
+
+```text
+A fork runs in the background and keeps its tool output out of your context.
+… when answering would mean reading across several files —
+delegate it and you keep the conclusion, not the file dumps.
+```
+
+<strong>你保留的是结论，不是文件转储。</strong>子 agent 读了二十个文件，那二十份内容从未进入主上下文，随子 agent 一起消失。
+
+但它不是免费的：子 agent 要重建自己的上下文，系统提示和工具 schema 得再付一遍，还多一次冷启动延迟。所以判据很清楚 —— <strong>读得多、结论短</strong>才划算。要是只读一个文件，派出去纯属亏本。
+
+一句话判断：<strong>如果你要的是结论而不是原始材料，就派出去</strong>。
+
+## 第三层：会话层
+
+前两层都失守之后，才轮到处理已经进来的内容。这里有两个经常被混为一谈的机制：
+
+![剪枝（context editing）与摘要（compaction）的区别：内容消失但结构保留 vs 内容变短但语义保留](/static/blog/claude-code-context-economics/editing-vs-compaction.svg)
+
+| | 剪枝（context editing） | 摘要（compaction） |
+| --- | --- | --- |
+| 做什么 | 把旧工具结果<strong>清掉</strong> | 把早期历史<strong>摘要</strong>成一个块 |
+| 结果 | 内容消失，结构保留 | 内容变短，语义保留 |
+| 谁触发 | 你在客户端配置 | 服务端自动，接近窗口阈值 |
+| 谁判断丢什么 | 你（按策略） | 模型（自己摘） |
+| 适用 | 结果确定不再被引用的调用 | 整段历史都还有语义价值 |
+
+剪枝的配置长这样，两种策略分别清工具结果和清思考块：
+
+```python
+client.beta.messages.create(
+    model="claude-opus-5",
+    max_tokens=4096,
+    betas=["context-management-2025-06-27"],
+    context_management={
+        "edits": [{"type": "clear_tool_uses_20250919", "clear_tool_inputs": True}]
+    },
+    tools=[...],
+    messages=[...],
+)
+```
+
+`clear_tool_inputs` 顺带把调用入参也清掉 —— 入参有时比结果还长（想想一次 Write 的完整文件内容）。
+
+摘要则有一个<strong>非常容易踩的坑</strong>：
+
+```python
+# ✗ 错的：只抽 text 追加，摘要状态被静默丢弃
+messages.append({"role": "assistant", "content": text_block.text})
+
+# ✓ 对的：整个 content 回传，摘要块必须保留
+messages.append({"role": "assistant", "content": response.content})
+```
+
+摘要会在响应里返回一个 compaction 块，API 靠它在下一次请求时替换掉被压缩的历史。<strong>只取 text 字段，这个块就丢了</strong>，而且不会报错 —— 你只会发现上下文莫名其妙又涨回去了。
+
+两者可以叠加，也可以和记忆配合：摘要保持活跃上下文小，剪枝清掉确定的噪声，而<strong>必须跨越摘要而存活的信息，应该写进记忆文件</strong>（上一篇的主题）。
+
+## 贯穿全局的那笔账
+
+现在说那个容易被忽略的代价。
+
+![剪枝打断缓存前缀导致后续全部重算，以及断点只回看 20 个内容块的坑](/static/blog/claude-code-context-economics/cache-tension.svg)
+
+<strong>提示缓存是前缀匹配的。</strong>任何位置的字节变化，都会让那个位置之后的全部缓存失效。所以从对话中间剪掉一段旧工具结果，你省下了那段的 token，但<strong>剪切点之后的所有内容都要按全价重算一次</strong>。
+
+缓存读价大约是全价的十分之一。这意味着：剪掉 1 万 token、导致后面 10 万 token 从缓存读变成全价重算，是笔亏本生意。<strong>这就是为什么第一二层永远优先于第三层</strong> —— 不让内容进来，比进来再清掉划算得多。
+
+还有一个更隐蔽的坑：<strong>缓存断点向前寻找可复用前缀时，最多回看 20 个 content block</strong>。而一个 agentic 回合里塞进三十个工具调用与结果，是很常见的事 —— 于是下一轮的断点根本找不到上一轮的缓存。
+
+症状是<strong>静默 miss</strong>：不报错、不告警，只是 `cache_read_input_tokens` 一直是 0，账单默默按全价走。解法是在长回合里每积累约 15 个 block 就放一个中间断点，保证下一个断点总能在回看窗口内找到可复用前缀。
+
+## 先学会读账
+
+上面所有优化都需要能被测量，而这里有个最常见的误读：
+
+![usage 三个字段的关系，以及 max_tokens 与 task_budget 的区别](/static/blog/claude-code-context-economics/usage-accounting.svg)
+
+<strong>`input_tokens` 不是这次请求的提示总量</strong>，它只是「没能命中缓存的那部分余量」。真实总量是三个字段之和：
+
+```text
+提示总量 = input_tokens + cache_creation_input_tokens + cache_read_input_tokens
+```
+
+一个 agent 连续跑了几小时，你去看 usage 发现 `input_tokens` 只有 4K —— 千万别以为很省。另外几十万 token 都在 `cache_read` 里，只是单价便宜，不是没花。
+
+反过来也是个有用的信号：<strong>如果 `cache_read` 长期为 0，说明有东西在持续打断前缀</strong>。去查系统提示里的时间戳、每次都重排的 JSON、随用户变化的工具集，或者上面那个 20-block 窗口问题。
+
+顺带说清另外两个容易混的"上限"：
+
+| | `max_tokens` | `task_budget` |
+| --- | --- | --- |
+| 模型知道吗 | <strong>不知道</strong> | <strong>能看到倒计时</strong> |
+| 撞上会怎样 | 就地截断，可能停在半句话中间 | 模型自己调整节奏、主动收尾 |
+| 性质 | 强制上限 | 给模型的提示，不是硬拦截 |
+| 备注 | 同时约束思考与正文两部分 | 最低 20000 |
+
+`max_tokens` 有个坑值得单独记：它<strong>同时</strong>约束思考和正文。一个原本不带思考的工作负载，如果换到默认开启思考的模型上而没调 `max_tokens`，就可能在回答中途被截断。
+
+## 一份优先级清单
+
+把四层收成可执行的顺序 —— 从上往下做，越靠前性价比越高：
+
+1. <strong>把确定性计算推给代码。</strong>能用 `grep -c`、`sort`、`head` 算出来的，别拉全文让模型数。
+2. <strong>精确读取。</strong>知道位置就用 `offset` / `limit`；改完文件不要回读验证。
+3. <strong>给工具输出定上限。</strong>超长结果落盘只回路径与预览，让模型按需去取。
+4. <strong>读得多、结论短的活派给子 agent。</strong>你要的是结论，不是文件转储。
+5. <strong>链式调用多、中间结果大的场景用程序化工具调用。</strong>让中间态留在容器里。
+6. <strong>长会话再上剪枝与摘要。</strong>注意剪枝会打断缓存前缀，也注意摘要必须整体回传 `response.content`。
+7. <strong>长任务给一个 `task_budget`。</strong>让模型自己配速，而不是被硬截断。
+8. <strong>全程盯 `cache_read`。</strong>它长期为 0 就说明前面某处在持续打断前缀，先修这个再谈别的。
+
+## 总结
+
+上下文经济学的核心是一句话：<strong>上下文是预算，工具输出是最大的开销项，而且它只增不减。</strong>
+
+四层手段对应四个不同的介入时机 —— 进来之前（工具层）、绕开它（调用层）、进来之后（会话层）、让模型自己管（预算层）。优先级严格从前往后，因为越晚介入代价越高：工具层不动任何缓存，会话层却要打断已经缓存好的前缀。
+
+而最容易被忽略的那笔账，是<strong>省上下文和保缓存在互相拉扯</strong>。剪掉一段的收益是那一段的 token，代价是它之后全部内容的重算。算清这笔账之前贸然上剪枝，很可能账单反而更高。
+
+到这里，「拆解 Claude Code」这个系列写了三篇：<strong>记忆</strong>（知识如何跨会话存活）、<strong>工具</strong>（动作如何暴露给 harness）、<strong>上下文</strong>（预算如何分配）。下一篇写最后一块 —— <strong>权限与审批</strong>：settings 的四层继承、hook 的生命周期触发点，以及一个很少被正面讨论的取舍：权限不是安全功能，而是 agent 自主性的调节旋钮。
+
+## 参考资料
+
+- [Context editing](https://platform.claude.com/docs/en/build-with-claude/context-editing) —— 剪枝策略与配置，`clear_tool_uses` / `clear_thinking`
+- [Compaction](https://platform.claude.com/docs/en/build-with-claude/compaction) —— 服务端摘要压缩，以及必须整体回传 `response.content` 的原因
+- [Programmatic tool calling](https://platform.claude.com/docs/en/agents-and-tools/tool-use/programmatic-tool-calling) —— 让中间结果留在容器里的机制与限制
+- [Prompt caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching) —— 前缀匹配、失效层级、20 个内容块的回看窗口
+- [Effective context engineering for AI agents](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents) —— just-in-time 上下文检索这一模式的完整论述
+- [Memory tool](https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool) —— 与剪枝、摘要配合使用的持久化层

@@ -1,0 +1,66 @@
+<svg width="1200" height="620" viewBox="0 0 1200 620" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="620" rx="28" fill="#F8FAFC"/>
+  <rect x="32" y="32" width="1136" height="556" rx="24" fill="white" stroke="#E2E8F0" stroke-width="2"/>
+
+  <text x="70" y="92" fill="#0F172A" font-size="30" font-family="Segoe UI, Arial, sans-serif" font-weight="700">子 agent 是一次性的上下文隔离层</text>
+  <text x="70" y="126" fill="#475569" font-size="17" font-family="Segoe UI, Arial, sans-serif">它读了二十个文件，你的主上下文只多出一段结论</text>
+
+  <rect x="70" y="152" width="1060" height="184" rx="18" fill="#FEF2F2" stroke="#FCA5A5" stroke-width="2"/>
+  <text x="94" y="184" fill="#B91C1C" font-size="18" font-family="Segoe UI, Arial, sans-serif" font-weight="700">主 agent 自己读</text>
+
+  <rect x="94" y="200" width="120" height="46" rx="10" fill="white" stroke="#FECACA" stroke-width="1.5"/>
+  <text x="118" y="229" fill="#B91C1C" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">主 agent</text>
+  <path d="M218 223 L 236 223" stroke="#B91C1C" stroke-width="2"/>
+  <polygon points="236,217 246,223 236,229" fill="#B91C1C"/>
+
+  <rect x="252" y="200" width="24" height="46" rx="4" fill="#FECACA"/>
+  <rect x="280" y="200" width="24" height="46" rx="4" fill="#FECACA"/>
+  <rect x="308" y="200" width="24" height="46" rx="4" fill="#FECACA"/>
+  <rect x="336" y="200" width="24" height="46" rx="4" fill="#FECACA"/>
+  <rect x="364" y="200" width="24" height="46" rx="4" fill="#FECACA"/>
+  <text x="396" y="220" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif">……共 20 个文件</text>
+  <text x="396" y="240" fill="#991B1B" font-size="12" font-family="Segoe UI, Arial, sans-serif">每一份都完整进入主上下文</text>
+
+  <path d="M580 223 L 598 223" stroke="#B91C1C" stroke-width="2"/>
+  <polygon points="598,217 608,223 598,229" fill="#B91C1C"/>
+  <text x="616" y="196" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">主上下文占用</text>
+  <rect x="616" y="204" width="490" height="38" rx="8" fill="#EF4444"/>
+  <text x="636" y="228" fill="white" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">20 份文件全文，之后一直留着</text>
+
+  <text x="94" y="284" fill="#991B1B" font-size="13" font-family="Segoe UI, Arial, sans-serif">而你真正需要的，往往只是「哪三个文件里有那个模式」这一句话。</text>
+  <text x="94" y="310" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">剩下 19 份的全文，是为了得到这一句话而付的沉没成本。</text>
+
+  <rect x="70" y="352" width="1060" height="216" rx="18" fill="#F0FDF4" stroke="#86EFAC" stroke-width="2"/>
+  <text x="94" y="376" fill="#15803D" font-size="18" font-family="Segoe UI, Arial, sans-serif" font-weight="700">派一个子 agent 去读</text>
+
+  <rect x="94" y="400" width="120" height="46" rx="10" fill="white" stroke="#BBF7D0" stroke-width="1.5"/>
+  <text x="118" y="429" fill="#15803D" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">主 agent</text>
+  <path d="M218 423 L 236 423" stroke="#15803D" stroke-width="2"/>
+  <polygon points="236,417 246,423 236,429" fill="#15803D"/>
+
+  <rect x="252" y="386" width="356" height="128" rx="12" fill="#F8FAFC" stroke="#22C55E" stroke-width="2" stroke-dasharray="8 5"/>
+  <text x="270" y="410" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">子 agent 的独立上下文</text>
+  <rect x="270" y="420" width="20" height="38" rx="4" fill="#BBF7D0"/>
+  <rect x="294" y="420" width="20" height="38" rx="4" fill="#BBF7D0"/>
+  <rect x="318" y="420" width="20" height="38" rx="4" fill="#BBF7D0"/>
+  <rect x="342" y="420" width="20" height="38" rx="4" fill="#BBF7D0"/>
+  <rect x="366" y="420" width="20" height="38" rx="4" fill="#BBF7D0"/>
+  <text x="396" y="444" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif">20 个文件在这里读完</text>
+  <text x="270" y="482" fill="#166534" font-size="12" font-family="Segoe UI, Arial, sans-serif">这些内容从未进入主上下文，</text>
+  <text x="270" y="502" fill="#166534" font-size="12" font-family="Segoe UI, Arial, sans-serif">子 agent 结束后随它一起消失。</text>
+
+  <path d="M612 450 L 630 450" stroke="#15803D" stroke-width="2"/>
+  <polygon points="630,444 640,450 630,456" fill="#15803D"/>
+  <text x="648" y="410" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">主上下文占用</text>
+  <rect x="648" y="418" width="150" height="38" rx="8" fill="#22C55E"/>
+  <text x="668" y="442" fill="white" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">一段结论</text>
+
+  <rect x="820" y="386" width="286" height="128" rx="12" fill="#FFF7ED" stroke="#FED7AA" stroke-width="2"/>
+  <text x="838" y="410" fill="#9A3412" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">但它不是免费的</text>
+  <text x="838" y="434" fill="#7C2D12" font-size="12" font-family="Segoe UI, Arial, sans-serif">子 agent 要重建自己的上下文：</text>
+  <text x="838" y="454" fill="#7C2D12" font-size="12" font-family="Segoe UI, Arial, sans-serif">系统提示和工具 schema 得再付</text>
+  <text x="838" y="474" fill="#7C2D12" font-size="12" font-family="Segoe UI, Arial, sans-serif">一遍，还多一次冷启动延迟。</text>
+  <text x="838" y="500" fill="#9A3412" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">所以判据是：读得多、结论短。</text>
+
+  <text x="94" y="546" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">一句话判断该不该派：如果你要的是结论，而不是原始材料，就派出去。</text>
+</svg>
