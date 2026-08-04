@@ -11,7 +11,7 @@ export const metadata = {
 const TOPIC_GROUPS = [
 	{
 		title: 'AI Engineering',
-		description: 'Agents, tooling, and workflow-oriented posts.',
+		description: 'Agents, orchestration, tooling, and workflow-oriented posts.',
 		tags: [
 			'AI',
 			'Agent',
@@ -19,6 +19,9 @@ const TOPIC_GROUPS = [
 			'Engineering',
 			'SystemDesign',
 			'CallChain',
+			'LangGraph',
+			'Orchestration',
+			'PokemonChat',
 		],
 	},
 	{
@@ -28,20 +31,50 @@ const TOPIC_GROUPS = [
 		tags: ['LLM', 'SFT', 'RAG', 'Retrieval', 'LoRA', 'PEFT'],
 	},
 	{
-		title: 'Agent Orchestration',
+		title: 'Model & Training',
 		description:
-			'Agent scheduling, graph workflows, and coordination patterns.',
-		tags: ['LangGraph', 'Orchestration'],
-	},
-	{
-		title: 'Research',
-		description: 'Core research and paper-reading topics.',
-		tags: ['Paper', 'Paper Reading', 'DL', 'CV', 'NLP', 'GenAI'],
-	},
-	{
-		title: 'Platform & DevOps',
-		description: 'Platform runtime, infrastructure, and deployment operations.',
+			'Architecture, tokenization, pre-training recipes, and optimizers.',
 		tags: [
+			'Transformer',
+			'MoE',
+			'Tokenizer',
+			'BPE',
+			'BBPE',
+			'Pre-training',
+			'Scaling Laws',
+			'Data Engineering',
+			'Distributed Training',
+			'Optimizer',
+			'Adam',
+			'AdamW',
+		],
+	},
+	{
+		title: 'RL & Alignment',
+		description:
+			'Preference alignment and reinforcement learning for reasoning models.',
+		tags: [
+			'RLHF',
+			'DPO',
+			'PPO',
+			'GRPO',
+			'RLVR',
+			'Reinforcement Learning',
+			'RL',
+			'Policy Gradient',
+			'MDP',
+			'DeepSeek-R1',
+		],
+	},
+	{
+		title: 'Systems & Platform',
+		description:
+			'Inference performance, GPU kernels, infrastructure, and deployment.',
+		tags: [
+			'Inference',
+			'GPU',
+			'Triton',
+			'PyTorch',
 			'Linux',
 			'Infra',
 			'Infrastructure',
@@ -49,6 +82,22 @@ const TOPIC_GROUPS = [
 			'DevOps',
 			'Config',
 			'Runtime',
+		],
+	},
+	{
+		title: 'Research & Notes',
+		description: 'Paper reading, tech notes, and evaluation across DL domains.',
+		tags: [
+			'Paper',
+			'Paper Reading',
+			'Tech Blog',
+			'DL',
+			'Deep Learning',
+			'CV',
+			'NLP',
+			'GenAI',
+			'Evaluation',
+			'Benchmark',
 		],
 	},
 ] as const;
