@@ -1,0 +1,66 @@
+<svg width="1200" height="640" viewBox="0 0 1200 640" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="640" rx="28" fill="#F8FAFC"/>
+  <rect x="32" y="32" width="1136" height="576" rx="24" fill="white" stroke="#E2E8F0" stroke-width="2"/>
+
+  <text x="70" y="92" fill="#0F172A" font-size="30" font-family="Segoe UI, Arial, sans-serif" font-weight="700">hook：能拦下来，还能把理由说回去</text>
+  <text x="70" y="126" fill="#475569" font-size="17" font-family="Segoe UI, Arial, sans-serif">这是它和声明式 permissions 最大的差别 —— 它有输出，而输出会回到模型</text>
+
+  <rect x="70" y="164" width="170" height="56" rx="12" fill="#DBEAFE" stroke="#93C5FD" stroke-width="1.5"/>
+  <text x="90" y="190" fill="#1D4ED8" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">模型决定调工具</text>
+  <text x="90" y="210" fill="#1E40AF" font-size="12" font-family="Consolas, monospace">Bash("git push")</text>
+  <path d="M244 192 L 258 192" stroke="#94A3B8" stroke-width="2"/>
+  <polygon points="258,186 268,192 258,198" fill="#94A3B8"/>
+
+  <rect x="274" y="164" width="180" height="56" rx="12" fill="#DCFCE7" stroke="#22C55E" stroke-width="2.5"/>
+  <text x="294" y="190" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">PreToolUse hook</text>
+  <text x="294" y="210" fill="#166534" font-size="12" font-family="Segoe UI, Arial, sans-serif">harness 跑一段 shell</text>
+  <path d="M458 192 L 472 192" stroke="#94A3B8" stroke-width="2"/>
+  <polygon points="472,186 482,192 472,198" fill="#94A3B8"/>
+
+  <rect x="488" y="164" width="150" height="56" rx="12" fill="white" stroke="#CBD5E1" stroke-width="1.5"/>
+  <text x="516" y="197" fill="#334155" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">工具真正执行</text>
+  <path d="M642 192 L 656 192" stroke="#94A3B8" stroke-width="2"/>
+  <polygon points="656,186 666,192 656,198" fill="#94A3B8"/>
+
+  <rect x="672" y="164" width="180" height="56" rx="12" fill="#DCFCE7" stroke="#22C55E" stroke-width="2"/>
+  <text x="692" y="190" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">PostToolUse hook</text>
+  <text x="692" y="210" fill="#166534" font-size="12" font-family="Segoe UI, Arial, sans-serif">可校验结果、可补动作</text>
+  <path d="M856 192 L 870 192" stroke="#94A3B8" stroke-width="2"/>
+  <polygon points="870,186 880,192 870,198" fill="#94A3B8"/>
+
+  <rect x="886" y="164" width="180" height="56" rx="12" fill="#DBEAFE" stroke="#93C5FD" stroke-width="1.5"/>
+  <text x="924" y="197" fill="#1D4ED8" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">结果回到模型</text>
+
+  <path d="M364 226 L 364 258" stroke="#EF4444" stroke-width="2"/>
+  <polygon points="358,258 364,270 370,258" fill="#EF4444"/>
+  <text x="378" y="250" fill="#B91C1C" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">非零退出码 = 拦下</text>
+  <rect x="180" y="276" width="380" height="80" rx="12" fill="#FEE2E2" stroke="#EF4444" stroke-width="2"/>
+  <text x="200" y="300" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">工具不执行，hook 的标准输出回到模型</text>
+  <text x="200" y="322" fill="#991B1B" font-size="12" font-family="Segoe UI, Arial, sans-serif">「main 分支禁止直接 push，请先开分支」</text>
+  <text x="200" y="340" fill="#B91C1C" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">模型读到这句话，于是知道该改成什么做法</text>
+
+  <rect x="600" y="276" width="466" height="80" rx="12" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="2"/>
+  <text x="620" y="300" fill="#1D4ED8" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">这就是 hook 与 permissions.deny 的关键差别</text>
+  <text x="620" y="322" fill="#1E40AF" font-size="12" font-family="Segoe UI, Arial, sans-serif">deny 只是「不行」；hook 可以说「不行，因为……，你应该……」。</text>
+  <text x="620" y="340" fill="#1E40AF" font-size="12" font-family="Segoe UI, Arial, sans-serif">前者容易让模型原地打转，后者能把它推到正确路径上。</text>
+
+  <rect x="70" y="372" width="520" height="216" rx="16" fill="#F0FDF4" stroke="#86EFAC" stroke-width="2"/>
+  <text x="94" y="404" fill="#15803D" font-size="17" font-family="Segoe UI, Arial, sans-serif" font-weight="700">hook 能做而 permissions 做不到的</text>
+  <text x="94" y="436" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">一、跑任意判断逻辑</text>
+  <text x="94" y="458" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif">不只是匹配工具名和路径模式 —— 可以查当前分支、</text>
+  <text x="94" y="478" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif">读环境变量、调接口、看文件内容再决定。</text>
+  <text x="94" y="510" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">二、把理由回传给模型</text>
+  <text x="94" y="532" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif">它的输出被当作用户反馈处理，能直接纠偏。</text>
+  <text x="94" y="564" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">三、在固定时点无条件触发</text>
+  <text x="94" y="582" fill="#166534" font-size="12" font-family="Segoe UI, Arial, sans-serif">「每次提交前必须跑 lint」这类要求，只有它能保证。</text>
+
+  <rect x="610" y="372" width="456" height="216" rx="16" fill="#FEF3C7" stroke="#FCD34D" stroke-width="2"/>
+  <text x="634" y="404" fill="#B45309" font-size="17" font-family="Segoe UI, Arial, sans-serif" font-weight="700">代价与门槛</text>
+  <text x="634" y="436" fill="#92400E" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">一、它就是任意 shell</text>
+  <text x="634" y="458" fill="#92400E" font-size="13" font-family="Segoe UI, Arial, sans-serif">所以项目级 hook 必须先过工作区信任门，</text>
+  <text x="634" y="478" fill="#92400E" font-size="13" font-family="Segoe UI, Arial, sans-serif">否则 clone 一个仓库就等于执行别人的代码。</text>
+  <text x="634" y="510" fill="#92400E" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">二、每次触发都要起进程</text>
+  <text x="634" y="532" fill="#92400E" font-size="13" font-family="Segoe UI, Arial, sans-serif">挂在高频工具上的 hook 会明显拖慢整个循环。</text>
+  <text x="634" y="564" fill="#92400E" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">三、写错了很难查</text>
+  <text x="634" y="582" fill="#92400E" font-size="12" font-family="Segoe UI, Arial, sans-serif">一个手滑的非零退出码，会静默吞掉所有该工具的调用。</text>
+</svg>

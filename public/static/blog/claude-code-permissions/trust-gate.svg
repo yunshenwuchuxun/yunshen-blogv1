@@ -1,0 +1,53 @@
+<svg width="1200" height="580" viewBox="0 0 1200 580" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="580" rx="28" fill="#F8FAFC"/>
+  <rect x="32" y="32" width="1136" height="516" rx="24" fill="white" stroke="#E2E8F0" stroke-width="2"/>
+
+  <text x="70" y="92" fill="#0F172A" font-size="30" font-family="Segoe UI, Arial, sans-serif" font-weight="700">工作区信任门：为什么它必须存在</text>
+  <text x="70" y="126" fill="#475569" font-size="17" font-family="Segoe UI, Arial, sans-serif">项目级设置能配 hook，而 hook 是任意 shell —— 于是「打开别人的仓库」变成了一个安全问题</text>
+
+  <rect x="70" y="152" width="520" height="376" rx="18" fill="#FEF2F2" stroke="#FCA5A5" stroke-width="2"/>
+  <text x="94" y="186" fill="#B91C1C" font-size="19" font-family="Segoe UI, Arial, sans-serif" font-weight="700">如果没有这道门</text>
+
+  <rect x="94" y="204" width="472" height="34" rx="10" fill="white" stroke="#FECACA" stroke-width="1.5"/>
+  <text x="112" y="226" fill="#B91C1C" font-size="13" font-family="Consolas, monospace">git clone github.com/somebody/repo</text>
+  <path d="M330 242 L 330 256" stroke="#B91C1C" stroke-width="2"/>
+  <polygon points="324,256 330,266 336,256" fill="#B91C1C"/>
+
+  <rect x="94" y="272" width="472" height="34" rx="10" fill="white" stroke="#FECACA" stroke-width="1.5"/>
+  <text x="112" y="294" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif">在这个目录里启动 agent</text>
+  <path d="M330 310 L 330 324" stroke="#B91C1C" stroke-width="2"/>
+  <polygon points="324,324 330,334 336,324" fill="#B91C1C"/>
+
+  <rect x="94" y="340" width="472" height="34" rx="10" fill="#FEE2E2" stroke="#EF4444" stroke-width="2"/>
+  <text x="112" y="362" fill="#B91C1C" font-size="13" font-family="Consolas, monospace">.claude/settings.json 里的 hook 被加载</text>
+  <path d="M330 378 L 330 392" stroke="#B91C1C" stroke-width="2"/>
+  <polygon points="324,392 330,402 336,392" fill="#B91C1C"/>
+
+  <rect x="94" y="408" width="472" height="34" rx="10" fill="#FEE2E2" stroke="#EF4444" stroke-width="2.5"/>
+  <text x="112" y="430" fill="#B91C1C" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">仓库作者写的 shell 命令，在你机器上执行</text>
+
+  <text x="94" y="474" fill="#B91C1C" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">注意这里不需要模型配合</text>
+  <text x="94" y="498" fill="#991B1B" font-size="13" font-family="Segoe UI, Arial, sans-serif">hook 由 harness 在生命周期点直接触发。模型没有</text>
+  <text x="94" y="518" fill="#991B1B" font-size="13" font-family="Segoe UI, Arial, sans-serif">被越狱，它甚至可以完全不知道这件事发生过。</text>
+
+  <rect x="610" y="152" width="520" height="376" rx="18" fill="#F0FDF4" stroke="#86EFAC" stroke-width="2"/>
+  <text x="634" y="186" fill="#15803D" font-size="19" font-family="Segoe UI, Arial, sans-serif" font-weight="700">这道门做了什么</text>
+
+  <rect x="634" y="204" width="472" height="76" rx="12" fill="white" stroke="#BBF7D0" stroke-width="1.5"/>
+  <text x="654" y="230" fill="#15803D" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">首次进入一个目录时询问是否信任</text>
+  <text x="654" y="254" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif">在你确认之前，项目级与本地级设置里那些</text>
+  <text x="654" y="272" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif">「能执行东西」的部分不会生效。</text>
+
+  <rect x="634" y="292" width="472" height="76" rx="12" fill="white" stroke="#BBF7D0" stroke-width="1.5"/>
+  <text x="654" y="318" fill="#15803D" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">信任是按目录记住的</text>
+  <text x="654" y="342" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif">所以只需要确认一次，不会每次启动都问；</text>
+  <text x="654" y="360" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif">但换一个新克隆的目录就会重新问。</text>
+
+  <rect x="634" y="380" width="472" height="76" rx="12" fill="#DCFCE7" stroke="#22C55E" stroke-width="2"/>
+  <text x="654" y="406" fill="#15803D" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">managed policy 层不受它影响</text>
+  <text x="654" y="430" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif">因为那一层来自你所在组织的 IT，不来自仓库 ——</text>
+  <text x="654" y="448" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif">信任门要防的是「仓库里的陌生人」。</text>
+
+  <text x="634" y="490" fill="#15803D" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">一个推论</text>
+  <text x="634" y="514" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif">给项目提交 hook 时，你是在要求队友信任你的 shell。</text>
+</svg>

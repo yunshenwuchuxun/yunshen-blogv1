@@ -1,0 +1,47 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="630" rx="28" fill="#F8FAFC"/>
+  <rect x="32" y="32" width="1136" height="566" rx="24" fill="white" stroke="#E2E8F0" stroke-width="2"/>
+
+  <text x="70" y="92" fill="#0F172A" font-size="32" font-family="Segoe UI, Arial, sans-serif" font-weight="700">Permission &amp; Approval</text>
+  <text x="70" y="126" fill="#475569" font-size="18" font-family="Segoe UI, Arial, sans-serif">四层约束，区别只在一件事：谁执行它，模型能不能绕过</text>
+
+  <rect x="70" y="164" width="680" height="94" rx="16" fill="#FEF3C7"/>
+  <text x="96" y="196" fill="#B45309" font-size="20" font-family="Segoe UI, Arial, sans-serif" font-weight="700">① 提示层 · CLAUDE.md 与规则</text>
+  <text x="96" y="222" fill="#92400E" font-size="14" font-family="Segoe UI, Arial, sans-serif">执行者：模型自己 —— 它读到、理解、然后决定要不要照做</text>
+  <rect x="96" y="232" width="120" height="24" rx="7" fill="white"/>
+  <text x="110" y="249" fill="#B45309" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">可能不被遵守</text>
+  <text x="228" y="249" fill="#92400E" font-size="13" font-family="Segoe UI, Arial, sans-serif">适合表达规范与偏好，不适合表达「绝对不许」</text>
+
+  <rect x="70" y="268" width="680" height="94" rx="16" fill="#DBEAFE"/>
+  <text x="96" y="300" fill="#1D4ED8" font-size="20" font-family="Segoe UI, Arial, sans-serif" font-weight="700">② 执行层 · settings 里的 permissions</text>
+  <text x="96" y="326" fill="#1E40AF" font-size="14" font-family="Segoe UI, Arial, sans-serif">执行者：客户端 —— 声明式匹配工具、命令、路径，命中即放行或拦下</text>
+  <rect x="96" y="336" width="106" height="24" rx="7" fill="white"/>
+  <text x="110" y="353" fill="#1D4ED8" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">无法被绕过</text>
+  <text x="214" y="353" fill="#1E40AF" font-size="13" font-family="Segoe UI, Arial, sans-serif">和模型怎么想完全无关，写了就一定生效</text>
+
+  <rect x="70" y="372" width="680" height="94" rx="16" fill="#DCFCE7"/>
+  <text x="96" y="404" fill="#15803D" font-size="20" font-family="Segoe UI, Arial, sans-serif" font-weight="700">③ 生命周期层 · hooks</text>
+  <text x="96" y="430" fill="#166534" font-size="14" font-family="Segoe UI, Arial, sans-serif">执行者：harness 在固定时点跑 shell —— 能跑任意判断逻辑</text>
+  <rect x="96" y="440" width="106" height="24" rx="7" fill="white"/>
+  <text x="110" y="457" fill="#15803D" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">无法被绕过</text>
+  <text x="214" y="457" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif">而且它的输出会作为反馈回到模型，能纠偏</text>
+
+  <rect x="70" y="476" width="680" height="90" rx="16" fill="#EDE9FE"/>
+  <text x="96" y="508" fill="#7C3AED" font-size="20" font-family="Segoe UI, Arial, sans-serif" font-weight="700">④ 凭据层 · vault 与出口代理</text>
+  <text x="96" y="534" fill="#6D28D9" font-size="14" font-family="Segoe UI, Arial, sans-serif">执行者：服务端代理 —— 秘密在请求离开沙箱之后才被替换进去</text>
+  <text x="96" y="556" fill="#6D28D9" font-size="13" font-family="Segoe UI, Arial, sans-serif">沙箱里的任何代码都读不到真值，包括模型自己写的那些</text>
+
+  <rect x="790" y="164" width="340" height="402" rx="20" fill="#FFF7ED" stroke="#FED7AA" stroke-width="2"/>
+  <text x="816" y="200" fill="#9A3412" font-size="17" font-family="Segoe UI, Arial, sans-serif" font-weight="700">这篇文章的核心论点</text>
+  <text x="816" y="248" fill="#C2410C" font-size="23" font-family="Segoe UI, Arial, sans-serif" font-weight="700">权限不是</text>
+  <text x="816" y="282" fill="#C2410C" font-size="23" font-family="Segoe UI, Arial, sans-serif" font-weight="700">安全功能，</text>
+  <text x="816" y="316" fill="#C2410C" font-size="23" font-family="Segoe UI, Arial, sans-serif" font-weight="700">是自主性旋钮</text>
+  <path d="M816 342 L 1104 342" stroke="#FDBA74" stroke-width="2"/>
+  <text x="816" y="376" fill="#7C2D12" font-size="14" font-family="Segoe UI, Arial, sans-serif">调太紧，每一步都要点确认，</text>
+  <text x="816" y="400" fill="#7C2D12" font-size="14" font-family="Segoe UI, Arial, sans-serif">你等于在全程手动操作。</text>
+  <text x="816" y="432" fill="#7C2D12" font-size="14" font-family="Segoe UI, Arial, sans-serif">调太松，你不敢离开屏幕，</text>
+  <text x="816" y="456" fill="#7C2D12" font-size="14" font-family="Segoe UI, Arial, sans-serif">于是也没能真正走开。</text>
+  <text x="816" y="496" fill="#C2410C" font-size="15" font-family="Segoe UI, Arial, sans-serif" font-weight="700">两个极端的结果是一样的：</text>
+  <text x="816" y="522" fill="#C2410C" font-size="15" font-family="Segoe UI, Arial, sans-serif" font-weight="700">无人值守完成的工作量都很低。</text>
+  <text x="816" y="552" fill="#7C2D12" font-size="14" font-family="Segoe UI, Arial, sans-serif">要优化的正是这个量。</text>
+</svg>

@@ -1,0 +1,68 @@
+<svg width="1200" height="600" viewBox="0 0 1200 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="600" rx="28" fill="#F8FAFC"/>
+  <rect x="32" y="32" width="1136" height="536" rx="24" fill="white" stroke="#E2E8F0" stroke-width="2"/>
+
+  <text x="70" y="92" fill="#0F172A" font-size="30" font-family="Segoe UI, Arial, sans-serif" font-weight="700">三种裁决，模型分别看到什么</text>
+  <text x="70" y="126" fill="#475569" font-size="17" font-family="Segoe UI, Arial, sans-serif">重点不在「拦不拦」，而在「拦下之后模型知不知道该换什么做法」</text>
+
+  <rect x="70" y="152" width="340" height="326" rx="18" fill="#F0FDF4" stroke="#86EFAC" stroke-width="2"/>
+  <text x="92" y="186" fill="#15803D" font-size="20" font-family="Consolas, monospace" font-weight="700">allow</text>
+  <path d="M92 198 L 388 198" stroke="#BBF7D0" stroke-width="1.5"/>
+  <rect x="92" y="212" width="296" height="30" rx="8" fill="white"/>
+  <text x="108" y="232" fill="#15803D" font-size="12" font-family="Segoe UI, Arial, sans-serif">模型发起调用</text>
+  <path d="M240 246 L 240 258" stroke="#22C55E" stroke-width="2"/>
+  <polygon points="234,258 240,268 246,258" fill="#22C55E"/>
+  <rect x="92" y="274" width="296" height="30" rx="8" fill="white"/>
+  <text x="108" y="294" fill="#15803D" font-size="12" font-family="Segoe UI, Arial, sans-serif">命中 allow 规则，直接执行</text>
+  <path d="M240 308 L 240 320" stroke="#22C55E" stroke-width="2"/>
+  <polygon points="234,320 240,330 246,320" fill="#22C55E"/>
+  <rect x="92" y="336" width="296" height="30" rx="8" fill="#DCFCE7"/>
+  <text x="108" y="356" fill="#15803D" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">正常的 tool_result</text>
+
+  <text x="92" y="396" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">模型的感受：什么都没发生</text>
+  <text x="92" y="420" fill="#166534" font-size="12" font-family="Segoe UI, Arial, sans-serif">它不知道自己被审过 —— 这正是</text>
+  <text x="92" y="440" fill="#166534" font-size="12" font-family="Segoe UI, Arial, sans-serif">你希望高频只读工具落在的档位。</text>
+  <text x="92" y="466" fill="#B45309" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">名单该长什么样？看历史记录。</text>
+
+  <rect x="430" y="152" width="340" height="326" rx="18" fill="#FEF2F2" stroke="#FCA5A5" stroke-width="2"/>
+  <text x="452" y="186" fill="#B91C1C" font-size="20" font-family="Consolas, monospace" font-weight="700">deny</text>
+  <path d="M452 198 L 748 198" stroke="#FECACA" stroke-width="1.5"/>
+  <rect x="452" y="212" width="296" height="30" rx="8" fill="white"/>
+  <text x="468" y="232" fill="#B91C1C" font-size="12" font-family="Segoe UI, Arial, sans-serif">模型发起调用</text>
+  <path d="M600 246 L 600 258" stroke="#EF4444" stroke-width="2"/>
+  <polygon points="594,258 600,268 606,258" fill="#EF4444"/>
+  <rect x="452" y="274" width="296" height="30" rx="8" fill="white"/>
+  <text x="468" y="294" fill="#B91C1C" font-size="12" font-family="Segoe UI, Arial, sans-serif">命中 deny 规则，根本不执行</text>
+  <path d="M600 308 L 600 320" stroke="#EF4444" stroke-width="2"/>
+  <polygon points="594,320 600,330 606,320" fill="#EF4444"/>
+  <rect x="452" y="336" width="296" height="30" rx="8" fill="#FEE2E2"/>
+  <text x="468" y="356" fill="#B91C1C" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">一条「被拒绝」，通常没有下文</text>
+  <text x="452" y="396" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">这一档最容易配错</text>
+  <text x="452" y="420" fill="#991B1B" font-size="12" font-family="Segoe UI, Arial, sans-serif">只说「不行」不说为什么，模型很</text>
+  <text x="452" y="440" fill="#991B1B" font-size="12" font-family="Segoe UI, Arial, sans-serif">可能换个写法把同一件事再试一遍。</text>
+  <text x="452" y="466" fill="#B91C1C" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">要给理由，就用 hook 而不是 deny。</text>
+
+  <rect x="790" y="152" width="340" height="326" rx="18" fill="#FEF3C7" stroke="#FCD34D" stroke-width="2"/>
+  <text x="812" y="186" fill="#B45309" font-size="20" font-family="Consolas, monospace" font-weight="700">ask</text>
+  <path d="M812 198 L 1108 198" stroke="#FCD34D" stroke-width="1.5"/>
+  <rect x="812" y="212" width="296" height="30" rx="8" fill="white"/>
+  <text x="828" y="232" fill="#B45309" font-size="12" font-family="Segoe UI, Arial, sans-serif">模型发起调用</text>
+  <path d="M960 246 L 960 258" stroke="#F59E0B" stroke-width="2"/>
+  <polygon points="954,258 960,268 966,258" fill="#F59E0B"/>
+  <rect x="812" y="274" width="296" height="30" rx="8" fill="#FDE68A"/>
+  <text x="828" y="294" fill="#92400E" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">循环阻塞，等你决定</text>
+  <path d="M960 308 L 960 320" stroke="#F59E0B" stroke-width="2"/>
+  <polygon points="954,320 960,330 966,320" fill="#F59E0B"/>
+  <rect x="812" y="336" width="140" height="30" rx="8" fill="#DCFCE7"/>
+  <text x="838" y="356" fill="#15803D" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">允许 → 执行</text>
+  <rect x="962" y="336" width="146" height="30" rx="8" fill="#FEE2E2"/>
+  <text x="980" y="356" fill="#B91C1C" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">拒绝 + 一句话</text>
+
+  <text x="812" y="396" fill="#B45309" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">拒绝时请顺手写一句原因</text>
+  <text x="812" y="420" fill="#92400E" font-size="12" font-family="Segoe UI, Arial, sans-serif">那句话会被送回模型。有它，模型会</text>
+  <text x="812" y="440" fill="#92400E" font-size="12" font-family="Segoe UI, Arial, sans-serif">换方案；没它，它只会再问一次。</text>
+  <text x="812" y="466" fill="#B45309" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">留给真正难撤销的那些动作。</text>
+
+  <rect x="70" y="496" width="1060" height="46" rx="12" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="2"/>
+  <text x="94" y="525" fill="#1D4ED8" font-size="15" font-family="Segoe UI, Arial, sans-serif" font-weight="700">一条贯穿三档的原则：被拒绝意味着人不同意，模型应当调整方案，而不是把同一个调用原样再发一遍。</text>
+</svg>

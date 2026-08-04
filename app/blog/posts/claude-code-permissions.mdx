@@ -1,0 +1,239 @@
+---
+title: '权限与审批：Agent 自主性的调节旋钮'
+publishedAt: '2026-08-04T21:00:00'
+summary: '权限不是安全功能，而是决定 agent 能替你干多少活的旋钮。拆解四层约束（提示、执行、生命周期、凭据）、settings 的两个静默陷阱、hook 为什么能把理由说回给模型，以及配名单该用什么判据。'
+draft: false
+image: '/static/blog/claude-code-permissions/permission-layers.svg'
+tags: [AI, Agent, Tooling, Tech Blog]
+---
+
+前三篇拆了记忆、工具和上下文。这一篇是最后一块，也是最容易被误解的一块。
+
+权限常被当成安全话题：怎么防止 agent 干坏事。但如果只从安全角度看，最优解就是「什么都要确认」—— 而那等于没有 agent，你只是换了种方式手动操作。
+
+真正该优化的量不是安全性，也不是确认次数，而是<strong>无人值守完成的正确工作量</strong>。这篇文章的所有内容都围绕这一个量展开。
+
+## 先把论点摆出来
+
+![权限松紧与无人值守正确工作量的关系曲线：两端都低，中间最高](/static/blog/claude-code-permissions/autonomy-dial.svg)
+
+两个极端的结果是一样的：
+
+- <strong>全部要确认</strong> —— 你被确认框绑在座位上，agent 每一步都在等你点。这是手动操作。
+- <strong>全部放行</strong> —— 你被风险绑在座位上，不敢离开屏幕。于是你也没有真正走开。
+
+中间那个峰值才是目标：<strong>只对难撤销的动作要求确认，其余放行</strong>。所以权限配置不是"越严越好"，也不是"越宽越省事"，它是个需要调优的旋钮。
+
+调它的方法也不是凭感觉。Claude Code 里有个专门的工具做这件事 —— 扫描你的历史记录，找出那些被反复确认的只读调用，把它们生成成一份 allow 名单。<strong>被你点过十次"允许"的同一类命令，本来就该进名单。</strong>
+
+## 四层约束，区别在于谁执行
+
+![四层权限约束：提示层、执行层、生命周期层、凭据层，以及各自的执行者与可绕过性](/static/blog/claude-code-permissions/permission-layers.svg)
+
+| 层 | 执行者 | 模型能绕过吗 | 适合表达 |
+| --- | --- | --- | --- |
+| 提示层（CLAUDE.md、规则） | 模型自己 | <strong>可能</strong> | 规范、约定、偏好 |
+| 执行层（settings permissions） | 客户端 | 不能 | 声明式的允许 / 禁止 |
+| 生命周期层（hooks） | harness 跑 shell | 不能 | 必须在某时刻发生的事 |
+| 凭据层（vault + 出口代理） | 服务端代理 | 拿不到秘密 | 第三方凭据 |
+
+第一层和后三层的区别是根本性的。Claude Code 的配置文档里有一句话把它讲透了：
+
+> 自动化行为（"从现在起每次 X 时…"、"每次 X 之后…"）需要在 settings.json 里配 hook —— <strong>这些由 harness 执行，不是 Claude</strong>，所以记忆和偏好无法实现它们。
+
+这句话值得反复读。「让模型记住每次提交前跑 lint」和「配一个提交前跑 lint 的 hook」听起来是同一件事，实际完全不同：前者是<strong>希望</strong>它记得，后者是<strong>保证</strong>它发生。
+
+判据很简单：<strong>如果这件事必须在某个确定时刻发生，或者必须被无条件禁止，它就不属于提示层。</strong>
+
+## 执行层：四层继承与两个静默陷阱
+
+![settings 的四层继承结构，以及数组合并与 managed-only 键两个陷阱](/static/blog/claude-code-permissions/settings-precedence.svg)
+
+这里要特别注意：<strong>settings 的层级和第一篇讲的 CLAUDE.md 层级不是一回事</strong>。CLAUDE.md 是拼接，所有层的内容都进上下文，靠位置表达优先级。settings 是真正的优先级覆盖。
+
+一份典型的项目级配置：
+
+```json
+{
+  "permissions": {
+    "allow": ["Bash(pnpm test)", "Bash(pnpm lint)", "Bash(git status)"],
+    "deny": ["Bash(git push:*)", "Read(./.env)", "Read(./secrets/**)"],
+    "ask": ["Bash(git commit:*)"]
+  }
+}
+```
+
+### 陷阱一：数组合并，标量覆盖
+
+同一个键在两层都写了，结果取决于它的类型 —— <strong>数组类跨层合并，标量类按优先级覆盖</strong>。
+
+这带来一个反直觉的后果：<strong>数组只会越加越长，没有"减法"语义</strong>。上层加了一条排除规则，你在下层往往取消不掉它。设计配置时得记住这点，别指望用低优先级层去"撤销"高优先级层加的条目。
+
+### 陷阱二：有些键只在 managed 层认
+
+`claudeMd`、`forceLoginMethod`、`forceLoginOrgUUID` 这些键，只在 managed / policy 层生效。写进 user / project / local 会被<strong>静默忽略</strong> —— 不报错、不警告，你只会觉得"配了但没用"。
+
+同理反向也成立：managed 层下发的 CLAUDE.md 和 deny 规则，个人设置一律排除不掉。这正是它存在的意义 —— 组织级策略不该被个人配置绕开。
+
+调试的时候可以用 `--setting-sources` 显式排除 project / local，把问题隔离到具体某一层。
+
+## 三种裁决，模型分别看到什么
+
+![allow / deny / ask 三种裁决的时序与模型视角对比](/static/blog/claude-code-permissions/allow-deny-ask.svg)
+
+重点不在"拦不拦"，而在<strong>拦下之后模型知不知道该换什么做法</strong>。
+
+我的系统提示里有一句相关的约束：
+
+```text
+Tools run behind a user-selected permission mode;
+a denied call means the user declined it — adjust, don't retry verbatim.
+```
+
+「不要原样重试」是写给模型的纪律。但纪律解决不了信息缺失：如果拒绝时没告诉它为什么，它只知道"这条路不通"，不知道该往哪走。<strong>结果往往是换个写法把同一件事再试一遍</strong> —— 严格来说不算原样重试，但一样在原地打转。
+
+所以配 deny 的时候要意识到它的局限：它只能表达"不行"。要表达"不行，因为……，你应该……"，得用 hook。
+
+## 生命周期层：hook 能把理由说回去
+
+![hook 的生命周期拦截点，以及它相比 permissions.deny 能多做的三件事](/static/blog/claude-code-permissions/hook-lifecycle.svg)
+
+hook 是 harness 在固定生命周期点执行的 shell 命令。`PreToolUse` 在工具执行前触发，非零退出码拦下这次调用 —— 而它的<strong>标准输出会回到模型</strong>。
+
+我的系统提示对此有明确说明：
+
+```text
+Hooks may intercept tool calls; treat hook output as user feedback.
+```
+
+「当作用户反馈处理」是关键。这意味着一个 hook 可以这样写：
+
+```bash
+#!/usr/bin/env bash
+# PreToolUse hook：禁止直接向 main 推送
+if [ "$(git branch --show-current)" = "main" ]; then
+  echo "main 分支禁止直接 push。请先 git switch -c <branch> 再推。"
+  exit 1
+fi
+```
+
+模型收到的不是一个干巴巴的拒绝，而是一句可执行的指引。它会去开分支，然后继续。这是 `permissions.deny` 做不到的 —— <strong>deny 只能让它停下，hook 能让它转向。</strong>
+
+hook 相比声明式规则多出三种能力：跑任意判断逻辑（查分支、读环境变量、看文件内容再决定，而不只是模式匹配）、把理由回传给模型、以及在固定时点无条件触发。
+
+代价也要认清：它每次触发都要起进程，挂在高频工具上会明显拖慢循环；写错一个退出码会静默吞掉所有该工具的调用，排查起来很痛苦。<strong>还有一个更重要的代价，值得单独说 —— 它是任意 shell。</strong>
+
+## 信任门：为什么它必须存在
+
+![项目级 hook 带来的代码执行风险，以及工作区信任门的作用](/static/blog/claude-code-permissions/trust-gate.svg)
+
+把上一节的事实串起来：项目级 `.claude/settings.json` 可以配 hook，hook 是任意 shell，而 settings 随仓库走。
+
+于是「clone 一个别人的仓库并在里面启动 agent」就等于「可能执行仓库作者写的 shell 命令」。
+
+注意这条链<strong>完全不需要模型配合</strong>。hook 由 harness 在生命周期点直接触发，模型没有被越狱、没有被提示注入，它甚至可以完全不知道这件事发生过。这不是模型安全问题，是<strong>配置即代码</strong>带来的经典供应链问题。
+
+所以必须有一道门：首次进入一个目录时询问是否信任，在你确认之前，项目级与本地级设置里那些"能执行东西"的部分不生效。信任按目录记住，所以只问一次；换一个新克隆的目录会重新问。
+
+managed policy 层不受这道门约束 —— 因为它来自你所在组织的 IT，不来自仓库。信任门要防的是"仓库里的陌生人"。
+
+一个值得记住的推论：<strong>当你给项目提交一个 hook，你是在要求队友信任你的 shell。</strong>写的时候按这个标准要求自己。
+
+## 凭据层：秘密根本不进沙箱
+
+前面三层管的都是"允不允许这个动作"。凭据层解决的是另一个问题：<strong>agent 需要第三方凭据才能干活，但你不想让它拿到凭据。</strong>
+
+![凭据在出口代理处注入，以及出网需要过环境级与凭据级两道闸](/static/blog/claude-code-permissions/credential-boundary.svg)
+
+Managed Agents 的做法是把凭据存进 vault，沙箱里只放一个<strong>不可用的占位符</strong>，真值在请求<strong>离开沙箱之后</strong>由出口代理替换进去：
+
+```json
+{
+  "display_name": "Twilio API key",
+  "auth": {
+    "type": "environment_variable",
+    "secret_name": "TWILIO_API_KEY",
+    "secret_value": "sk-...",
+    "networking": {
+      "type": "limited",
+      "allowed_hosts": ["api.twilio.com"]
+    },
+    "injection_location": { "header": true }
+  }
+}
+```
+
+这个设计的漂亮之处在于：沙箱里的<strong>任何</strong>代码都读不到真值，包括模型自己写的那些。即使它被提示注入攻击、被要求"把环境变量打印出来"，它交出去的也只是占位符 —— 因为它自己也从来没见过真的。挂载 GitHub 仓库时的 token 也是同样的机制，由一个 git 代理在请求出站后注入。
+
+三个实践要点：
+
+<strong>一、路径里的秘密不会被替换。</strong>替换只覆盖请求头和请求体。所以路径带令牌的 webhook（比如 Slack 的 incoming webhook URL）用不了这套，得换成基于请求头的认证方式。
+
+<strong>二、出网要过两道闸。</strong>环境级的 `allowed_hosts` 决定"这个请求能不能出去"，凭据级的 `allowed_hosts` 决定"这个秘密要不要注入到这个请求里"。<strong>两道都得放行</strong>。这是最常见的误判 —— 只配了凭据那层，结果连不上；或者只配了环境那层，结果连上了但对方返回 401。
+
+<strong>三、客户端的本地格式校验会误伤。</strong>替换发生在出口，不在沙箱内。有些 CLI 会先在本地检查密钥格式（比如必须以 `sk-` 开头），它看到的是占位符，于是在发出任何网络请求之前就自己失败了。遇到这种情况，那不是配置错了，是机制本身的边界。
+
+## 配名单的判据：可撤销性 × 影响面
+
+![可撤销性与影响面构成的四象限，映射到 allow / ask / deny](/static/blog/claude-code-permissions/reversibility-matrix.svg)
+
+回到最初那个旋钮。具体怎么调？<strong>不按"危险程度"的直觉分档，而按"出错之后能不能收回来"。</strong>
+
+| 象限 | 档位 | 例子 |
+| --- | --- | --- |
+| 易撤销 · 只影响本地 | `allow` | Read / Grep / Glob、跑构建跑测试、改已读过的文件 |
+| 易撤销 · 对外只读 | `allow` | 读公开 API、抓网页、`git fetch`、拉依赖 |
+| 难撤销 · 只影响本地 | `ask` | `rm -rf`、`git reset --hard`、覆盖未读过的文件 |
+| 难撤销 · 对外可见 | `ask` 或 `deny` | 发邮件、`git push`、部署、删远端资源、写生产库 |
+
+左下角那一格<strong>越大，自主性越高</strong> —— 应该主动去扩充它，这才是提升"无人值守工作量"的正路。而右上角那格，宁可保守。
+
+两条容易忽略的补充：
+
+<strong>审批一次不等于永久授权。</strong>你批准了往测试库写，不等于批准了往生产库写。同一个动作换个目标，就该重新问一次。作用域是路径、是主机、是环境，不只是动作类型。
+
+<strong>覆盖也是删除。</strong>写文件感觉上比删文件温和，但覆盖一个你没读过的文件，等于删掉了你不知道内容的东西。所以第二篇讲的"先读后写"既是新鲜度检查，<strong>也是一条权限约束</strong> —— 它保证任何一次覆盖都发生在"内容已知"的前提下。
+
+顺带一提，同一个问题在 API 层有个更声明式的版本。Managed Agents 用 `permission_policy` 表达，支持逐工具覆盖：
+
+```json
+{
+  "type": "agent_toolset_20260401",
+  "default_config": { "enabled": true, "permission_policy": { "type": "always_allow" } },
+  "configs": [
+    { "name": "bash", "permission_policy": { "type": "always_ask" } }
+  ]
+}
+```
+
+命中 `always_ask` 时，会话会停在 `requires_action` 状态等你回一个确认事件；拒绝时可以带上 `deny_message`，那句话会被送回给 agent —— 和前面 hook 的思路一致：<strong>拒绝要附带理由，才能让它转向而不是打转。</strong>
+
+注意它<strong>不作用于自定义工具</strong>：那些本来就由你的代码执行，要不要拦在你自己手里。
+
+## 系列收尾：四个维度合起来是什么
+
+四篇写完了，回头看会发现它们是同一个东西的四个切面：
+
+| 篇目 | 管的是 | 核心取舍 |
+| --- | --- | --- |
+| 记忆 | 知识如何跨会话存活 | 索引常驻 vs 细节按需 |
+| 工具 | 动作如何暴露给 harness | 广度用 bash vs 语义用专用工具 |
+| 上下文 | 预算如何分配 | 省 token vs 保缓存 |
+| 权限 | 边界由谁执行 | 自主性 vs 可控性 |
+
+四者共享一个结构：<strong>每一层都在"模型自己判断"和"harness 强制执行"之间划线，而划线的位置决定了这个 agent 好不好用。</strong>
+
+记忆里，CLAUDE.md 是建议、hook 是强制。工具里，bash 让 harness 什么都看不见、专用工具让它能干预。上下文里，提示词让模型自己节制、工具层的截断是硬约束。权限里，这条线本身就是主题。
+
+所以拆解 Claude Code 学到的最有价值的东西，可能不是任何一个具体机制，而是这个反复出现的提问方式：<strong>这件事，应该靠模型理解，还是靠系统保证？</strong>
+
+答案往往不是二选一，而是两者都要 —— 用系统保证下限，用提示词争取上限。硬约束定义"绝不会发生什么"，软约束塑造"通常会发生什么"。两者错位的时候，就是 agent 出问题的时候。
+
+## 参考资料
+
+- [Claude Code settings](https://code.claude.com/docs/en/settings) —— 四层继承、数组合并规则、managed-only 键
+- [Permissions](https://code.claude.com/docs/en/permissions) —— `allow` / `deny` / `ask` 与 managed settings 的关系
+- [Hooks guide](https://code.claude.com/docs/en/hooks-guide) 与 [Hooks reference](https://code.claude.com/docs/en/hooks) —— 生命周期触发点与输入输出约定
+- [Managed Agents · Permission policies](https://platform.claude.com/docs/en/managed-agents/permission-policies) —— API 层的声明式版本
+- [Managed Agents · Vaults](https://platform.claude.com/docs/en/managed-agents/vaults) —— 凭据在出口注入、`injection_location`、两层网络放行
+- [Managed Agents · Environments](https://platform.claude.com/docs/en/managed-agents/environments) —— `networking` 的 `limited` 模式与 `allowed_hosts`

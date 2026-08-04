@@ -1,0 +1,71 @@
+<svg width="1200" height="640" viewBox="0 0 1200 640" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="640" rx="28" fill="#F8FAFC"/>
+  <rect x="32" y="32" width="1136" height="576" rx="24" fill="white" stroke="#E2E8F0" stroke-width="2"/>
+
+  <text x="70" y="92" fill="#0F172A" font-size="30" font-family="Segoe UI, Arial, sans-serif" font-weight="700">配名单时的判据：可撤销性 × 影响面</text>
+  <text x="70" y="126" fill="#475569" font-size="17" font-family="Segoe UI, Arial, sans-serif">不按「危险程度」直觉分档，而按「出错之后能不能收回来」</text>
+
+  <text x="78" y="228" fill="#B91C1C" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">难</text>
+  <text x="78" y="248" fill="#B91C1C" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">撤</text>
+  <text x="78" y="268" fill="#B91C1C" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">销</text>
+  <text x="78" y="418" fill="#15803D" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">易</text>
+  <text x="78" y="438" fill="#15803D" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">撤</text>
+  <text x="78" y="458" fill="#15803D" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">销</text>
+
+  <rect x="118" y="176" width="330" height="160" rx="14" fill="#FEF3C7" stroke="#FCD34D" stroke-width="2"/>
+  <rect x="132" y="190" width="52" height="26" rx="7" fill="#F59E0B"/>
+  <text x="146" y="208" fill="white" font-size="13" font-family="Consolas, monospace" font-weight="700">ask</text>
+  <text x="196" y="208" fill="#B45309" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">难撤销 · 只影响本地</text>
+  <text x="132" y="240" fill="#92400E" font-size="13" font-family="Consolas, monospace">rm -rf / 批量删除</text>
+  <text x="132" y="264" fill="#92400E" font-size="13" font-family="Consolas, monospace">git reset --hard</text>
+  <text x="132" y="288" fill="#92400E" font-size="13" font-family="Consolas, monospace">覆盖未读过的文件</text>
+  <text x="132" y="316" fill="#B45309" font-size="12" font-family="Segoe UI, Arial, sans-serif">本地虽有 git 兜底，但未提交的东西没有</text>
+
+  <rect x="468" y="176" width="330" height="160" rx="14" fill="#FEE2E2" stroke="#EF4444" stroke-width="2.5"/>
+  <rect x="482" y="190" width="106" height="26" rx="7" fill="#EF4444"/>
+  <text x="496" y="208" fill="white" font-size="13" font-family="Consolas, monospace" font-weight="700">ask / deny</text>
+  <text x="600" y="208" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">难撤销 · 对外可见</text>
+  <text x="482" y="240" fill="#991B1B" font-size="13" font-family="Consolas, monospace">发邮件 / 发消息</text>
+  <text x="482" y="264" fill="#991B1B" font-size="13" font-family="Consolas, monospace">git push / 部署</text>
+  <text x="482" y="288" fill="#991B1B" font-size="13" font-family="Consolas, monospace">删远端资源 / 写生产库</text>
+  <text x="482" y="316" fill="#B91C1C" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">发出去就收不回；即使删掉也可能已被缓存</text>
+
+  <rect x="118" y="352" width="330" height="160" rx="14" fill="#DCFCE7" stroke="#22C55E" stroke-width="2.5"/>
+  <rect x="132" y="366" width="60" height="26" rx="7" fill="#22C55E"/>
+  <text x="144" y="384" fill="white" font-size="13" font-family="Consolas, monospace" font-weight="700">allow</text>
+  <text x="204" y="384" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">易撤销 · 只影响本地</text>
+  <text x="132" y="416" fill="#166534" font-size="13" font-family="Consolas, monospace">Read / Grep / Glob</text>
+  <text x="132" y="440" fill="#166534" font-size="13" font-family="Consolas, monospace">跑构建 / 跑测试</text>
+  <text x="132" y="464" fill="#166534" font-size="13" font-family="Consolas, monospace">改已 Read 过的文件</text>
+  <text x="132" y="492" fill="#15803D" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">这一格越大，自主性越高 —— 该主动扩充它</text>
+
+  <rect x="468" y="352" width="330" height="160" rx="14" fill="#DCFCE7" stroke="#86EFAC" stroke-width="2"/>
+  <rect x="482" y="366" width="60" height="26" rx="7" fill="#4ADE80"/>
+  <text x="494" y="384" fill="#14532D" font-size="13" font-family="Consolas, monospace" font-weight="700">allow</text>
+  <text x="554" y="384" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">易撤销 · 对外只读</text>
+  <text x="482" y="416" fill="#166534" font-size="13" font-family="Consolas, monospace">读公开 API / 抓网页</text>
+  <text x="482" y="440" fill="#166534" font-size="13" font-family="Consolas, monospace">git fetch / 拉依赖</text>
+  <text x="482" y="464" fill="#166534" font-size="13" font-family="Consolas, monospace">查询只读接口</text>
+  <text x="482" y="492" fill="#B45309" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">留意速率限制与数据外泄，本身可放行</text>
+
+  <text x="238" y="542" fill="#334155" font-size="15" font-family="Segoe UI, Arial, sans-serif" font-weight="700">只影响本地</text>
+  <text x="588" y="542" fill="#334155" font-size="15" font-family="Segoe UI, Arial, sans-serif" font-weight="700">对外可见</text>
+  <path d="M118 522 L 798 522" stroke="#CBD5E1" stroke-width="2"/>
+
+  <rect x="828" y="176" width="278" height="336" rx="16" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="2"/>
+  <text x="850" y="208" fill="#1D4ED8" font-size="16" font-family="Segoe UI, Arial, sans-serif" font-weight="700">两条容易忽略的补充</text>
+  <path d="M850 220 L 1084 220" stroke="#BFDBFE" stroke-width="1.5"/>
+
+  <text x="850" y="252" fill="#1D4ED8" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">一、审批一次 ≠ 永久授权</text>
+  <text x="850" y="276" fill="#1E40AF" font-size="13" font-family="Segoe UI, Arial, sans-serif">你批准了往测试库写，不等于</text>
+  <text x="850" y="296" fill="#1E40AF" font-size="13" font-family="Segoe UI, Arial, sans-serif">批准了往生产库写。同一个动作</text>
+  <text x="850" y="316" fill="#1E40AF" font-size="13" font-family="Segoe UI, Arial, sans-serif">换个目标，就该重新问一次。</text>
+
+  <text x="850" y="356" fill="#1D4ED8" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">二、覆盖也是删除</text>
+  <text x="850" y="380" fill="#1E40AF" font-size="13" font-family="Segoe UI, Arial, sans-serif">写文件感觉上比删文件温和，</text>
+  <text x="850" y="400" fill="#1E40AF" font-size="13" font-family="Segoe UI, Arial, sans-serif">但覆盖一个没读过的文件，等于</text>
+  <text x="850" y="420" fill="#1E40AF" font-size="13" font-family="Segoe UI, Arial, sans-serif">删掉了你不知道内容的东西。</text>
+  <text x="850" y="446" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">所以「先读后写」既是新鲜度</text>
+  <text x="850" y="466" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">检查，也是一条权限约束。</text>
+  <text x="850" y="496" fill="#1E40AF" font-size="12" font-family="Segoe UI, Arial, sans-serif">这一条把本系列第二篇和这篇接上了。</text>
+</svg>

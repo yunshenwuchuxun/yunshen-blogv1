@@ -1,0 +1,50 @@
+<svg width="1200" height="620" viewBox="0 0 1200 620" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="620" rx="28" fill="#F8FAFC"/>
+  <rect x="32" y="32" width="1136" height="556" rx="24" fill="white" stroke="#E2E8F0" stroke-width="2"/>
+
+  <text x="70" y="92" fill="#0F172A" font-size="30" font-family="Segoe UI, Arial, sans-serif" font-weight="700">该优化的量：无人值守完成的正确工作</text>
+  <text x="70" y="126" fill="#475569" font-size="17" font-family="Segoe UI, Arial, sans-serif">不是「更安全」，也不是「更少确认」—— 两个极端都会把这个量压到很低</text>
+
+  <path d="M140 470 L 1090 470" stroke="#94A3B8" stroke-width="2"/>
+  <polygon points="1090,464 1102,470 1090,476" fill="#94A3B8"/>
+  <path d="M140 470 L 140 180" stroke="#94A3B8" stroke-width="2"/>
+  <polygon points="134,180 140,168 146,180" fill="#94A3B8"/>
+  <text x="66" y="164" fill="#64748B" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">无人值守</text>
+  <text x="66" y="182" fill="#64748B" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">工作量</text>
+  <text x="860" y="458" fill="#64748B" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">权限越松 →</text>
+
+  <path d="M180 430 Q 480 180 615 235 Q 780 300 1050 440" stroke="#3B82F6" stroke-width="4" fill="none"/>
+
+  <circle cx="180" cy="430" r="9" fill="#EF4444"/>
+  <circle cx="600" cy="228" r="10" fill="#22C55E"/>
+  <circle cx="1050" cy="440" r="9" fill="#EF4444"/>
+
+  <path d="M180 430 L 180 470" stroke="#CBD5E1" stroke-width="1.5" stroke-dasharray="4 4"/>
+  <path d="M600 228 L 600 470" stroke="#CBD5E1" stroke-width="1.5" stroke-dasharray="4 4"/>
+  <path d="M1050 440 L 1050 470" stroke="#CBD5E1" stroke-width="1.5" stroke-dasharray="4 4"/>
+
+  <rect x="150" y="490" width="200" height="80" rx="12" fill="#FEF2F2" stroke="#FCA5A5" stroke-width="2"/>
+  <text x="168" y="514" fill="#B91C1C" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">全部 ask</text>
+  <text x="168" y="536" fill="#991B1B" font-size="12" font-family="Segoe UI, Arial, sans-serif">每一步都停下等你点，</text>
+  <text x="168" y="556" fill="#991B1B" font-size="12" font-family="Segoe UI, Arial, sans-serif">这就是手动操作。</text>
+
+  <rect x="470" y="490" width="260" height="80" rx="12" fill="#F0FDF4" stroke="#22C55E" stroke-width="2.5"/>
+  <text x="488" y="514" fill="#15803D" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">只对难撤销的动作 ask</text>
+  <text x="488" y="536" fill="#166534" font-size="12" font-family="Segoe UI, Arial, sans-serif">读取、搜索、本地改动放行；</text>
+  <text x="488" y="556" fill="#166534" font-size="12" font-family="Segoe UI, Arial, sans-serif">对外发送与不可逆操作才拦。</text>
+
+  <rect x="900" y="490" width="220" height="80" rx="12" fill="#FEF2F2" stroke="#FCA5A5" stroke-width="2"/>
+  <text x="918" y="514" fill="#B91C1C" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">全部 allow</text>
+  <text x="918" y="536" fill="#991B1B" font-size="12" font-family="Segoe UI, Arial, sans-serif">不敢离开屏幕，所以</text>
+  <text x="918" y="556" fill="#991B1B" font-size="12" font-family="Segoe UI, Arial, sans-serif">也没有真正走开。</text>
+
+  <rect x="640" y="176" width="440" height="96" rx="14" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="2"/>
+  <text x="662" y="204" fill="#1D4ED8" font-size="15" font-family="Segoe UI, Arial, sans-serif" font-weight="700">曲线为什么会掉下来</text>
+  <text x="662" y="230" fill="#1E40AF" font-size="13" font-family="Segoe UI, Arial, sans-serif">左边掉，是因为你被确认框绑在座位上。</text>
+  <text x="662" y="254" fill="#1E40AF" font-size="13" font-family="Segoe UI, Arial, sans-serif">右边掉，是因为你被风险绑在座位上。</text>
+
+  <rect x="180" y="290" width="380" height="76" rx="14" fill="#FFF7ED" stroke="#FED7AA" stroke-width="2"/>
+  <text x="202" y="316" fill="#9A3412" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">调这个旋钮的正确方式</text>
+  <text x="202" y="340" fill="#7C2D12" font-size="13" font-family="Segoe UI, Arial, sans-serif">不是凭感觉，而是看历史记录里哪些调用</text>
+  <text x="202" y="360" fill="#7C2D12" font-size="13" font-family="Segoe UI, Arial, sans-serif">被反复确认 —— 把它们加进 allow 名单。</text>
+</svg>
