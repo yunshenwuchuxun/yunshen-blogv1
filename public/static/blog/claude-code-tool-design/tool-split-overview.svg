@@ -1,0 +1,58 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="630" rx="28" fill="#F8FAFC"/>
+  <rect x="32" y="32" width="1136" height="566" rx="24" fill="white" stroke="#E2E8F0" stroke-width="2"/>
+
+  <text x="70" y="92" fill="#0F172A" font-size="32" font-family="Segoe UI, Arial, sans-serif" font-weight="700">Bash vs Dedicated Tools</text>
+  <text x="70" y="126" fill="#475569" font-size="18" font-family="Segoe UI, Arial, sans-serif">同一个动作，harness 能看到的东西完全不同</text>
+
+  <rect x="350" y="150" width="500" height="44" rx="12" fill="#E0E7FF" stroke="#A5B4FC" stroke-width="1.5"/>
+  <text x="374" y="178" fill="#3730A3" font-size="15" font-family="Segoe UI, Arial, sans-serif" font-weight="700">动作：把 config.ts 里的 timeout 从 10 改成 30</text>
+
+  <path d="M480 196 L 330 220" stroke="#94A3B8" stroke-width="2"/>
+  <polygon points="336,213 324,222 335,225" fill="#94A3B8"/>
+  <path d="M720 196 L 870 220" stroke="#94A3B8" stroke-width="2"/>
+  <polygon points="864,213 876,222 865,225" fill="#94A3B8"/>
+
+  <rect x="70" y="228" width="520" height="292" rx="18" fill="#FEF2F2" stroke="#FCA5A5" stroke-width="2"/>
+  <text x="94" y="262" fill="#B91C1C" font-size="20" font-family="Segoe UI, Arial, sans-serif" font-weight="700">走 Bash</text>
+  <path d="M94 274 L 566 274" stroke="#FECACA" stroke-width="1.5"/>
+
+  <text x="94" y="298" fill="#991B1B" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">模型发出</text>
+  <rect x="94" y="306" width="472" height="38" rx="10" fill="white" stroke="#FECACA" stroke-width="1.5"/>
+  <text x="108" y="330" fill="#991B1B" font-size="11" font-family="Consolas, monospace">sed -i '' 's/timeout: 10/timeout: 30/' config.ts</text>
+
+  <text x="94" y="368" fill="#991B1B" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">harness 收到</text>
+  <rect x="94" y="376" width="472" height="38" rx="10" fill="#FEE2E2" stroke="#EF4444" stroke-width="2"/>
+  <text x="108" y="400" fill="#B91C1C" font-size="12" font-family="Consolas, monospace">{ command: "……一条不透明的字符串……" }</text>
+
+  <text x="94" y="438" fill="#991B1B" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">于是它只能做一件事</text>
+  <rect x="94" y="448" width="220" height="30" rx="9" fill="white" stroke="#FECACA" stroke-width="1.5"/>
+  <text x="110" y="468" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">问：要不要执行这条命令</text>
+  <text x="94" y="500" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif">每个动作的形状都一样，无法区分对待</text>
+
+  <rect x="610" y="228" width="520" height="292" rx="18" fill="#F0FDF4" stroke="#86EFAC" stroke-width="2"/>
+  <text x="634" y="262" fill="#15803D" font-size="20" font-family="Segoe UI, Arial, sans-serif" font-weight="700">走 Edit</text>
+  <path d="M634 274 L 1106 274" stroke="#BBF7D0" stroke-width="1.5"/>
+
+  <text x="634" y="298" fill="#166534" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">模型发出</text>
+  <rect x="634" y="306" width="472" height="38" rx="10" fill="white" stroke="#BBF7D0" stroke-width="1.5"/>
+  <text x="648" y="330" fill="#166534" font-size="11" font-family="Consolas, monospace">Edit(file_path, old_string, new_string)</text>
+
+  <text x="634" y="368" fill="#166534" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">harness 收到</text>
+  <rect x="634" y="376" width="472" height="38" rx="10" fill="#DCFCE7" stroke="#22C55E" stroke-width="2"/>
+  <text x="648" y="400" fill="#15803D" font-size="12" font-family="Consolas, monospace">三个具名、带类型的参数</text>
+
+  <text x="634" y="438" fill="#166534" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">于是它能做四件事</text>
+  <rect x="634" y="448" width="108" height="30" rx="9" fill="white" stroke="#BBF7D0" stroke-width="1.5"/>
+  <text x="654" y="468" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">按路径审批</text>
+  <rect x="750" y="448" width="108" height="30" rx="9" fill="white" stroke="#BBF7D0" stroke-width="1.5"/>
+  <text x="770" y="468" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">新鲜度校验</text>
+  <rect x="866" y="448" width="108" height="30" rx="9" fill="white" stroke="#BBF7D0" stroke-width="1.5"/>
+  <text x="886" y="468" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">渲染成 diff</text>
+  <rect x="982" y="448" width="124" height="30" rx="9" fill="white" stroke="#BBF7D0" stroke-width="1.5"/>
+  <text x="1002" y="468" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">标记可否并行</text>
+  <text x="634" y="500" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif">动作的语义暴露给了 harness，它才有得选</text>
+
+  <rect x="70" y="536" width="1060" height="46" rx="12" fill="#FFF7ED" stroke="#FED7AA" stroke-width="2"/>
+  <text x="94" y="565" fill="#9A3412" font-size="16" font-family="Segoe UI, Arial, sans-serif" font-weight="700">广度用 Bash；当你需要拦截、渲染、审计或并行某个动作时，才把它提升为专用工具。</text>
+</svg>

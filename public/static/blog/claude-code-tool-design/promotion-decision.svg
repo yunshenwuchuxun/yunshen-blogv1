@@ -1,0 +1,77 @@
+<svg width="1200" height="660" viewBox="0 0 1200 660" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="660" rx="28" fill="#F8FAFC"/>
+  <rect x="32" y="32" width="1136" height="596" rx="24" fill="white" stroke="#E2E8F0" stroke-width="2"/>
+
+  <text x="70" y="92" fill="#0F172A" font-size="30" font-family="Segoe UI, Arial, sans-serif" font-weight="700">该不该提升？四问，全否就留在 bash</text>
+  <text x="70" y="126" fill="#475569" font-size="17" font-family="Segoe UI, Arial, sans-serif">默认答案是「不提升」—— 提升要由 harness 的真实需求来触发，不是由动作的重要性</text>
+
+  <rect x="70" y="170" width="560" height="48" rx="12" fill="#E0E7FF" stroke="#A5B4FC" stroke-width="1.5"/>
+  <text x="94" y="200" fill="#3730A3" font-size="15" font-family="Segoe UI, Arial, sans-serif" font-weight="700">一个新动作，要不要做成专用工具？</text>
+  <path d="M350 218 L 350 234" stroke="#94A3B8" stroke-width="2"/>
+  <polygon points="344,234 350,244 356,234" fill="#94A3B8"/>
+
+  <rect x="70" y="244" width="560" height="56" rx="12" fill="#FFF7ED" stroke="#FED7AA" stroke-width="2"/>
+  <text x="94" y="268" fill="#9A3412" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">① 需要单独审批或拦截吗？</text>
+  <text x="94" y="290" fill="#B45309" font-size="12" font-family="Segoe UI, Arial, sans-serif">难撤销、对外发送、删数据 —— 这类动作要能被单独拦下来</text>
+  <path d="M350 300 L 350 312" stroke="#94A3B8" stroke-width="2"/>
+  <polygon points="344,312 350,322 356,312" fill="#94A3B8"/>
+
+  <rect x="70" y="322" width="560" height="56" rx="12" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="2"/>
+  <text x="94" y="346" fill="#1D4ED8" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">② 动作之前需要校验前置状态吗？</text>
+  <text x="94" y="368" fill="#1E40AF" font-size="12" font-family="Segoe UI, Arial, sans-serif">例如：写文件之前必须确认它没被别人改过</text>
+  <path d="M350 378 L 350 390" stroke="#94A3B8" stroke-width="2"/>
+  <polygon points="344,390 350,400 356,390" fill="#94A3B8"/>
+
+  <rect x="70" y="400" width="560" height="56" rx="12" fill="#F5F3FF" stroke="#C4B5FD" stroke-width="2"/>
+  <text x="94" y="424" fill="#7C3AED" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">③ 需要专门的界面呈现，或需要阻塞循环吗？</text>
+  <text x="94" y="446" fill="#6D28D9" font-size="12" font-family="Segoe UI, Arial, sans-serif">提问、确认、diff 预览 —— 需要前端结构化消费</text>
+  <path d="M350 456 L 350 468" stroke="#94A3B8" stroke-width="2"/>
+  <polygon points="344,468 350,478 356,468" fill="#94A3B8"/>
+
+  <rect x="70" y="478" width="560" height="56" rx="12" fill="#F0FDF4" stroke="#86EFAC" stroke-width="2"/>
+  <text x="94" y="502" fill="#15803D" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">④ 是只读动作，且希望它能并发吗？</text>
+  <text x="94" y="524" fill="#166534" font-size="12" font-family="Segoe UI, Arial, sans-serif">搜索、列目录、读文件 —— 并发能显著压缩墙钟时间</text>
+  <path d="M350 534 L 350 546" stroke="#94A3B8" stroke-width="2"/>
+  <polygon points="344,546 350,556 356,546" fill="#94A3B8"/>
+
+  <rect x="70" y="556" width="560" height="48" rx="12" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="2"/>
+  <text x="94" y="586" fill="#334155" font-size="15" font-family="Segoe UI, Arial, sans-serif" font-weight="700">四问全否 → 留在 bash 里，不要新增工具</text>
+
+  <path d="M630 272 L 656 272" stroke="#22C55E" stroke-width="2"/>
+  <polygon points="656,266 668,272 656,278" fill="#22C55E"/>
+  <text x="632" y="264" fill="#15803D" font-size="11" font-family="Segoe UI, Arial, sans-serif" font-weight="700">是</text>
+  <path d="M630 350 L 656 350" stroke="#22C55E" stroke-width="2"/>
+  <polygon points="656,344 668,350 656,356" fill="#22C55E"/>
+  <text x="632" y="342" fill="#15803D" font-size="11" font-family="Segoe UI, Arial, sans-serif" font-weight="700">是</text>
+  <path d="M630 428 L 656 428" stroke="#22C55E" stroke-width="2"/>
+  <polygon points="656,422 668,428 656,434" fill="#22C55E"/>
+  <text x="632" y="420" fill="#15803D" font-size="11" font-family="Segoe UI, Arial, sans-serif" font-weight="700">是</text>
+  <path d="M630 506 L 656 506" stroke="#22C55E" stroke-width="2"/>
+  <polygon points="656,500 668,506 656,512" fill="#22C55E"/>
+  <text x="632" y="498" fill="#15803D" font-size="11" font-family="Segoe UI, Arial, sans-serif" font-weight="700">是</text>
+
+  <rect x="672" y="244" width="130" height="290" rx="14" fill="#DCFCE7" stroke="#22C55E" stroke-width="2.5"/>
+  <text x="700" y="376" fill="#15803D" font-size="18" font-family="Segoe UI, Arial, sans-serif" font-weight="700">提升为</text>
+  <text x="694" y="404" fill="#15803D" font-size="18" font-family="Segoe UI, Arial, sans-serif" font-weight="700">专用工具</text>
+
+  <rect x="828" y="170" width="302" height="434" rx="18" fill="#FEF3C7" stroke="#FCD34D" stroke-width="2"/>
+  <text x="852" y="204" fill="#B45309" font-size="17" font-family="Segoe UI, Arial, sans-serif" font-weight="700">但提升不是免费的</text>
+  <path d="M852 216 L 1106 216" stroke="#FCD34D" stroke-width="1.5"/>
+
+  <text x="852" y="248" fill="#92400E" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">一、schema 常驻上下文</text>
+  <text x="852" y="272" fill="#92400E" font-size="13" font-family="Segoe UI, Arial, sans-serif">每个工具的定义都要放进每</text>
+  <text x="852" y="292" fill="#92400E" font-size="13" font-family="Segoe UI, Arial, sans-serif">一次请求，工具越多越贵。</text>
+
+  <text x="852" y="332" fill="#92400E" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">二、边界模糊会让模型选错</text>
+  <text x="852" y="356" fill="#92400E" font-size="13" font-family="Segoe UI, Arial, sans-serif">两个职责重叠的工具，比一</text>
+  <text x="852" y="376" fill="#92400E" font-size="13" font-family="Segoe UI, Arial, sans-serif">个边界清楚的工具更糟。</text>
+
+  <text x="852" y="416" fill="#92400E" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">三、每个工具都要自己兜底</text>
+  <text x="852" y="440" fill="#92400E" font-size="13" font-family="Segoe UI, Arial, sans-serif">参数校验、错误文案、路径</text>
+  <text x="852" y="460" fill="#92400E" font-size="13" font-family="Segoe UI, Arial, sans-serif">收敛，都得单独实现一遍。</text>
+
+  <rect x="852" y="490" width="254" height="94" rx="12" fill="white" stroke="#FCD34D" stroke-width="1.5"/>
+  <text x="868" y="516" fill="#B45309" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">所以判据始终是：</text>
+  <text x="868" y="540" fill="#B45309" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">harness 需不需要这个语义，</text>
+  <text x="868" y="564" fill="#B45309" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">而不是动作重不重要。</text>
+</svg>

@@ -1,0 +1,81 @@
+<svg width="1200" height="640" viewBox="0 0 1200 640" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="640" rx="28" fill="#F8FAFC"/>
+  <rect x="32" y="32" width="1136" height="576" rx="24" fill="white" stroke="#E2E8F0" stroke-width="2"/>
+
+  <text x="70" y="92" fill="#0F172A" font-size="30" font-family="Segoe UI, Arial, sans-serif" font-weight="700">决定一切的不是模型，是 harness 的视野</text>
+  <text x="70" y="126" fill="#475569" font-size="17" font-family="Segoe UI, Arial, sans-serif">模型两种写法都能表达同一个动作；差别在于 harness 拿到的是字符串，还是带语义的字段</text>
+
+  <text x="94" y="166" fill="#64748B" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">模型发出的 tool_use</text>
+  <text x="514" y="166" fill="#64748B" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">harness 的视野</text>
+  <text x="814" y="166" fill="#64748B" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">它因此能不能做这四件事</text>
+
+  <rect x="70" y="180" width="1060" height="188" rx="18" fill="#FEF2F2" stroke="#FCA5A5" stroke-width="2"/>
+  <text x="94" y="208" fill="#B91C1C" font-size="17" font-family="Segoe UI, Arial, sans-serif" font-weight="700">Bash 路径</text>
+
+  <rect x="94" y="222" width="380" height="126" rx="12" fill="white" stroke="#FECACA" stroke-width="1.5"/>
+  <text x="110" y="246" fill="#991B1B" font-size="11" font-family="Consolas, monospace">&#123;</text>
+  <text x="124" y="266" fill="#991B1B" font-size="11" font-family="Consolas, monospace">"name": "bash",</text>
+  <text x="124" y="286" fill="#991B1B" font-size="11" font-family="Consolas, monospace">"input": &#123;</text>
+  <text x="138" y="306" fill="#B91C1C" font-size="11" font-family="Consolas, monospace" font-weight="700">"command": "&lt;任意 shell 字符串&gt;"</text>
+  <text x="124" y="326" fill="#991B1B" font-size="11" font-family="Consolas, monospace">&#125;</text>
+  <text x="110" y="344" fill="#991B1B" font-size="11" font-family="Consolas, monospace">&#125;</text>
+
+  <path d="M482 285 L 502 285" stroke="#B91C1C" stroke-width="2"/>
+  <polygon points="502,279 514,285 502,291" fill="#B91C1C"/>
+
+  <rect x="520" y="240" width="264" height="90" rx="12" fill="#FEE2E2" stroke="#EF4444" stroke-width="2"/>
+  <text x="540" y="268" fill="#B91C1C" font-size="15" font-family="Segoe UI, Arial, sans-serif" font-weight="700">一个 string</text>
+  <text x="540" y="292" fill="#991B1B" font-size="13" font-family="Segoe UI, Arial, sans-serif">没有路径、没有动作类型、</text>
+  <text x="540" y="314" fill="#991B1B" font-size="13" font-family="Segoe UI, Arial, sans-serif">没有可否撤销的信息</text>
+
+  <path d="M792 285 L 806 285" stroke="#B91C1C" stroke-width="2"/>
+  <polygon points="806,279 818,285 806,291" fill="#B91C1C"/>
+
+  <rect x="826" y="222" width="140" height="30" rx="9" fill="white" stroke="#FECACA" stroke-width="1.5"/>
+  <text x="842" y="242" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif">✗ 按动作审批</text>
+  <rect x="826" y="258" width="140" height="30" rx="9" fill="white" stroke="#FECACA" stroke-width="1.5"/>
+  <text x="842" y="278" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif">✗ 新鲜度校验</text>
+  <rect x="826" y="294" width="140" height="30" rx="9" fill="white" stroke="#FECACA" stroke-width="1.5"/>
+  <text x="842" y="314" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif">✗ 专用渲染</text>
+  <rect x="826" y="330" width="140" height="30" rx="9" fill="white" stroke="#FECACA" stroke-width="1.5"/>
+  <text x="842" y="350" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif">✗ 并行标记</text>
+  <rect x="978" y="222" width="128" height="138" rx="12" fill="#FFF1F2" stroke="#FECACA" stroke-width="1.5"/>
+  <text x="996" y="272" fill="#B91C1C" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">只能整条</text>
+  <text x="996" y="296" fill="#B91C1C" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">命令级别</text>
+  <text x="996" y="320" fill="#B91C1C" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">放行或拒绝</text>
+
+  <rect x="70" y="386" width="1060" height="188" rx="18" fill="#F0FDF4" stroke="#86EFAC" stroke-width="2"/>
+  <text x="94" y="414" fill="#15803D" font-size="17" font-family="Segoe UI, Arial, sans-serif" font-weight="700">Edit 路径</text>
+
+  <rect x="94" y="428" width="380" height="126" rx="12" fill="white" stroke="#BBF7D0" stroke-width="1.5"/>
+  <text x="110" y="452" fill="#166534" font-size="11" font-family="Consolas, monospace">&#123;</text>
+  <text x="124" y="472" fill="#166534" font-size="11" font-family="Consolas, monospace">"name": "edit",</text>
+  <text x="124" y="492" fill="#166534" font-size="11" font-family="Consolas, monospace">"input": &#123;</text>
+  <text x="138" y="512" fill="#15803D" font-size="11" font-family="Consolas, monospace" font-weight="700">"file_path": "config.ts",</text>
+  <text x="138" y="532" fill="#15803D" font-size="11" font-family="Consolas, monospace" font-weight="700">"old_string": …, "new_string": …</text>
+  <text x="124" y="550" fill="#166534" font-size="11" font-family="Consolas, monospace">&#125; &#125;</text>
+
+  <path d="M482 491 L 502 491" stroke="#15803D" stroke-width="2"/>
+  <polygon points="502,485 514,491 502,497" fill="#15803D"/>
+
+  <rect x="520" y="446" width="264" height="90" rx="12" fill="#DCFCE7" stroke="#22C55E" stroke-width="2"/>
+  <text x="540" y="474" fill="#15803D" font-size="15" font-family="Segoe UI, Arial, sans-serif" font-weight="700">带语义的字段</text>
+  <text x="540" y="498" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif">动作类型已知、目标路径已知、</text>
+  <text x="540" y="520" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif">改动前后内容都在手上</text>
+
+  <path d="M792 491 L 806 491" stroke="#15803D" stroke-width="2"/>
+  <polygon points="806,485 818,491 806,497" fill="#15803D"/>
+
+  <rect x="826" y="428" width="140" height="30" rx="9" fill="white" stroke="#BBF7D0" stroke-width="1.5"/>
+  <text x="842" y="448" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif">✓ 按路径审批</text>
+  <rect x="826" y="464" width="140" height="30" rx="9" fill="white" stroke="#BBF7D0" stroke-width="1.5"/>
+  <text x="842" y="484" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif">✓ 新鲜度校验</text>
+  <rect x="826" y="500" width="140" height="30" rx="9" fill="white" stroke="#BBF7D0" stroke-width="1.5"/>
+  <text x="842" y="520" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif">✓ 渲染成 diff</text>
+  <rect x="826" y="536" width="140" height="30" rx="9" fill="white" stroke="#BBF7D0" stroke-width="1.5"/>
+  <text x="842" y="556" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif">✓ 并行标记</text>
+  <rect x="978" y="428" width="128" height="138" rx="12" fill="#F0FDF4" stroke="#BBF7D0" stroke-width="1.5"/>
+  <text x="996" y="478" fill="#15803D" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">可以按目录</text>
+  <text x="996" y="502" fill="#15803D" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">按动作类型</text>
+  <text x="996" y="526" fill="#15803D" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">分别定策略</text>
+</svg>

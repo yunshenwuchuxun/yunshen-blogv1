@@ -1,0 +1,53 @@
+<svg width="1200" height="620" viewBox="0 0 1200 620" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="620" rx="28" fill="#F8FAFC"/>
+  <rect x="32" y="32" width="1136" height="556" rx="24" fill="white" stroke="#E2E8F0" stroke-width="2"/>
+
+  <text x="70" y="92" fill="#0F172A" font-size="30" font-family="Segoe UI, Arial, sans-serif" font-weight="700">工具数量的两头都是坑</text>
+  <text x="70" y="126" fill="#475569" font-size="17" font-family="Segoe UI, Arial, sans-serif">四条判据存在的意义，就是把工具集稳在中间那一段</text>
+
+  <text x="94" y="168" fill="#B91C1C" font-size="15" font-family="Segoe UI, Arial, sans-serif" font-weight="700">太少</text>
+  <text x="424" y="168" fill="#15803D" font-size="15" font-family="Segoe UI, Arial, sans-serif" font-weight="700">合适</text>
+  <text x="800" y="168" fill="#B91C1C" font-size="15" font-family="Segoe UI, Arial, sans-serif" font-weight="700">太多</text>
+
+  <rect x="94" y="180" width="300" height="46" rx="10" fill="#FEE2E2" stroke="#FCA5A5" stroke-width="2"/>
+  <text x="114" y="209" fill="#B91C1C" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">只给一个 bash</text>
+  <rect x="400" y="180" width="374" height="46" rx="10" fill="#DCFCE7" stroke="#22C55E" stroke-width="2.5"/>
+  <text x="420" y="209" fill="#15803D" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">一把 bash + 少数几个边界清楚的专用工具</text>
+  <rect x="780" y="180" width="326" height="46" rx="10" fill="#FEE2E2" stroke="#FCA5A5" stroke-width="2"/>
+  <text x="800" y="209" fill="#B91C1C" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">几十个甚至上百个工具</text>
+
+  <text x="114" y="256" fill="#991B1B" font-size="13" font-family="Segoe UI, Arial, sans-serif">harness 只看到命令字符串，</text>
+  <text x="114" y="278" fill="#991B1B" font-size="13" font-family="Segoe UI, Arial, sans-serif">审批 / 新鲜度 / 渲染 / 并行</text>
+  <text x="114" y="300" fill="#991B1B" font-size="13" font-family="Segoe UI, Arial, sans-serif">四条能力全部失效。</text>
+
+  <text x="420" y="256" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif">需要被 harness 干预的动作有了语义，</text>
+  <text x="420" y="278" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif">其余长尾统统交给 bash 兜住；</text>
+  <text x="420" y="300" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif">模型也不用在近重复工具之间纠结。</text>
+
+  <text x="800" y="256" fill="#991B1B" font-size="13" font-family="Segoe UI, Arial, sans-serif">全部 schema 常驻每次请求，</text>
+  <text x="800" y="278" fill="#991B1B" font-size="13" font-family="Segoe UI, Arial, sans-serif">上下文被吃掉一大块；职责重叠</text>
+  <text x="800" y="300" fill="#991B1B" font-size="13" font-family="Segoe UI, Arial, sans-serif">的工具还会让模型挑错。</text>
+
+  <path d="M94 330 L 1106 330" stroke="#E2E8F0" stroke-width="2"/>
+  <text x="94" y="362" fill="#0F172A" font-size="19" font-family="Segoe UI, Arial, sans-serif" font-weight="700">规模真的上去之后：延迟加载</text>
+  <text x="94" y="386" fill="#475569" font-size="14" font-family="Segoe UI, Arial, sans-serif">把「工具存在」和「工具的完整定义」拆成两件事，后者用到才进上下文</text>
+
+  <rect x="94" y="402" width="470" height="164" rx="16" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="2"/>
+  <text x="116" y="432" fill="#1D4ED8" font-size="15" font-family="Segoe UI, Arial, sans-serif" font-weight="700">阶段一：只放名字</text>
+  <rect x="116" y="444" width="426" height="30" rx="8" fill="white"/>
+  <text x="130" y="464" fill="#1D4ED8" font-size="11" font-family="Consolas, monospace">tools: [ &#123; name: "web_fetch", defer_loading: true &#125;, … ]</text>
+  <text x="116" y="496" fill="#1E40AF" font-size="13" font-family="Segoe UI, Arial, sans-serif">标了 defer_loading 的工具，上下文里只留一个名字，</text>
+  <text x="116" y="518" fill="#1E40AF" font-size="13" font-family="Segoe UI, Arial, sans-serif">没有参数 schema —— 所以此刻还调不动它。</text>
+  <text x="116" y="546" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">注意：搜索工具本身不能被延迟，否则无从起步。</text>
+
+  <path d="M576 484 L 596 484" stroke="#1D4ED8" stroke-width="2"/>
+  <polygon points="596,478 608,484 596,490" fill="#1D4ED8"/>
+
+  <rect x="618" y="402" width="488" height="164" rx="16" fill="#F0FDF4" stroke="#86EFAC" stroke-width="2"/>
+  <text x="640" y="432" fill="#15803D" font-size="15" font-family="Segoe UI, Arial, sans-serif" font-weight="700">阶段二：用到才拉 schema</text>
+  <rect x="640" y="444" width="444" height="30" rx="8" fill="white"/>
+  <text x="654" y="464" fill="#15803D" font-size="11" font-family="Consolas, monospace">ToolSearch("select:WebFetch,WebSearch") → 定义被追加</text>
+  <text x="640" y="496" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif">命中的工具，完整定义此刻才进入上下文，随后即可调用。</text>
+  <text x="640" y="518" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif">关键在于它是<tspan font-weight="700">追加</tspan>而不是替换 ——</text>
+  <text x="640" y="546" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">已有的前缀没变，prompt cache 不会失效。</text>
+</svg>

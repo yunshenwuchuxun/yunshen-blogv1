@@ -1,0 +1,51 @@
+<svg width="1200" height="660" viewBox="0 0 1200 660" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="660" rx="28" fill="#F8FAFC"/>
+  <rect x="32" y="32" width="1136" height="596" rx="24" fill="white" stroke="#E2E8F0" stroke-width="2"/>
+
+  <text x="70" y="92" fill="#0F172A" font-size="30" font-family="Segoe UI, Arial, sans-serif" font-weight="700">并行调度：分不清只读，就只能全部串行</text>
+  <text x="70" y="126" fill="#475569" font-size="17" font-family="Segoe UI, Arial, sans-serif">这是「拆开工具」最容易被低估的收益 —— 它直接决定 agent 的墙钟时间</text>
+
+  <rect x="70" y="158" width="1060" height="180" rx="18" fill="#FEF2F2" stroke="#FCA5A5" stroke-width="2"/>
+  <text x="94" y="190" fill="#B91C1C" font-size="17" font-family="Segoe UI, Arial, sans-serif" font-weight="700">走 bash：三次搜索 + 一次提交</text>
+  <text x="94" y="214" fill="#991B1B" font-size="13" font-family="Segoe UI, Arial, sans-serif">harness 看到的都是命令字符串，无法判断哪条有副作用，只能保守地一条接一条跑</text>
+
+  <rect x="94" y="232" width="188" height="38" rx="10" fill="white" stroke="#FECACA" stroke-width="1.5"/>
+  <text x="112" y="256" fill="#B91C1C" font-size="12" font-family="Consolas, monospace">grep -r "useState"</text>
+  <rect x="292" y="232" width="188" height="38" rx="10" fill="white" stroke="#FECACA" stroke-width="1.5"/>
+  <text x="310" y="256" fill="#B91C1C" font-size="12" font-family="Consolas, monospace">grep -r "useEffect"</text>
+  <rect x="490" y="232" width="188" height="38" rx="10" fill="white" stroke="#FECACA" stroke-width="1.5"/>
+  <text x="508" y="256" fill="#B91C1C" font-size="12" font-family="Consolas, monospace">ls -R src/</text>
+  <rect x="688" y="232" width="188" height="38" rx="10" fill="#FEE2E2" stroke="#EF4444" stroke-width="2"/>
+  <text x="706" y="256" fill="#B91C1C" font-size="12" font-family="Consolas, monospace">git push</text>
+
+  <path d="M94 292 L 1088 292" stroke="#B91C1C" stroke-width="2"/>
+  <polygon points="1088,286 1100,292 1088,298" fill="#B91C1C"/>
+  <text x="94" y="316" fill="#B91C1C" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">墙钟时间 = 4 × T（全部串行）</text>
+
+  <rect x="70" y="356" width="1060" height="196" rx="18" fill="#F0FDF4" stroke="#86EFAC" stroke-width="2"/>
+  <text x="94" y="388" fill="#15803D" font-size="17" font-family="Segoe UI, Arial, sans-serif" font-weight="700">走专用工具：同样四个动作</text>
+  <text x="94" y="412" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif">Grep / Glob / Read 自带「只读」语义，可以并发；有副作用的排到后面</text>
+
+  <rect x="94" y="428" width="240" height="106" rx="12" fill="#DCFCE7" stroke="#22C55E" stroke-width="2" stroke-dasharray="7 5"/>
+  <text x="108" y="448" fill="#15803D" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">同一批 · 并发执行</text>
+  <rect x="108" y="456" width="212" height="22" rx="6" fill="white"/>
+  <text x="120" y="472" fill="#15803D" font-size="11" font-family="Consolas, monospace">Grep("useState")</text>
+  <rect x="108" y="482" width="212" height="22" rx="6" fill="white"/>
+  <text x="120" y="498" fill="#15803D" font-size="11" font-family="Consolas, monospace">Grep("useEffect")</text>
+  <rect x="108" y="508" width="212" height="22" rx="6" fill="white"/>
+  <text x="120" y="524" fill="#15803D" font-size="11" font-family="Consolas, monospace">Glob("src/**")</text>
+
+  <path d="M342 481 L 366 481" stroke="#15803D" stroke-width="2"/>
+  <polygon points="366,475 378,481 366,487" fill="#15803D"/>
+
+  <rect x="386" y="462" width="188" height="38" rx="10" fill="#FEE2E2" stroke="#EF4444" stroke-width="2"/>
+  <text x="404" y="486" fill="#B91C1C" font-size="12" font-family="Consolas, monospace">git push（有副作用）</text>
+
+  <text x="600" y="486" fill="#15803D" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">墙钟时间 ≈ 2 × T</text>
+  <text x="600" y="510" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif">只读批次的耗时取决于最慢的那一个，</text>
+  <text x="600" y="532" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif">而不是三者之和。</text>
+
+  <rect x="70" y="568" width="1060" height="52" rx="12" fill="#FEF3C7" stroke="#FCD34D" stroke-width="2"/>
+  <text x="94" y="592" fill="#B45309" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">一个容易踩的坑：并发发出的多个 tool_result，必须放在同一条 user message 里回传。</text>
+  <text x="94" y="612" fill="#92400E" font-size="13" font-family="Segoe UI, Arial, sans-serif">拆成多条消息不会报错，但会悄悄让模型学会「不要再并行调用了」，并行能力就这么退化掉。</text>
+</svg>

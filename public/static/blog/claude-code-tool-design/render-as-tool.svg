@@ -1,0 +1,45 @@
+<svg width="1200" height="580" viewBox="0 0 1200 580" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="580" rx="28" fill="#F8FAFC"/>
+  <rect x="32" y="32" width="1136" height="516" rx="24" fill="white" stroke="#E2E8F0" stroke-width="2"/>
+
+  <text x="70" y="92" fill="#0F172A" font-size="30" font-family="Segoe UI, Arial, sans-serif" font-weight="700">渲染：为什么「提问」也要做成一个工具</text>
+  <text x="70" y="126" fill="#475569" font-size="17" font-family="Segoe UI, Arial, sans-serif">提问本来只是输出文字。做成工具，是为了让前端能渲染它、让循环能停在它上面</text>
+
+  <rect x="70" y="158" width="520" height="368" rx="18" fill="#FEF2F2" stroke="#FCA5A5" stroke-width="2"/>
+  <text x="94" y="192" fill="#B91C1C" font-size="19" font-family="Segoe UI, Arial, sans-serif" font-weight="700">当成普通文本输出</text>
+
+  <text x="94" y="224" fill="#991B1B" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">模型产出</text>
+  <rect x="94" y="232" width="472" height="52" rx="10" fill="white" stroke="#FECACA" stroke-width="1.5"/>
+  <text x="110" y="254" fill="#991B1B" font-size="13" font-family="Segoe UI, Arial, sans-serif">「你想用方案 A 还是方案 B？</text>
+  <text x="110" y="274" fill="#991B1B" font-size="13" font-family="Segoe UI, Arial, sans-serif">A 更快，B 更稳。」</text>
+
+  <text x="94" y="312" fill="#991B1B" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">前端能做的</text>
+  <rect x="94" y="320" width="472" height="44" rx="10" fill="#FEE2E2" stroke="#EF4444" stroke-width="2"/>
+  <text x="110" y="348" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif">只能当一段普通消息显示 —— 它分不清这是在陈述还是在等回答</text>
+
+  <text x="94" y="392" fill="#991B1B" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">循环状态</text>
+  <rect x="94" y="400" width="472" height="70" rx="10" fill="#FEE2E2" stroke="#EF4444" stroke-width="2"/>
+  <text x="110" y="426" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">回合结束，循环继续往下走</text>
+  <text x="110" y="450" fill="#991B1B" font-size="13" font-family="Segoe UI, Arial, sans-serif">典型后果：模型自己替你选了一个，然后接着干活</text>
+
+  <text x="94" y="500" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif">选项、推荐项、互斥关系全都埋在自然语言里，无法结构化消费</text>
+
+  <rect x="610" y="158" width="520" height="368" rx="18" fill="#F5F3FF" stroke="#C4B5FD" stroke-width="2"/>
+  <text x="634" y="192" fill="#7C3AED" font-size="19" font-family="Segoe UI, Arial, sans-serif" font-weight="700">做成 AskUserQuestion 工具</text>
+
+  <text x="634" y="224" fill="#6D28D9" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">模型产出</text>
+  <rect x="634" y="232" width="472" height="52" rx="10" fill="white" stroke="#DDD6FE" stroke-width="1.5"/>
+  <text x="650" y="254" fill="#6D28D9" font-size="11" font-family="Consolas, monospace">question, header, multiSelect,</text>
+  <text x="650" y="274" fill="#7C3AED" font-size="11" font-family="Consolas, monospace" font-weight="700">options[&#123; label, description, preview &#125;]</text>
+
+  <text x="634" y="312" fill="#6D28D9" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">前端能做的</text>
+  <rect x="634" y="320" width="472" height="44" rx="10" fill="#EDE9FE" stroke="#8B5CF6" stroke-width="2"/>
+  <text x="650" y="348" fill="#7C3AED" font-size="13" font-family="Segoe UI, Arial, sans-serif">渲染成选项卡片；有 preview 时自动切成左右对照布局</text>
+
+  <text x="634" y="392" fill="#6D28D9" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">循环状态</text>
+  <rect x="634" y="400" width="472" height="70" rx="10" fill="#EDE9FE" stroke="#8B5CF6" stroke-width="2"/>
+  <text x="650" y="426" fill="#7C3AED" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">阻塞，直到拿到 tool_result</text>
+  <text x="650" y="450" fill="#6D28D9" font-size="13" font-family="Segoe UI, Arial, sans-serif">用户真的作答之后，循环才继续 —— 模型不会替你决定</text>
+
+  <text x="634" y="500" fill="#7C3AED" font-size="13" font-family="Segoe UI, Arial, sans-serif">答案以结构化形式回来，还能带上用户补充的备注</text>
+</svg>

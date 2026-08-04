@@ -1,0 +1,51 @@
+<svg width="1200" height="700" viewBox="0 0 1200 700" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="700" rx="28" fill="#F8FAFC"/>
+  <rect x="32" y="32" width="1136" height="636" rx="24" fill="white" stroke="#E2E8F0" stroke-width="2"/>
+
+  <text x="70" y="92" fill="#0F172A" font-size="30" font-family="Segoe UI, Arial, sans-serif" font-weight="700">新鲜度检查：一条 bash 无法表达的不变量</text>
+  <text x="70" y="126" fill="#475569" font-size="17" font-family="Segoe UI, Arial, sans-serif">下面是写这篇博客时真实发生过的一次：格式化工具在中途改了文件</text>
+
+  <rect x="94" y="158" width="200" height="40" rx="10" fill="#DBEAFE" stroke="#93C5FD" stroke-width="1.5"/>
+  <text x="152" y="184" fill="#1D4ED8" font-size="15" font-family="Segoe UI, Arial, sans-serif" font-weight="700">模型</text>
+  <rect x="480" y="158" width="200" height="40" rx="10" fill="#EDE9FE" stroke="#C4B5FD" stroke-width="1.5"/>
+  <text x="524" y="184" fill="#7C3AED" font-size="15" font-family="Segoe UI, Arial, sans-serif" font-weight="700">harness</text>
+  <rect x="866" y="158" width="200" height="40" rx="10" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="1.5"/>
+  <text x="936" y="184" fill="#334155" font-size="15" font-family="Segoe UI, Arial, sans-serif" font-weight="700">磁盘文件</text>
+
+  <path d="M194 204 L 194 596" stroke="#CBD5E1" stroke-width="2" stroke-dasharray="6 5"/>
+  <path d="M580 204 L 580 596" stroke="#CBD5E1" stroke-width="2" stroke-dasharray="6 5"/>
+  <path d="M966 204 L 966 596" stroke="#CBD5E1" stroke-width="2" stroke-dasharray="6 5"/>
+
+  <text x="212" y="234" fill="#1D4ED8" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">① Read page.tsx</text>
+  <path d="M194 244 L 954 244" stroke="#3B82F6" stroke-width="2"/>
+  <polygon points="954,238 966,244 954,250" fill="#3B82F6"/>
+  <rect x="596" y="256" width="248" height="28" rx="8" fill="#EDE9FE"/>
+  <text x="610" y="275" fill="#7C3AED" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">harness 记下：模型见过的版本 = v1</text>
+
+  <rect x="866" y="298" width="200" height="52" rx="10" fill="#FEF3C7" stroke="#FCD34D" stroke-width="2"/>
+  <text x="884" y="320" fill="#B45309" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">② 外部进程写入</text>
+  <text x="884" y="340" fill="#92400E" font-size="12" font-family="Consolas, monospace">biome check --write</text>
+  <text x="1080" y="330" fill="#B45309" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">v2</text>
+
+  <text x="212" y="386" fill="#1D4ED8" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">③ Edit(old_string, new_string)</text>
+  <path d="M194 396 L 568 396" stroke="#3B82F6" stroke-width="2"/>
+  <polygon points="568,390 580,396 568,402" fill="#3B82F6"/>
+
+  <rect x="404" y="410" width="352" height="30" rx="8" fill="#FEE2E2" stroke="#EF4444" stroke-width="2"/>
+  <text x="420" y="430" fill="#B91C1C" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">harness 比对：v1 ≠ v2 → 拒绝写入，不碰磁盘</text>
+
+  <text x="212" y="468" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">④ 返回错误，要求重读</text>
+  <path d="M568 478 L 206 478" stroke="#EF4444" stroke-width="2"/>
+  <polygon points="206,472 194,478 206,484" fill="#EF4444"/>
+  <rect x="212" y="490" width="480" height="28" rx="8" fill="#FEF2F2" stroke="#FECACA" stroke-width="1.5"/>
+  <text x="226" y="509" fill="#B91C1C" font-size="12" font-family="Consolas, monospace">file was modified … Call Read before editing</text>
+
+  <text x="212" y="548" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700">⑤ 重新 Read（拿到 v2）→ Edit 成功</text>
+  <path d="M194 558 L 954 558" stroke="#22C55E" stroke-width="2"/>
+  <polygon points="954,552 966,558 954,564" fill="#22C55E"/>
+  <rect x="596" y="570" width="248" height="28" rx="8" fill="#DCFCE7"/>
+  <text x="610" y="589" fill="#15803D" font-size="12" font-family="Segoe UI, Arial, sans-serif" font-weight="700">改动落在最新内容上，没有覆盖别人</text>
+
+  <rect x="70" y="612" width="1060" height="44" rx="12" fill="#FEF2F2" stroke="#FECACA" stroke-width="2"/>
+  <text x="94" y="640" fill="#B91C1C" font-size="15" font-family="Segoe UI, Arial, sans-serif" font-weight="700">同样的场景走 bash：sed 会直接覆盖 v2，格式化的成果被默默冲掉，谁都不会收到提示。</text>
+</svg>

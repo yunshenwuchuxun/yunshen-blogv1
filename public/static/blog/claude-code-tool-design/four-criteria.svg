@@ -1,0 +1,68 @@
+<svg width="1200" height="680" viewBox="0 0 1200 680" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="680" rx="28" fill="#F8FAFC"/>
+  <rect x="32" y="32" width="1136" height="616" rx="24" fill="white" stroke="#E2E8F0" stroke-width="2"/>
+
+  <text x="70" y="92" fill="#0F172A" font-size="30" font-family="Segoe UI, Arial, sans-serif" font-weight="700">值得提升为专用工具的四条判据</text>
+  <text x="70" y="126" fill="#475569" font-size="17" font-family="Segoe UI, Arial, sans-serif">每一条都对应一件 bash 在结构上做不到的事 —— 不是性能问题，是信息缺失</text>
+
+  <rect x="70" y="152" width="200" height="34" rx="8" fill="#F1F5F9"/>
+  <text x="88" y="175" fill="#334155" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">判据</text>
+  <rect x="278" y="152" width="330" height="34" rx="8" fill="#FEF2F2"/>
+  <text x="296" y="175" fill="#B91C1C" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">走 bash 会怎样</text>
+  <rect x="616" y="152" width="330" height="34" rx="8" fill="#F0FDF4"/>
+  <text x="634" y="175" fill="#15803D" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">提升成工具后能怎样</text>
+  <rect x="954" y="152" width="176" height="34" rx="8" fill="#EFF6FF"/>
+  <text x="972" y="175" fill="#1D4ED8" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">Claude Code 的例子</text>
+
+  <rect x="70" y="194" width="1060" height="102" rx="14" fill="#FFF7ED" stroke="#FED7AA" stroke-width="2"/>
+  <text x="88" y="226" fill="#9A3412" font-size="17" font-family="Segoe UI, Arial, sans-serif" font-weight="700">① 安全边界</text>
+  <text x="88" y="252" fill="#B45309" font-size="13" font-family="Segoe UI, Arial, sans-serif">难撤销的动作</text>
+  <text x="88" y="274" fill="#B45309" font-size="13" font-family="Segoe UI, Arial, sans-serif">要能单独拦下来</text>
+  <text x="296" y="226" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif">所有动作长得一模一样：一条命令</text>
+  <text x="296" y="250" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif">字符串。想只拦「对外发请求」，只能</text>
+  <text x="296" y="274" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif">去正则匹配命令文本，天然不可靠。</text>
+  <text x="634" y="226" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif">按可撤销性分级：只读直接放行，</text>
+  <text x="634" y="250" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif">写文件按路径判断，对外发送一律</text>
+  <text x="634" y="274" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif">走确认。每类策略独立配置。</text>
+  <text x="972" y="238" fill="#1D4ED8" font-size="13" font-family="Segoe UI, Arial, sans-serif">Write / Edit 受</text>
+  <text x="972" y="260" fill="#1D4ED8" font-size="13" font-family="Segoe UI, Arial, sans-serif">路径规则约束</text>
+
+  <rect x="70" y="306" width="1060" height="102" rx="14" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="2"/>
+  <text x="88" y="338" fill="#1D4ED8" font-size="17" font-family="Segoe UI, Arial, sans-serif" font-weight="700">② 新鲜度检查</text>
+  <text x="88" y="364" fill="#1E40AF" font-size="13" font-family="Segoe UI, Arial, sans-serif">写之前先确认</text>
+  <text x="88" y="386" fill="#1E40AF" font-size="13" font-family="Segoe UI, Arial, sans-serif">文件没被别人改过</text>
+  <text x="296" y="338" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif">sed / 重定向会直接覆盖。别的进程</text>
+  <text x="296" y="362" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif">刚改过的内容被默默冲掉，模型和用户</text>
+  <text x="296" y="386" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif">都不会收到任何提示。</text>
+  <text x="634" y="338" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif">harness 记住「模型上次读到的版本」，</text>
+  <text x="634" y="362" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif">对不上就拒绝写入并要求重读。</text>
+  <text x="634" y="386" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif">这是一条 bash 无法表达的不变量。</text>
+  <text x="972" y="350" fill="#1D4ED8" font-size="13" font-family="Segoe UI, Arial, sans-serif">Edit 必须先</text>
+  <text x="972" y="372" fill="#1D4ED8" font-size="13" font-family="Segoe UI, Arial, sans-serif">Read，否则报错</text>
+
+  <rect x="70" y="418" width="1060" height="102" rx="14" fill="#F5F3FF" stroke="#C4B5FD" stroke-width="2"/>
+  <text x="88" y="450" fill="#7C3AED" font-size="17" font-family="Segoe UI, Arial, sans-serif" font-weight="700">③ 渲染</text>
+  <text x="88" y="476" fill="#6D28D9" font-size="13" font-family="Segoe UI, Arial, sans-serif">有些动作需要</text>
+  <text x="88" y="498" fill="#6D28D9" font-size="13" font-family="Segoe UI, Arial, sans-serif">专门的界面呈现</text>
+  <text x="296" y="450" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif">「提问」如果只是一段普通文本，前端</text>
+  <text x="296" y="474" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif">分不清它是在陈述还是在等回答，也没法</text>
+  <text x="296" y="498" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif">把 agent loop 停在那里。</text>
+  <text x="634" y="450" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif">结构化参数可以渲染成选项模态框、</text>
+  <text x="634" y="474" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif">并行预览、diff 高亮，并且阻塞循环</text>
+  <text x="634" y="498" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif">直到用户真的作答。</text>
+  <text x="972" y="462" fill="#1D4ED8" font-size="13" font-family="Segoe UI, Arial, sans-serif">AskUserQuestion</text>
+  <text x="972" y="484" fill="#1D4ED8" font-size="13" font-family="Segoe UI, Arial, sans-serif">渲染成选择卡片</text>
+
+  <rect x="70" y="530" width="1060" height="102" rx="14" fill="#F0FDF4" stroke="#86EFAC" stroke-width="2"/>
+  <text x="88" y="562" fill="#15803D" font-size="17" font-family="Segoe UI, Arial, sans-serif" font-weight="700">④ 并行调度</text>
+  <text x="88" y="588" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif">只读动作可以</text>
+  <text x="88" y="610" fill="#166534" font-size="13" font-family="Segoe UI, Arial, sans-serif">安全地并发执行</text>
+  <text x="296" y="562" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif">harness 分不清一条命令是 grep 还是</text>
+  <text x="296" y="586" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif">git push，为了安全只能全部串行 ——</text>
+  <text x="296" y="610" fill="#B91C1C" font-size="13" font-family="Segoe UI, Arial, sans-serif">哪怕十次搜索本可以一起跑。</text>
+  <text x="634" y="562" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif">工具自带「是否只读」的属性，harness</text>
+  <text x="634" y="586" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif">可以把一批只读调用并发跑完，把有</text>
+  <text x="634" y="610" fill="#15803D" font-size="13" font-family="Segoe UI, Arial, sans-serif">副作用的排到后面。</text>
+  <text x="972" y="574" fill="#1D4ED8" font-size="13" font-family="Segoe UI, Arial, sans-serif">Glob / Grep / Read</text>
+  <text x="972" y="596" fill="#1D4ED8" font-size="13" font-family="Segoe UI, Arial, sans-serif">可同批并发</text>
+</svg>
