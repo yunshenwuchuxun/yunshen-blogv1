@@ -57,12 +57,12 @@ Claude Code 的所有设计取舍，都能从这个目标函数推出来。
 
 四层作用域按从广到窄排列：
 
-| 作用域 | 位置 | 谁能看到 |
+| 作用域 | 位置（以 Windows 为例） | 谁能看到 |
 | --- | --- | --- |
-| Managed policy | macOS `/Library/Application Support/ClaudeCode/CLAUDE.md`<br />Linux `/etc/claude-code/CLAUDE.md` | 全组织，个人设置无法排除 |
-| User | `~/.claude/CLAUDE.md` | 只有你，所有项目 |
-| Project | `./CLAUDE.md` 或 `./.claude/CLAUDE.md` | 团队，随版本控制走 |
-| Local | `./CLAUDE.local.md` | 只有你，当前项目 |
+| Managed policy | `C:\Program Files\ClaudeCode\CLAUDE.md`<br />macOS：`/Library/Application Support/ClaudeCode/CLAUDE.md`<br />Linux 与 WSL：`/etc/claude-code/CLAUDE.md` | 本机所有用户，个人设置无法排除 |
+| User | `C:\Users\<你的用户名>\.claude\CLAUDE.md`<br />macOS 与 Linux：`~/.claude/CLAUDE.md` | 只有你，所有项目 |
+| Project | 仓库根目录的 `CLAUDE.md`，或 `.claude\CLAUDE.md` | 团队，随版本控制走 |
+| Local | 仓库根目录的 `CLAUDE.local.md` | 只有你，当前项目 |
 
 这里有一个我认为最值得注意的设计选择：<strong>不是覆盖，是拼接</strong>。
 
@@ -127,7 +127,7 @@ paths:
 
 这是同一个模式的第二次出现：<strong>规则在真正需要它的那一刻到场</strong>。写文档的时候看不到 API 规范，这不是缺陷，正是想要的效果 —— 无关规则既不干扰判断，也不花预算。
 
-顺手记几个工程细节：`.claude/rules/` 支持软链，可以跨项目共享一份规则；`~/.claude/rules/` 是用户级，先于项目级加载（所以项目级优先）；monorepo 里被别的团队的 CLAUDE.md 污染时，用 `claudeMdExcludes` 按 glob 排除。
+顺手记几个工程细节：`.claude/rules/` 支持软链，可以跨项目共享一份规则（Windows 上建软链要管理员权限或开启开发者模式，用前面的导入语法更省事）；`~/.claude/rules/` 是用户级，先于项目级加载（所以项目级优先）；monorepo 里被别的团队的 CLAUDE.md 污染时，用 `claudeMdExcludes` 按 glob 排除。
 
 ## Auto Memory：Claude 自写的那一半
 
@@ -135,7 +135,7 @@ paths:
 
 ![Auto Memory 目录结构与加载预算：MEMORY.md 只有前 200 行或 25KB 进上下文，超出部分静默丢弃，主题文件靠 Read 按需读取](/static/blog/claude-code-memory/auto-memory-layout.svg)
 
-存储位置是 `~/.claude/projects/<项目>/memory/`，其中项目路径<strong>由 git repo 派生</strong>。这个小决定有实际效果：同一仓库的所有 worktree 和子目录共享同一份记忆 —— 你在 `worktree-a` 里教它的事，在 `worktree-b` 里依然算数。但它是机器本地的，不跨机同步。
+存储位置是 `C:\Users\<你的用户名>\.claude\projects\<项目>\memory\`（macOS 与 Linux 下是 `~/.claude/projects/<项目>/memory/`），其中项目路径<strong>由 git repo 派生</strong>。这个小决定有实际效果：同一仓库的所有 worktree 和子目录共享同一份记忆 —— 你在 `worktree-a` 里教它的事，在 `worktree-b` 里依然算数。但它是机器本地的，不跨机同步。
 
 目录里是<strong>一个索引 + 若干主题文件</strong>：
 
