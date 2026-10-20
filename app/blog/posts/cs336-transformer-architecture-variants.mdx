@@ -58,6 +58,45 @@ $$
 
 点积绝对值过大，会把 softmax 推入<strong>梯度极小的饱和区</strong>，反向传播几乎传不动。除以 $\sqrt{d_k}$ 把方差重新标准化，让无论维度多大，输入 softmax 的数值都落在合理范围，训练才稳。
 
+### 因果掩码：不许偷看未来
+
+GPT、LLaMA 这类<strong>仅解码器</strong>（decoder-only）语言模型的任务是预测下一个 token。如果位置 $i$ 在计算注意力时能看到 $i+1$ 及之后的 token，答案就直接泄露了，训练目标变得毫无意义；而且推理时这些未来的 token 根本还不存在。
+
+最笨的办法是对长度为 $n$ 的序列，分别用 $n$ 个前缀各跑一遍注意力。实际的做法是加一个<strong>因果掩码</strong> $M$：在 softmax 之前，把"查询 $i$ 看键 $j$ 且 $j > i$"的位置加上 $-\infty$：
+
+$$
+\text{Attention}(Q, K, V) = \text{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}} + M\right)V,
+\qquad
+M_{ij} =
+\begin{cases}
+0 & j \le i \\
+-\infty & j > i
+\end{cases}
+$$
+
+$e^{-\infty} = 0$，被遮住的位置经过 softmax 后概率正好为 0，每一行剩下的概率仍然加起来等于 1。实现上一般用布尔矩阵表示"能不能看"：
+
+```python
+seq_len = x.shape[-2]
+# 下三角（含对角线）为 True：位置 i 只能看到 j <= i 的位置
+causal_mask = torch.tril(torch.ones(seq_len, seq_len, dtype=torch.bool, device=x.device))
+
+scores = q @ k.transpose(-2, -1) / math.sqrt(d_k)
+scores = scores.masked_fill(~causal_mask, float("-inf"))  # 不能看的位置填 -inf
+weights = torch.softmax(scores, dim=-1)                   # 这些位置的概率正好为 0
+out = weights @ v
+```
+
+几个容易踩坑的地方：
+
+- <strong>要在 softmax 之前填 $-\infty$，而不是在 softmax 之后乘 0</strong>：后者会破坏归一化，每行的概率加起来不再是 1。
+- <strong>掩码按实际序列长度生成</strong>，不要写死成最大上下文长度，否则输入比上下文短时形状就对不上。
+- <strong>整行都被遮住会得到 NaN</strong>（$-\infty - (-\infty)$）。因果掩码总会保留对角线，所以不会出现这种情况；但自己组合 padding 掩码时要当心。
+- <strong>一次前向就能得到所有位置的预测</strong>：因果掩码让序列中的 $n$ 个位置同时、各自只基于前缀做预测，一次前向传播就产生 $n$ 个训练信号，这是 Transformer 训练效率高的关键。
+- <strong>推理时配合 KV Cache</strong>（见下文[第三部分](#一切的起点kv-cache)）：每次只算新 token 的查询，它本来就只能看到已经缓存的键，掩码就隐含在这个计算方式里了。
+
+因果掩码还有一个有趣的副作用：即使完全不加位置编码（NoPE），模型理论上也能靠"能看到多少个 token"推断出位置。不过在我的[作业 1 消融实验](/blog/cs336-assignment1-experiments)里，去掉 RoPE 之后验证损失高了 0.18，是四个消融实验里影响最大的一个：能推断位置，不代表推断得够好。
+
 ### 残差连接与层归一化
 
 深层网络面临两个老问题：信息随层数加深而损失、梯度不稳定。Transformer 用<strong>残差连接</strong>和<strong>层归一化</strong>这对组合来应对。
