@@ -348,6 +348,88 @@ $$
 \text{总显存} = (\text{参数} + \text{梯度} + \text{优化器状态} + \text{激活值}) \times \text{每元素字节数}
 $$
 
+激活值怎么估？CS336 作业 1 的 `adamw_accounting` 题给出了一种算法：按 float32 计，只统计反向传播必须保留的主要中间结果。设上下文长度为 $T$、隐藏维度为 $d$、头数为 $h$、前馈网络内层维度为 $d_{ff}$，每个 Transformer 层要存两个 RMSNorm 的输出（$2Td$）、Q/K/V 投影（$3Td$）、注意力分数和 softmax 之后的注意力权重（$2hT^2$）、对 V 的加权求和与输出投影（$2Td$）、SwiGLU 的 $W_1$ 输出、SiLU 输出、$W_3$ 输出和逐元素乘积（$4Td_{ff}$），以及 $W_2$ 的输出（$Td$）。合计每层每个样本：
+
+$$
+T\,(8d + 4d_{ff}) + 2hT^2
+$$
+
+最后再加上最终归一化的输出（$Td$）、logits 和交叉熵里的 softmax（$2TV$，$V$ 为词表大小）。代入 GPT-2 XL 的形状（48 层，$d=1600$，$h=25$，$d_{ff}=4288$，$T=1024$，$V=50257$）：参数、梯度和 AdamW 状态这些固定部分共 26.25GB，激活值每个样本约 16.37GB，所以一张 80GB 的卡上<strong>批大小最多只能取 3</strong>。注意 $2hT^2$ 这一项随上下文长度平方增长，上下文一长，它就成了激活值的大头；这也是 FlashAttention 不把注意力矩阵完整存下来的动机之一。
+
+### 语言模型的损失：交叉熵与数值稳定
+
+下文的通用训练循环为了演示用的是均方误差。语言模型在每个位置 $i$ 输出一个长度为词表大小的 logits 向量 $o_i$，训练目标是让真实的下一个 token $x_{i+1}$ 概率尽可能大，用的是<strong>交叉熵</strong>（负对数似然）：
+
+$$
+\ell_i = -\log \operatorname{softmax}(o_i)[x_{i+1}] = -o_i[x_{i+1}] + \log \sum_{a} \exp(o_i[a])
+$$
+
+直接照着定义写会碰到两个数值问题：
+
+- <strong>上溢</strong>：logits 稍大，$\exp$ 就会变成 `inf`。解决办法是先减去最大值 $m$，这利用了 softmax 的平移不变性：$\log \sum_a e^{o_a} = m + \log \sum_a e^{o_a - m}$，减完之后 $\exp$ 的输入都不大于 0。
+- <strong>下溢</strong>：如果先算出 softmax 概率再取 $\log$，概率很小时会下溢成 0，$\log 0 = -\infty$。所以要直接用上式右边的形式，让 $\log$ 和 $\exp$ 相互抵消。
+
+```python
+def cross_entropy(logits, targets):
+    # logits: (..., vocab_size)；targets: (...)，是正确 token 的 id
+    shifted = logits - logits.amax(dim=-1, keepdim=True)  # 减去最大值，exp 不会溢出
+    log_sum_exp = torch.log(torch.exp(shifted).sum(dim=-1))
+    target_logits = shifted.gather(-1, targets.unsqueeze(-1)).squeeze(-1)
+    return (log_sum_exp - target_logits).mean()  # 对所有批维度取平均
+```
+
+评估时更常报告<strong>困惑度</strong>（perplexity），也就是平均交叉熵的指数 $\exp(\bar\ell)$，可以理解为"模型平均在多少个候选 token 之间犹豫"。还有一个很实用的检查：刚初始化的模型近似于均匀分布，损失应该接近 $\ln V$（词表 1 万时约 9.21）。如果训练到一半损失比这个值还高，就说明训练已经发散了。
+
+### 学习率调度：预热 + 余弦退火
+
+学习率一般不会固定不变。LLaMA 等模型常用的是<strong>带线性预热的余弦退火</strong>：设最大学习率 $\alpha_{\max}$、最小学习率 $\alpha_{\min}$、预热步数 $T_w$、退火结束步数 $T_c$，第 $t$ 步的学习率为
+
+$$
+\alpha_t =
+\begin{cases}
+\dfrac{t}{T_w}\,\alpha_{\max} & t < T_w \\[6pt]
+\alpha_{\min} + \dfrac{1}{2}\left(1 + \cos\left(\dfrac{t - T_w}{T_c - T_w}\,\pi\right)\right)(\alpha_{\max} - \alpha_{\min}) & T_w \le t \le T_c \\[6pt]
+\alpha_{\min} & t > T_c
+\end{cases}
+$$
+
+- <strong>预热</strong>：训练刚开始时参数是随机的，Adam 的二阶矩估计也还不可靠，一上来就用大学习率很容易不稳定，所以从 0 线性升上去。
+- <strong>余弦退火</strong>：前期用大步长快速下降，后期平滑地降到最小值，让模型稳定地收敛下来。
+
+```python
+import math
+
+def get_lr_cosine_schedule(t, lr_max, lr_min, warmup_iters, cosine_cycle_iters):
+    if t < warmup_iters:
+        return t / warmup_iters * lr_max
+    if t <= cosine_cycle_iters:
+        progress = (t - warmup_iters) / (cosine_cycle_iters - warmup_iters)  # 0 → 1
+        return lr_min + 0.5 * (1 + math.cos(math.pi * progress)) * (lr_max - lr_min)
+    return lr_min
+```
+
+实践中通常把 $T_c$ 设成总训练步数，让学习率恰好在最后一步降到最小值；$\alpha_{\min}$ 常取 $\alpha_{\max}$ 的十分之一左右。
+
+### 梯度裁剪：给更新幅度设一个上限
+
+训练中偶尔会遇到让梯度突然变得很大的批次，一次过大的更新就可能毁掉之前的训练成果。<strong>梯度裁剪</strong>的做法是：把所有参数的梯度看成一个大向量，算出它的 $\ell_2$ 范数 $\lVert g \rVert_2$；如果超过上限 $M$，就整体等比缩小：
+
+$$
+g \leftarrow g \cdot \frac{M}{\lVert g \rVert_2 + \varepsilon} \quad \text{if } \lVert g \rVert_2 > M
+$$
+
+```python
+def clip_gradients(parameters, max_norm, eps=1e-6):
+    grads = [p.grad for p in parameters if p.grad is not None]
+    total_norm = torch.sqrt(sum((g ** 2).sum() for g in grads))  # 所有参数合起来算范数
+    if total_norm > max_norm:
+        for g in grads:
+            g.mul_(max_norm / (total_norm + eps))  # 原地等比缩小，方向不变
+    return total_norm  # 返回裁剪前的范数，方便记录
+```
+
+缩放只改变梯度的大小、不改变方向。把裁剪前的范数记下来也很有用：它是观察训练是否稳定最直接的指标。在我的[作业 1 实验复盘](/blog/cs336-assignment1-experiments)里，去掉 RMSNorm 后梯度范数一度冲到 411，正是靠裁剪才没有让训练崩掉；反过来，学习率过大时裁剪也会把发散"压"成损失停滞不降，看上去没有 NaN，其实训练已经出了问题。
+
 ### 训练循环、检查点与混合精度
 
 把上面所有部件拼起来，标准训练循环就是"取批 → 前向算 loss → 反向算梯度 → 更新 → 清零"五步：
@@ -361,6 +443,22 @@ for t in range(num_train_steps):
     loss.backward()                  # 反向：填充各参数的 .grad
     optimizer.step()                 # 用梯度更新参数
     optimizer.zero_grad(set_to_none=True)  # 清零，准备下一步
+```
+
+换成语言模型，就把前面几节的零件都装进去：每步开始前按调度设置学习率，损失换成交叉熵，取批时目标序列是输入整体右移一位，并在更新之前裁剪梯度：
+
+```python
+for step in range(num_steps):
+    lr = get_lr_cosine_schedule(step, lr_max, lr_min, warmup_steps, num_steps)
+    for group in optimizer.param_groups:
+        group["lr"] = lr                             # 每一步按调度设置学习率
+
+    x, y = get_batch(tokens, batch_size, context_length, device)  # y 是 x 右移一位
+    loss = cross_entropy(model(x), y)
+    optimizer.zero_grad(set_to_none=True)
+    loss.backward()
+    clip_gradients(model.parameters(), max_norm=1.0)  # 在 step 之前裁剪
+    optimizer.step()
 ```
 
 长时间训练必须能<strong>断点续训</strong>。检查点要同时保存模型和优化器状态（否则 Adam 的动量会丢失）：
@@ -399,3 +497,6 @@ optimizer.load_state_dict(ckpt["optimizer"])
 - [PyTorch 官方文档 · 自动混合精度（AMP）](https://pytorch.org/docs/stable/amp.html)
 - [einops 官方文档](https://einops.rocks/)
 - [FlashAttention（arXiv:2205.14135）](https://arxiv.org/abs/2205.14135)
+- [Stanford CS336 · Assignment 1: Basics](https://github.com/stanford-cs336/assignment1-basics)（交叉熵、AdamW、学习率调度、梯度裁剪与资源核算题）
+- [Loshchilov & Hutter · SGDR: Stochastic Gradient Descent with Warm Restarts（arXiv:1608.03983）](https://arxiv.org/abs/1608.03983)（余弦退火）
+- [Pascanu et al. · On the difficulty of training Recurrent Neural Networks（arXiv:1211.5063）](https://arxiv.org/abs/1211.5063)（梯度裁剪）
