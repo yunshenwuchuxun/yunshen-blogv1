@@ -59,6 +59,59 @@ $$
 | BERT 等双向注意力 | ❌ 不适用 | 任一 token 改动都影响全局表示 |
 | 扩散模型 | ⚠️ 部分适用 | 条件编码可复用，但扩散步骤间会变 |
 
+### Decode 每一步怎么选词：贪心、温度与 top-p
+
+Decode 每走一步，模型在最后一个位置输出一个长度为词表大小的 logits 向量 $v$。怎么从它得到下一个 token，就是<strong>解码策略</strong>。它几乎不增加计算量（贵的是那次前向传播），却直接决定了输出的质量和多样性。
+
+- <strong>贪心解码</strong>：每步都取概率最大的 token。结果确定，但容易陷入重复、千篇一律。
+- <strong>采样</strong>：按 $\operatorname{softmax}(v)$ 给出的概率随机抽取。输出有变化，但也可能偶尔抽中长尾里不合适的词。
+
+在采样的基础上，有两个最常用的调节手段。第一个是<strong>温度</strong> $\tau$：先把 logits 除以 $\tau$ 再做 softmax，
+
+$$
+\operatorname{softmax}(v, \tau)_i = \frac{\exp(v_i / \tau)}{\sum_j \exp(v_j / \tau)}
+$$
+
+$\tau < 1$ 让分布更尖锐、更保守，$\tau \to 0$ 时就退化成贪心；$\tau > 1$ 让分布更平坦，低概率的词更容易被抽中。
+
+第二个是 <strong>top-p（核采样）</strong>：把 token 按概率从大到小排序，只保留累计概率刚好达到 $p$ 的最小集合 $V(p)$，在其中重新归一化后再采样：
+
+$$
+P(x_{t+1} = i) =
+\begin{cases}
+\dfrac{q_i}{\sum_{j \in V(p)} q_j} & i \in V(p) \\[6pt]
+0 & \text{otherwise}
+\end{cases}
+$$
+
+和固定保留前 $k$ 个的 top-k 相比，top-p 的候选集大小是<strong>自适应</strong>的：模型很确定时只剩一两个候选，拿不准时候选自动变多。
+
+```python
+def sample_next_token(logits, temperature=1.0, top_p=1.0):
+    if temperature == 0:
+        return logits.argmax(dim=-1, keepdim=True)            # 贪心
+    probs = torch.softmax(logits / temperature, dim=-1)
+    if top_p < 1.0:
+        sorted_probs, sorted_ids = torch.sort(probs, descending=True)
+        # 排在某个 token 前面的累计概率还不到 p，它就被保留
+        before = torch.cumsum(sorted_probs, dim=-1) - sorted_probs
+        sorted_probs = sorted_probs * (before < top_p)
+        probs = torch.zeros_like(probs).scatter(-1, sorted_ids, sorted_probs)
+        probs = probs / probs.sum()                           # 重新归一化
+    return torch.multinomial(probs, num_samples=1)
+```
+
+我在 [CS336 作业 1](/blog/cs336-assignment1-experiments) 里用一个在 TinyStories 上训练的小模型（约 2300 万参数）试过几组设置，差别非常直观：
+
+| 设置 | 生成效果 |
+|---|---|
+| $\tau = 0.3$ | 最通顺，但千篇一律：Lily、红色的球、公园、Tim 丢了玩具，都是数据集里最常见的套路 |
+| $\tau = 0.8$，$p = 0.9$ | 流畅且多样，只偶尔有小的逻辑错误 |
+| $\tau = 1.2$，$p = 0.9$ | 开始出现生造的词（"hercess"），情节混乱 |
+| $\tau = 1.2$，$p = 1.0$ | 基本是乱码 |
+
+最后两行说明了 top-p 的价值：高温把长尾低概率词的概率抬高了，top-p 正好把这条长尾截掉。实践中"温度 0.7 到 1.0、配合 top-p 0.9 左右"是常见的起点。后文讲的推测解码之所以能"无损"加速，也是因为它在验证草稿 token 时，严格保持了这里定义的采样分布。
+
 ## 三、真正的瓶颈：算术强度与"拼车效应"
 
 为什么 decode 这么慢？答案藏在一个叫<strong>算术强度（Arithmetic Intensity）</strong>的指标里——每从显存搬运 1 字节数据，能喂给计算单元做多少次浮点运算：
@@ -218,3 +271,4 @@ prefill 的成本和 KV Cache 的占用都随 prompt 长度增长，所以第三
 - <strong>大小模型协作 / 推测级联</strong>（[arXiv:2405.19261](https://arxiv.org/pdf/2405.19261)）。
 - <strong>LLaDA2.0</strong> 官方报告；Google <strong>Gemma 4</strong> 推理加速公告。
 - Datawhale diy-llm 第十章《推理》（[原文](https://datawhalechina.github.io/diy-llm/chapter10/%E6%8E%A8%E7%90%86.html)）。
+- Holtzman et al., 2020. <strong>The Curious Case of Neural Text Degeneration</strong>（[arXiv:1904.09751](https://arxiv.org/abs/1904.09751)），top-p（核采样）的提出。
