@@ -1,0 +1,451 @@
+---
+title: 'CS336 作业 1 实验复盘：在 MacBook 上从零训练一个小语言模型'
+publishedAt: '2026-10-20'
+summary: '在一台 16GB 内存的 M2 Pro MacBook 上，按讲义的低资源配置跑完 CS336 作业 1 第 7 节的全部实验：学习率扫描、批大小、文本生成、四个架构消融和 OpenWebText 主实验，本机累计训练约 9 小时，没用云 GPU。复盘每组实验的设置与结果，以及梯度裁剪如何把“发散”变成“停滞”、为什么 RMSNorm 的价值主要体现在训练稳定性上等结论。'
+draft: false
+image: '/static/blog/cs336-assignment1-experiments/cover.svg'
+tags: [DL, LLM, Training, Tech Blog]
+---
+
+CS336 作业 1 的前半部分是"造零件"：BPE 分词器、Transformer 的每一层、交叉熵、AdamW、学习率调度、训练循环。第 7 节才真正"开炉"——用自己写的这套代码训练语言模型，并通过一组实验回答几个很实际的问题：<strong>学习率该怎么找？批大小怎么选？Transformer 里那些标准组件拆掉会怎样？换一个更难的数据集，同样的配置还够不够？</strong>
+
+我是自学这门课，不冲排行榜，手上只有一台 16GB 内存的 MacBook M2 Pro。好在讲义为算力有限的情况准备了一套<strong>低资源配置</strong>：在 TinyStories 上训练 4096 万 token，验证损失降到 2.00 以下即可。于是给自己定的目标是：<strong>不用云 GPU，全部实验在 Mac 的 MPS 后端上跑完，并且弄清楚每个实验想说明什么。</strong> 最终除了要在 B200 上计时的排行榜，第 7 节的实验全部完成，本机累计训练约 9 小时。
+
+本文是这份实验日志的复盘。先把几个最值得记住的结论放在前面：
+
+- <strong>梯度裁剪改变了"发散"的样子</strong>：学习率过大时，损失不再变成 NaN，而是长时间卡在高位。最佳学习率 1.5e-3 位于"开始停滞"的边缘之下，离真正的发散点约 100 倍。
+- <strong>固定 token 预算下，批大小 16 到 32 最好</strong>；批 128 只能更新 312 步，调学习率也补不回来。
+- <strong>四个消融里，去掉位置编码伤害最大（+0.18）</strong>；去掉 RMSNorm 的损失差距不算大，但梯度范数会冲到 411.7。
+- <strong>换成 OpenWebText 后，即使换算成 bits/字节，损失仍是 TinyStories 的约 2.7 倍</strong>，差距主要来自数据本身。
+
+## 实验设置：一台笔记本上的低资源配置
+
+### 硬件、数据与模型
+
+所有实验共用下面这套设置，后文只说明和它不同的地方：
+
+| 项目 | 设置 |
+|------|------|
+| 硬件 | MacBook M2 Pro，16GB 内存，MPS 后端；PyTorch 2.11 |
+| 数据 | TinyStories：训练集 5.41 亿 token，验证集 547 万 token；1 万词表的 BPE 分词器 |
+| 模型 | 讲义 7.2.1 节配置：词表 10,000，上下文 256，`d_model` 512，`d_ff` 1344，4 层，16 头，RoPE θ=10,000；共 22.7M 参数 |
+| 优化器 | AdamW，β=(0.9, 0.95)，ε=1e-8，权重衰减 0.1；梯度裁剪（L2 范数）阈值 1.0 |
+| 学习率调度 | 余弦退火，预热占总步数 8%，最小学习率为最大学习率的 1/10，在最后一步降到最小值 |
+| 训练预算 | 扫参和消融：每次 1024 万 token（批 16 × 2,500 步，约 15 分钟）；最终模型：4096 万 token（讲义的低资源配置） |
+
+这个模型的架构就是第三讲里收敛出的"LLaMA 范式"：前置归一化 + RMSNorm + SwiGLU + RoPE（各组件的来龙去脉见[第三讲 · Transformer 架构与现代变体](/blog/cs336-transformer-architecture-variants)）。分词器用的是第一讲讲过的 BPE（见[第一讲 · 分词器](/blog/cs336-tokenizer)）。后面的消融实验，就是把这些组件逐个拆掉看效果。
+
+之所以把扫参和消融压到每次 1024 万 token，是一笔很朴素的时间账：每次约 15 分钟，一组五六个运行一两个小时就能跑完；如果每次都按 4096 万 token 跑，一次就要一个小时左右，整套实验在笔记本上会拖得很长。
+
+### 三个脚本撑起整套实验
+
+实验能不能复盘，取决于当时记下了什么。日志基础设施由三个脚本组成：
+
+- <strong>`scripts/train.py`</strong>：负责训练。每次运行把步数、token 数、墙钟时间、训练损失、学习率、梯度范数、验证损失写进 `runs/运行名/metrics.jsonl`，超参数写进 `config.json`；一旦判定训练发散就提前结束（判断标准起初只看 NaN 或 inf，后来又补了一条，见下文学习率一节）。
+- <strong>`scripts/sweep.py`</strong>：按组批量运行。已完成的运行自动跳过，中断后重新执行即可接着跑。
+- <strong>`scripts/plot_runs.py`</strong>：画学习曲线（训练损失对步数；验证损失分别对步数、token 数、墙钟时间），并输出汇总表。本文的所有图都出自它。
+
+其中有两个字段事后证明很关键：<strong>梯度范数</strong>让消融实验能讨论"稳定性"而不只是"最终损失"；<strong>墙钟时间</strong>让批大小实验能区分"按 token 比"和"按时间比"。
+
+### 为什么要固定评估子集
+
+验证损失有两种算法：
+
+- <strong>训练过程中</strong>：每走完 10% 的进度，随机抽 50 批估计一次验证损失，用来画曲线。它便宜，但有大约 ±0.02 的噪声。
+- <strong>训练结束时</strong>：在验证集的<strong>前 200 万 token</strong> 上完整评估一次，得到下文表格里的"固定子集验证损失"。
+
+为什么要多此一举？因为这次实验里很多有意义的差距本身就只有 0.01 到 0.03：1e-3 到 2e-3 几个学习率之间差不到 0.03，调好学习率的最终模型只比基线好 0.015。随机抽批的噪声和这些差距是同一个量级，两次运行各自抽到不同的数据，差出来的那一点可能只是运气。固定子集让所有运行在同一段文本上打分，结果才能直接比较。
+
+不过要注意，固定子集消除的只是<strong>评估</strong>的噪声。每个配置都只跑了一个随机种子，<strong>训练</strong>本身的随机性还在，所以 0.03 以内的差距仍然要谨慎看待。
+
+### 起点：一次未调参的基线
+
+正式实验前，先用未调过的学习率 1e-3 跑了一次完整基线：批 16 × 10,000 步（4096 万 token），预热 400 步。用时 61 分钟，约 11,300 token/s，最终验证损失约 1.69（这次运行早于固定子集评估功能，是随机抽 50 批的估计）。
+
+这已经达到了低资源目标（≤ 2.00）。生成的故事语法基本通顺，但会出现人物关系混乱和常识错误。也就是说，<strong>在 TinyStories 上"训出能用的模型"并不难，后面的实验更多是在理解各个设计选择的影响。</strong>
+
+## 学习率扫描：稳定性的边缘在哪里
+
+学习率几乎是最重要的超参数。这一节的题目有两问：找到最佳学习率；再讨论一个流行说法——<strong>最佳学习率位于"稳定性的边缘"</strong>，也就是刚好不发散的那个位置附近。
+
+### 搜索策略：粗扫、细扫、找发散点
+
+搜索分三步走：
+
+1. <strong>粗扫</strong>：按大约半个数量级的间隔取 `3e-4, 1e-3, 3e-3, 1e-2, 3e-2`，每次 1024 万 token。
+2. <strong>细扫</strong>：粗扫里最好的两个点是 1e-3（2.019）和 3e-3（2.142）。对最低点及其两侧的三个点（3e-4、1e-3、3e-3）在对数学习率上拟合一条抛物线，最优约在 1.3e-3，于是在两点之间补了 `1.5e-3, 2e-3`。
+3. <strong>找发散点</strong>：粗扫到 3e-2 都没有发散，于是继续往上试 `0.1, 0.3, 1.0`。
+
+第二步的抛物线拟合值得多说一句。损失对学习率的关系在对数坐标下通常是一个"碗"，在碗底附近用二次函数近似：
+
+$$
+L(x) \approx a x^2 + b x + c, \qquad x = \log \eta
+$$
+
+顶点 $x^* = -\dfrac{b}{2a}$ 就是估计的最优学习率。三个点就能定一条抛物线，比盲目加密网格省下好几次运行。
+
+### 梯度裁剪把"发散"变成了"停滞"
+
+第三步出现了一个意外：学习率一路加到 3e-2、甚至 0.1，损失都没有变成 NaN。原因是<strong>梯度裁剪挡住了 NaN</strong>——学习率过大时，损失只会卡在高位甚至飙升，但不会数值溢出。原先"损失为 NaN/inf 才算发散"的判断标准因此失灵了。
+
+于是把发散的判断补全为：损失为 NaN/inf，<strong>或者</strong>预热结束后训练损失高于"均匀乱猜"的水平。如果模型对 10,000 个词元一视同仁地输出均匀分布，交叉熵恰好是：
+
+$$
+\mathcal{L}_{\text{uniform}} = -\ln \frac{1}{V} = \ln 10000 \approx 9.21
+$$
+
+损失高于这个值，意味着模型比"什么都不知道"还差——它已经被训坏了，继续跑没有意义。
+
+### 结果
+
+![学习率扫描：左上为训练损失，其余三张为验证损失，横轴分别是步数、训练 token 数和墙钟时间](/static/blog/cs336-assignment1-experiments/lr_sweep.png)
+
+![加入发散运行后的学习曲线：lr=1 在预热期间就飙升，lr=0.3 在预热结束后开始上升](/static/blog/cs336-assignment1-experiments/lr_divergence.png)
+
+| 学习率 | 固定子集验证损失 | 状态 |
+|------|------|------|
+| 3e-4 | 2.327 | 完成：一直在稳定下降，但太慢，到结束还明显没训够 |
+| 1e-3 | 2.019 | 完成 |
+| <strong>1.5e-3</strong> | <strong>1.993</strong> | 完成：<strong>最佳</strong> |
+| 2e-3 | 2.007 | 完成 |
+| 3e-3 | 2.142 | 完成 |
+| 1e-2 | 2.546 | 完成：前 30% 的进度卡在 3.4 附近，学习率衰减后才开始下降 |
+| 3e-2 | 2.589 | 完成：前 30% 的进度卡在 4.0 附近 |
+| 0.1 | 3.610 | 完成：前 60% 的进度卡在 4.6–4.8 |
+| 0.3 | — | <strong>发散</strong>：预热结束（第 200 步）后损失从 5 升到 11，第 600 步停止 |
+| 1.0 | — | <strong>发散</strong>：预热期间损失就飙到 88，第 225 步停止 |
+
+这张表可以分成三段来读：
+
+- <strong>最佳区域很平</strong>：最佳学习率是 1.5e-3，1e-3 到 2e-3 之间是一块很平的区域，差距不到 0.03；离开这块区域，两侧都变差得很快。
+- <strong>学习率太小</strong>（3e-4）：训练稳定但慢，同样的 token 预算下损失高了 0.33。
+- <strong>学习率太大但没有发散</strong>（1e-2 到 0.1）：有梯度裁剪兜着，损失不会变成 NaN，表现是<strong>训练前期停滞</strong>——损失卡在一个平台上，等余弦调度把学习率降下来才开始下降。相当于有相当一部分预算浪费在了平台期上，最终结果比最佳学习率差 0.5 到 1.6。
+
+另外，所有运行的速度都约为 11,100 token/s，学习率不影响速度。
+
+### 最佳学习率离发散点有多远
+
+回到题目里的那个说法。如果"不稳定"指的是<strong>损失变成 NaN 或高于 ln V</strong>，那么真正的发散点在 0.1 到 0.3 之间，最佳学习率 1.5e-3 比它小约 100 倍，并不紧贴发散点。
+
+但如果把"不稳定"理解为<strong>训练前期出现停滞或损失尖峰</strong>，这条边缘在 3e-3 到 1e-2 之间就出现了。最佳学习率 1.5e-3 正好在还没碰到这条边缘的最大值附近：再大一点（3e-3）就开始变差，大到 1e-2 就明显停滞。
+
+所以在有梯度裁剪的情况下，更实用的说法是：<strong>最佳学习率位于"训练开始出现停滞"的边缘之下，而不是 NaN 发散的边缘。</strong> 这也给调参提了个醒：有梯度裁剪时，找学习率上限不能只看有没有 NaN，还要看学习曲线前期有没有出现平台。
+
+## 最终模型：用最佳学习率跑满 4096 万 token
+
+用 1.5e-3 跑完整的低资源配置：批 16 × 10,000 步，预热 800 步（总步数的 8%），用时 59 分钟。
+
+![最终模型与基线的学习曲线：两条曲线几乎重合，最终模型在末段略低](/static/blog/cs336-assignment1-experiments/best_vs_baseline.png)
+
+| 运行 | 学习率 | 固定子集验证损失 |
+|------|------|------|
+| `tinystories_baseline` | 1e-3（未调），预热 400 | 1.6838 |
+| `best_lr_0.0015` | <strong>1.5e-3</strong>，预热 800 | <strong>1.6685</strong> |
+
+两次运行都在同一个固定子集上评估（基线的检查点是事后补评估的）。调学习率带来约 0.015 的提升（两次的预热步数也不同，400 对 800，严格说这是两处改动合起来的效果），方向和 1024 万 token 扫描时一致，但幅度更小——当时 1e-3 和 1.5e-3 差 0.026。<strong>训练得更久以后，学习率的影响变小了。</strong> 两个模型都远低于 2.00 的低资源目标。
+
+## 批大小：固定 token 预算下的取舍
+
+### 设置
+
+批大小实验的关键约束是<strong>总 token 数固定</strong>：每次运行都是 1024 万 token，所以批越大，步数越少——批 8 是 5,000 步，批 128 只有 312 步。预热都占 8%。
+
+学习率以批 16 的最佳值 1.5e-3 为基准，按批大小的平方根缩放：
+
+$$
+\eta_B = 1.5 \times 10^{-3} \times \sqrt{B / 16}
+$$
+
+直觉是批越大，梯度估计的噪声越小，可以迈更大的步子；平方根缩放是 Adam 类优化器常用的一种经验规则。为了检验缩放是否必要，批 128 额外试了一次不缩放的 1.5e-3。
+
+两个现实限制也要交代：
+
+- <strong>内存</strong>：批 32 已经占了 6.5GB，批 64、128 超出了 16GB 内存的承受范围，只能用微批 32 做梯度累积。累积得到的梯度和直接用大批算的完全相同，但看不到大批在硬件利用率上的好处。
+- <strong>时间</strong>：批 1 跑完 1024 万 token 要好几个小时，只跑了 300 步测吞吐量。
+
+### 结果
+
+![批大小实验：同样 1024 万 token，批越大步数越少；批 128 的两条曲线明显高于其他](/static/blog/cs336-assignment1-experiments/batch_size.png)
+
+| 批大小 | 步数 | 学习率 | 固定子集验证损失 | 吞吐量（token/s） |
+|------|------|------|------|------|
+| 1 | 300（只测速） | 3.75e-4 | — | 6,800 |
+| 8 | 5,000 | 1.06e-3 | 2.036 | 11,500 |
+| 16 | 2,500 | 1.5e-3 | 1.993 | 11,200 |
+| <strong>32</strong> | 1,250 | 2.12e-3 | <strong>1.979</strong> | 10,900 |
+| 64（累积 2×32） | 625 | 3e-3 | 2.015 | 10,300 |
+| 128（累积 4×32） | 312 | 4.24e-3 | 2.277 | 10,400 |
+| 128（累积 4×32） | 312 | 1.5e-3（不缩放） | 2.291 | 10,600 |
+
+### 分析
+
+<strong>固定 token 预算下，中等批大小最好。</strong> 批 16 到 32 结果最好，往两边都变差，但两边变差的原因不一样。
+
+<strong>批太大（128）明显变差，根本问题是步数太少。</strong> 总 token 数一样时，批越大，参数更新的次数越少，批 128 只更新了 312 步，模型还没训到位。学习率按平方根缩放只挽回了一点（2.291 → 2.277），步数太少这个根本问题，靠调学习率补不回来。批 64 已经开始变差，说明在这个预算下，收益递减的点——也就是<strong>临界批量大小</strong>——在 32 到 64 附近。这个概念可以参考[第八讲 · 缩放定律里"临界批量大小"一节](/blog/scaling-laws#临界批量大小梯度噪声决定的拐点)：低于它，批大小翻倍、所需步数几乎减半；高于它，加大批带来的收益迅速递减。
+
+<strong>批太小（8）也略差。</strong> 步数虽多，但每步的梯度噪声大，按平方根缩放后学习率也更小，同样的 token 数下学得没那么有效。
+
+<strong>硬件效率是另一条线索。</strong> 在 M2 Pro 上，批 8（每步 2048 个 token）就已经把 GPU 占满了，批再大吞吐量也不增加，甚至略降；批 1 只有 6,800 token/s，时间大多花在每次启动 GPU 运算的固定开销上。所以在这台机器上，<strong>按墙钟时间比较和按 token 数比较，结论基本一样</strong>。
+
+换到 B200 这样的大 GPU，情况会不同：批越大 GPU 利用率越高，直到显存上限。那时大批按墙钟时间会更有优势，需要在"每秒处理的 token 更多"和"每个 token 的学习效率更低"之间权衡。小批量喂不饱 GPU 的问题在推理端同样存在，[第九讲 · 推理优化](/blog/llm-inference)里讨论过批处理如何提高利用率。
+
+<strong>本机的"显存上限"</strong>：批 32 占 6.5GB，批 64 预计约 13GB，在 16GB 的机器上已经不现实——Mac 的 GPU 和系统共用这 16GB 统一内存。按估算，内存大致随批大小成倍增长：在[第二讲 · 资源核算](/blog/cs336-pytorch-resource-accounting)那笔"参数 + 梯度 + 优化器状态 + 激活值"的显存账里，前三项都和批大小无关，只有激活值随批大小增长。
+
+## 生成文本：温度与 top-p
+
+用最终模型 `best_lr_0.0015` 生成文本，提示词都是 "Once upon a time"，每个样本一直生成到 `<|endoftext|>` 为止（162 到 205 个 token，上限 300）：
+
+```bash
+uv run scripts/generate.py --run-dir runs/best_lr_0.0015 \
+  --tokenizer-dir data/tokenizers/tinystories_10k \
+  --temperature T --top-p P
+```
+
+两个采样参数先简单交代一下。<strong>温度</strong> $T$ 在 softmax 之前把 logits 除以 $T$：
+
+$$
+p_i \propto \exp(z_i / T)
+$$
+
+$T$ 小于 1 让分布更尖锐、更"保守"，大于 1 让分布更平坦、低概率的词元更容易被抽中。<strong>top-p</strong>（核采样）则只保留累积概率达到 $p$ 的最小一组词元，把剩下的长尾截掉后重新归一化；$p = 1.0$ 等于不截断。
+
+### 四组样本
+
+<strong>温度 0.8，top-p 0.9（推荐设置）：</strong>
+
+> Once upon a time, there was a big, loud lion. He lived in a big forest. He was very nice. He liked to play with his friends, the birds and the squirrels. They were very happy.
+>
+> One day, the lion saw a little bird. The bird was sad. The lion asked, "Why are you sad?" The bird said, "I want to play with my friends, but I don't know how." The lion thought for a moment. He had an idea. He said, "I can help you! Let's play a game. We can take turns to jump and catch the ball."
+>
+> The lion thought about it and said, "Okay, we can try to win." They played and played together. The lion learned that it was fun to play with friends. The bird was not sad anymore. The lion and the bird became good friends. They played together every day, and the lion was not sad anymore.
+
+<strong>温度 0.3，top-p 0.9：</strong>
+
+> Once upon a time, there was a little girl named Lily. She had a big, red ball that she loved to play with. One day, she went to the park with her ball.
+>
+> At the park, Lily saw a boy named Tim. Tim was sad because he lost his toy. Lily wanted to help him find his toy. …
+
+<strong>温度 1.2，top-p 0.9：</strong>
+
+> Once upon a time, in a small town, there lived a girl named Mia. Mia had a toy dishwasher. She loved hercess so much and would love it. Mia's clothes all had aum cut out, but she knew that made her feel weak. …
+
+<strong>温度 1.2，top-p 1.0：</strong>
+
+> Once upon a time, in the park,pped brightly slowly.
+>
+> One day, a little boy named Ben was playing on the carpet The house and had a clean " Pasteed student trot adult" at her house. …
+
+### 什么在影响生成质量
+
+<strong>流畅度。</strong> 温度 0.8、top-p 0.9 时，语法和故事结构——开头、冲突、解决、"从此以后"——都很完整，接近讲义给的参考样例。但仍有小的逻辑问题，例如另一个样本里 Mia 先打开了盒子，下一句又变成妈妈打开。
+
+<strong>温度决定"稳"和"新"的取舍。</strong> 0.3 最通顺，但内容千篇一律：Lily、红色的球、公园、Tim 丢了玩具，全是数据集里最常见的套路。1.2 开始出现生造的词（"hercess"、"aum"），情节也乱了。
+
+<strong>top-p 在高温时是救命的。</strong> 温度 1.2 时，top-p 0.9 还能保持大致像英语，去掉 top-p（1.0）就变成乱码。原因是高温把长尾低概率词元的概率抬高了，而 top-p 正好把它们截掉。温度 0.8 时，去掉 top-p 影响不大——温度较低时，长尾的概率本来就没被抬高多少。
+
+<strong>模型和训练量是上限。</strong> 只有 4096 万 token、一个很小的模型，学到的是局部句法和常见情节，长距离的人物与逻辑一致性还不够。采样参数只能在模型已有的能力里挑选，弥补不了这一点。
+
+## 消融实验：拆掉标准组件会怎样
+
+### 设置与梯度统计
+
+四个消融都是 1024 万 token、批 16，对照组是学习率扫描里 1.5e-3 的那次运行（`lr_0.0015`，固定子集验证损失 1.993）。除了特别说明的地方，其余设置和对照组完全相同。<strong>都只跑了一个随机种子，0.03 以内的差距要谨慎看待。</strong>
+
+只看最终损失会漏掉很多信息，所以先看一张梯度稳定性的统计表。统计范围是预热之后的记录点；梯度范数是<strong>裁剪前</strong>的值，裁剪阈值 1.0；最后一列是相邻两个记录点之间训练损失的最大回升，用来衡量损失尖峰：
+
+| 运行 | 梯度范数中位数 | 最大值 | 被裁剪的记录点比例 | 相邻记录间训练损失的最大回升 |
+|------|------|------|------|------|
+| 对照组 | 0.49 | 0.60 | 0% | 0.29 |
+| 去掉 RMSNorm，1.5e-3 | 0.91 | <strong>411.7</strong> | 16% | <strong>3.96</strong> |
+| 去掉 RMSNorm，5e-4 | 1.48 | 46.8 | <strong>100%</strong> | 0.52 |
+| 后置归一化，1.5e-3 | 0.57 | 0.72 | 0% | 0.31 |
+| 后置归一化，5e-4 | 0.72 | 0.78 | 0% | 0.29 |
+| NoPE，1.5e-3 | 0.54 | 0.73 | 0% | 0.29 |
+| SiLU 前馈网络，1.5e-3 | 0.48 | 0.63 | 0% | 0.28 |
+
+一眼就能看出，<strong>只有去掉 RMSNorm 的两次运行和其他行不在一个世界里</strong>。其余消融的梯度都很"安分"，从未触发裁剪，损失回升也和对照组的 0.29 差不多。
+
+### 去掉 RMSNorm
+
+![归一化相关的消融：去掉 RMSNorm（nonorm）在三个学习率下的曲线，以及后置归一化（postnorm）在两个学习率下的曲线](/static/blog/cs336-assignment1-experiments/ablation_layernorm.png)
+
+| 学习率 | 固定子集验证损失 |
+|------|------|
+| 1.5e-3（之前的最佳学习率） | 2.052（+0.059） |
+| 5e-4 | 2.161 |
+| 1.5e-4 | 2.575 |
+
+<strong>在之前的最佳学习率下没有发散，但训练明显不稳定。</strong> 第 375 步，刚过预热、学习率处在最高点附近时，训练损失从 2.94 跳到 6.90，梯度范数冲到 411；靠梯度裁剪把这一步的更新压住，到第 400 步损失回到 3.38。整个训练中 16% 的记录点触发了裁剪，而对照组一次都没有。
+
+<strong>降低学习率并没有带来更好的结果。</strong> 直觉上"不稳定就调小学习率"，但 5e-4 和 1.5e-4 都更差。5e-4 时梯度范数普遍在 1.5 左右，每个记录点都被裁剪，相当于每一步都按固定步长更新。在测试过的学习率里，最好的仍然是 1.5e-3。
+
+<strong>为什么会这样？</strong> RMSNorm 让每层输入的尺度保持稳定，梯度大小也跟着稳定——对照组的梯度范数中位数 0.49，最大不超过 0.6。去掉它之后，激活值的尺度可以随训练任意漂移，梯度时大时小，训练只能靠梯度裁剪兜底。这个模型只有 4 层、训练又短，所以还能撑下来；层数更多时，激活值会随深度不断放大，更可能真正发散。
+
+这个消融最有意思的地方在于：<strong>如果只看最终损失（+0.059），会以为 RMSNorm 只是锦上添花；看了梯度统计才知道，它的主要作用是稳定性。</strong>
+
+### 后置归一化
+
+| 结构 | 学习率 | 固定子集验证损失 |
+|------|------|------|
+| 前置归一化（对照组） | 1.5e-3 | <strong>1.993</strong> |
+| 后置归一化 | 1.5e-3 | 2.029（+0.036） |
+| 后置归一化 | 5e-4 | 2.139 |
+
+两种结构的差别只在归一化放在哪里：
+
+$$
+\text{Pre-Norm:}\quad x \leftarrow x + \text{Sublayer}(\text{Norm}(x))
+$$
+
+$$
+\text{Post-Norm:}\quad x \leftarrow \text{Norm}(x + \text{Sublayer}(x))
+$$
+
+后置归一化在这个规模下训练很稳定（梯度范数最大 0.72，从未被裁剪），但最终结果比前置归一化差 0.036，整条曲线都略高；调小学习率到 5e-4 反而更差。
+
+前置归一化的主要优势是<strong>残差路径上没有归一化</strong>，梯度可以沿残差流直接回传。只有 4 层时这个优势体现得不明显，所以差距不大。模型更深、学习率更大时，后置归一化通常需要更小心的预热和调参。
+
+### 去掉位置编码（NoPE）
+
+![位置编码与前馈网络的消融：NoPE 的曲线全程最高，SiLU 介于 NoPE 与对照组之间](/static/blog/cs336-assignment1-experiments/ablation_pos_ffn.png)
+
+| 位置编码 | 固定子集验证损失 |
+|------|------|
+| RoPE（对照组） | <strong>1.993</strong> |
+| 无（NoPE） | 2.173（+0.180） |
+
+NoPE 训练同样稳定，但在四个消融里<strong>损失增加最多</strong>，整条曲线都明显高于 RoPE。
+
+没有任何位置编码，模型为什么还能学到这个程度？因为带因果掩码的解码器理论上可以推断出位置——比如靠"能看到多少个 token"来数。问题是模型得自己学会这件事，效率比直接提供位置信息低得多。在 1024 万 token 的短预算里，这份"自学"的代价就体现为 0.18 的损失。
+
+### SwiGLU 与无门控的 SiLU
+
+| 前馈网络 | `d_ff` | 参数量 | 固定子集验证损失 |
+|------|------|------|------|
+| SwiGLU（对照组） | 1344 | 22.7M | <strong>1.993</strong> |
+| SiLU，无门控 | 2048 | 22.8M | 2.050（+0.057） |
+
+为了公平比较，两者的参数量要对齐。SwiGLU 有三个权重矩阵，无门控的 SiLU 前馈网络只有两个，所以把后者的 `d_ff` 从 1344 放大到 2048（$3 \times 1344 \approx 2 \times 2048$），总参数量基本相同。
+
+在这个前提下，带门控的 SwiGLU 好 0.057。门控让网络可以逐维度决定放行多少信息，同样的参数表达能力更强，这和 Shazeer 在《GLU Variants Improve Transformer》里的结论一致。
+
+### 小结
+
+按损失增加的多少排序：
+
+<strong>去掉位置编码（+0.18）＞ 去掉门控（+0.057）≈ 去掉 RMSNorm（+0.059，而且训练不稳定）＞ 改成后置归一化（+0.036）</strong>
+
+标准结构里的每个设计在这个小规模上都有收益；其中 RMSNorm 的作用主要体现在训练稳定性上，而不只是最终损失。也要记得这些结论的边界：单个随机种子、只有 4 层、每次 1024 万 token。后置归一化的 0.036 只比 0.03 的"谨慎线"高一点点，而 NoPE 的 0.18 是这条线的好几倍。
+
+## OpenWebText：换成真实网页文本
+
+### 设置
+
+主实验把数据从 TinyStories 换成 OpenWebText（OWT），其余尽量不动：和 TinyStories 最终模型完全相同的架构和训练量——批 16 × 10,000 步（4096 万 token）、学习率 1.5e-3、预热 800 步。
+
+不同之处只有数据和分词器：
+
+- 数据用 OWT 训练集的前 1GB（2.29 亿 token），分词器是 3.2 万词表。
+- 词表变大，输入嵌入和 LM 头也跟着变大，总参数从 22.7M 增加到 45.2M，非嵌入部分不变。
+- 开跑前实测批 16 的峰值内存是 5.56GB，不需要梯度累积。速度 8,400 token/s（TinyStories 是 11,200），用时 83 分钟。
+
+### 结果
+
+![OWT 与 TinyStories 的学习曲线：同样的模型与训练量，OWT 的损失始终高出一大截，到最后仍在下降](/static/blog/cs336-assignment1-experiments/owt_vs_tinystories.png)
+
+| 数据集 | 固定子集验证损失（nats/token） | 困惑度 | 每 token 的字节数 | 换算成 bits/字节 |
+|------|------|------|------|------|
+| TinyStories | 1.6685 | 5.3 | 4.12 | 0.584 |
+| OWT | 4.7504 | 115.6 | 4.37 | 1.568 |
+
+训练过程中，OWT 的验证损失估计从第 1,000 步的 5.92，降到第 5,000 步的 5.13，再到第 10,000 步的 4.79。到最后 1,000 步仍在下降，离收敛还很远。
+
+### 损失不能直接比：换算成 bits/字节
+
+4.75 对 1.67，差距看起来很大，但<strong>每个 token 的损失不能直接比较</strong>：两边的分词器不同（1 万词表与 3.2 万词表），每个 token 平均代表的字节数也不同。token 越"大"，预测一个 token 本来就越难。
+
+要放到同一个尺度上，得换算成"每个字节需要多少比特"：先除以每 token 的字节数，变成每字节的 nats；再除以 $\ln 2$，把自然对数换成以 2 为底：
+
+$$
+\text{bits/字节} = \frac{\text{每 token 损失（nats）}}{\ln 2 \times \text{每 token 字节数}}
+$$
+
+代入两边的数据：
+
+$$
+\text{TinyStories: } \frac{1.6685}{\ln 2 \times 4.12} \approx 0.584, \qquad \text{OWT: } \frac{4.7504}{\ln 2 \times 4.37} \approx 1.568
+$$
+
+换算以后，OWT 仍然高出约 2.7 倍。这个指标和分词器无关，所以差距是实打实的。（每 token 字节数为什么会随词表变化，可以回看[第一讲 · 分词器](/blog/cs336-tokenizer)里关于压缩率的讨论。）
+
+差距从哪里来？
+
+- <strong>主要来自数据本身。</strong> TinyStories 是词汇量很小、句式高度模板化的儿童故事，可预测性很强；OWT 是真实网页，题材、文体、专有名词五花八门，文本本身的不确定性就高得多。
+- <strong>同样的算力在 OWT 上远远不够。</strong> TinyStories 的损失到训练后期已经降得很慢，而 OWT 到最后还在明显下降，说明模型远没有训够。
+
+### 生成样本
+
+同样用温度 0.8、top-p 0.9，生成 256 个 token：
+
+> The president said he believes that when he doesn't have the power to address the problem.
+>
+> "I'm also aware that this is what we can say. I have a standardized result of a force that is more than a sum of the cost," he said. "It's not worth it, but I hope that the paychecks have the tools to do, because the real amount of money you are getting to pay."
+>
+> Stell said he is also just two moreings from companies such as Oke Zay.
+>
+> "He's a young guy who has a chance to have a win of four and a half years, and he's about to be his wife," Linn said. "He's not going to get any additional money in the head. He's just as good, he's a great player." …
+
+> Scientists have discovered that the drug tests is given to the animal in which animals are discovered.
+>
+> Aid people often wear it as a result of what the male had predicted, but when they were taken into the dog, they were called to the Leto-Soclani, they were used for their use in the 'minor cat' and they were also shown in other mids. …
+
+<strong>局部像新闻。</strong> 有引语、"he said / Linn said"这类信源标注、分段，句子大体合乎语法。
+
+<strong>整体没有意义。</strong> 人名和机构名都是编出来的（"Oke Zay"、"Leto-Soclani"），话题从总统漂到了体育运动员，科学那段几乎每句都前后矛盾。明显比 TinyStories 的故事差。
+
+为什么同样的模型和算力，输出反而更差？
+
+1. <strong>网页文本需要的东西更多。</strong> 它需要大量世界知识（人物、机构、事实）和长距离的连贯性，这些都要靠更多参数和数据才能学到。这个模型的非嵌入参数只有约 1250 万，4096 万 token 对网页文本来说也太少了——GPT-2 用了约 40GB 文本。
+2. <strong>大词表在小数据上学不透。</strong> 3.2 万词表里很多 token 在 4096 万 token 里只出现过寥寥几次，模型来不及学会它们的用法；TinyStories 的 1 万词表覆盖的则是反复出现的简单词汇。
+3. <strong>还没训完。</strong> 训练结束时 OWT 的损失仍在明显下降，模型离收敛还很远。
+
+## 总结与经验
+
+把整套实验收成一张表：
+
+| 实验 | 关键结果 | 结论 |
+|------|------|------|
+| 学习率扫描 | 1.5e-3 最佳（1.993），1e-3 到 2e-3 很平 | 有梯度裁剪时，学习率过大表现为前期停滞而非 NaN |
+| 最终模型 | 固定子集验证损失 1.6685 | 远低于低资源目标 2.00；训练更久后学习率影响变小 |
+| 批大小 | 批 32 最佳（1.979），批 128 降到 2.277 | 固定 token 预算下中等批最好，步数太少调学习率补不回来 |
+| 生成 | 推荐温度 0.8 + top-p 0.9 | 高温必须配 top-p，否则长尾词元会把文本变成乱码 |
+| 消融 | NoPE +0.18，SiLU +0.057，去 RMSNorm +0.059，后置归一化 +0.036 | 每个标准组件都有收益，RMSNorm 主要贡献稳定性 |
+| OWT | 4.7504 nats/token，1.568 bits/字节 | 换算后仍是 TinyStories 的约 2.7 倍，模型远没训够 |
+
+排行榜（要求在单张 B200 上 45 分钟内复现）不在这次"在 Mac 上学习、跑通全程"的目标范围内，没有做。
+
+回头看，有几条经验比具体数字更值得带走：
+
+- <strong>先把评估做对，再比较结果。</strong> 这次很多结论建立在 0.01 到 0.03 的差距上，和随机抽批评估的噪声同一量级。固定评估子集是让这些比较站得住的前提；即便如此，单个随机种子带来的不确定性仍然存在。
+- <strong>"不发散"不等于"稳定"。</strong> 梯度裁剪会把发散伪装成停滞。判断不稳定，除了 NaN，还要看损失是否高于 ln V、前期有没有长时间的平台。
+- <strong>多记一列梯度范数，往往能多看到一层。</strong> 去掉 RMSNorm 只让最终损失差了 0.059，是梯度统计里 411.7 的尖峰和 16% 的裁剪比例，才说明了它真正的作用。
+- <strong>批大小要和步数一起看。</strong> 固定 token 预算时，批越大步数越少；而在 M2 Pro 这种小 GPU 上，批 8 就把吞吐量占满了，加大批换不来速度。
+- <strong>跨数据集比较，先统一尺度。</strong> 分词器不同时，nats/token 没有可比性，换算成 bits/字节才是同一把尺子。
+
+最后，这一切都发生在一台 16GB 的笔记本上：本机累计训练约 9 小时，没有用云 GPU。低资源配置虽然小，但足以让学习率、批大小、架构组件和数据难度各自的影响清清楚楚地显现出来——对自学来说，这已经足够了。
+
+## 参考资料
+
+- [CS336: Language Modeling from Scratch（Stanford）](https://cs336.stanford.edu/)
+- [CS336 作业 1 仓库：stanford-cs336/assignment1-basics](https://github.com/stanford-cs336/assignment1-basics)
+- [TinyStories: How Small Can Language Models Be and Still Speak Coherent English?（arXiv:2305.07759）](https://arxiv.org/abs/2305.07759)
+- [OpenWebText Corpus](https://skylion007.github.io/OpenWebTextCorpus/)
+- [Language Models are Unsupervised Multitask Learners（GPT-2）](https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf)
+- [GLU Variants Improve Transformer（Noam Shazeer, arXiv:2002.05202）](https://arxiv.org/abs/2002.05202)
+- [Root Mean Square Layer Normalization（arXiv:1910.07467）](https://arxiv.org/abs/1910.07467)
+- [On Layer Normalization in the Transformer Architecture（arXiv:2002.04745）](https://arxiv.org/abs/2002.04745)
+- [RoFormer: Enhanced Transformer with Rotary Position Embedding（arXiv:2104.09864）](https://arxiv.org/abs/2104.09864)
+- [Transformer Language Models without Positional Encodings Still Learn Positional Information（arXiv:2203.16634）](https://arxiv.org/abs/2203.16634)
+- [Decoupled Weight Decay Regularization（AdamW, arXiv:1711.05101）](https://arxiv.org/abs/1711.05101)
+- [The Curious Case of Neural Text Degeneration（top-p 采样, arXiv:1904.09751）](https://arxiv.org/abs/1904.09751)
+- [An Empirical Model of Large-Batch Training（临界批大小, arXiv:1812.06162）](https://arxiv.org/abs/1812.06162)
