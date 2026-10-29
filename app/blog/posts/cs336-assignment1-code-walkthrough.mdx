@@ -1,0 +1,499 @@
+---
+title: 'CS336 作业 1 代码导读：从 token 到训练与生成'
+publishedAt: '2026-10-29'
+summary: '沿着文本、token、Transformer、损失、参数更新和自回归生成这条数据流，读懂 CS336 作业 1 的核心实现。用张量形状、小例子和关键代码，讲清注意力、RoPE、梯度累积、检查点与采样如何接在一起。'
+draft: false
+image: '/static/blog/cs336-assignment1-code-walkthrough/cover.svg'
+tags: [DL, LLM, PyTorch, Tech Blog]
+---
+
+从零训练语言模型，最容易卡住的地方，是每个组件单独看都懂，接起来却不知道数据走到了哪里：分词器输出的整数怎样变成向量？模型明明一次输入整段文本，为什么还能学习“预测下一个词”？`backward()`、梯度裁剪和 `step()` 又分别做了什么？
+
+这篇文章沿着一次训练和一次生成，把我在 CS336 作业 1 中的核心实现串起来。默认你会 Python，接触过 PyTorch 的张量和自动求导；每个模块只摘出决定行为的代码，再解释它的输入、输出和设计理由。模型采用默认的 <strong>Pre-Norm + RMSNorm + RoPE + SwiGLU</strong> 结构。学习率扫描、消融曲线和训练效果见配套的[实验复盘](/blog/cs336-assignment1-experiments)。
+
+## 先画地图：一次训练到底经过哪些文件
+
+整个项目可以分成离线准备、训练和生成三个阶段。分词器先训练好，再把语料编码成 token 文件；训练阶段反复从文件里取小批次，更新同一个模型；生成阶段读取模型权重，把每次预测出的 token 接回输入。
+
+![代码全流程：文本经过分词成为 token 文件，训练循环更新模型，检查点把模型交给生成循环](/static/blog/cs336-assignment1-code-walkthrough/pipeline.svg)
+
+源码都在 `assignment1-basics/` 下，阅读时可以把下面这张表当作导航：
+
+| 文件 | 负责什么 | 输入 → 输出 |
+|------|----------|-------------|
+| `cs336_basics/train_bpe.py` | 训练字节级 BPE | 文本 → 词表与合并规则 |
+| `cs336_basics/tokenizer.py` | 编码、解码 | 文本 ↔ token ID 列表 |
+| `scripts/encode_dataset.py` | 准备训练数据 | 文本文件 → `uint16` token 文件 |
+| `cs336_basics/data.py` | 采样批次 | token 数组 → 输入 `x`、目标 `y` |
+| `cs336_basics/model.py` | Transformer 前向计算 | token ID → logits |
+| `cs336_basics/nn_utils.py` | 计算损失、裁剪梯度 | logits 与目标 → 标量损失；梯度 → 缩放后的梯度 |
+| `cs336_basics/optimizer.py` | AdamW 与学习率调度 | 梯度与历史状态 → 新参数 |
+| `scripts/train.py` | 组织训练循环 | 数据、配置 → 模型检查点与日志 |
+| `cs336_basics/checkpointing.py` | 保存、恢复训练状态 | 模型、优化器、步数 ↔ 检查点 |
+| `cs336_basics/decoding.py` | 自回归生成 | 提示词 ID → 新生成的 ID |
+
+后文用一组<strong>专为说明形状而缩小的配置</strong>：批大小 `B=2`，序列长度 `T=4`，词表大小 `V=10`，模型维度 `D=8`，注意力头数 `H=2`，每头维度 `d_h=4`，前馈层中间维度 `F=24`。这些数字只是读代码的例子，不是实验配置。省略初始化、参数校验或日志的片段会明确说明；最后另给一段可以直接运行的完整自检代码。
+
+## 从文本到训练样本：模型看到的只有整数
+
+### BPE 的产物是两份规则
+
+字节级 BPE 从 256 个单字节出发，反复合并高频相邻对，得到 `vocab` 和 `merges`。二者用途不同：
+
+- `vocab: dict[int, bytes]` 规定每个 ID 对应哪段字节，负责 ID 与内容的映射。
+- `merges: list[tuple[bytes, bytes]]` 记录合并的先后顺序，决定新文本怎样切成这些 token。
+
+`Tokenizer` 初始化时把词表反转成 `bytes → id`，并给合并规则编号。下面是其中两行原代码：
+
+```python
+self.token_to_id = {token_bytes: token_id for token_id, token_bytes in self.vocab.items()}
+self.merge_ranks = {pair: rank for rank, pair in enumerate(merges)}
+```
+
+编码时先预分词，在每个预分词内部反复合并排名最靠前的相邻对，最后查表得到整数。解码则把 ID 对应的字节拼起来，再整体解码为 UTF-8：
+
+```python
+return b"".join(self.vocab[i] for i in ids).decode("utf-8", errors="replace")
+```
+
+这里的顺序很重要：一个中文字符可能被拆在多个 token 里，单个 token 的字节不一定能独立解码。必须先拼字节，才能还原完整字符。BPE 的增量计数、特殊 token 边界和流式编码已经在[分词器文章](/blog/cs336-tokenizer)里展开，这里只保留它与后续模型之间的接口。
+
+### 磁盘里存小整数，进入模型时转为索引张量
+
+`scripts/encode_dataset.py` 把 ID 顺序写成无文件头的 `uint16` 二进制流。`uint16` 能表示 0 到 65535，所以脚本会检查最大 token ID 是否超出范围。读取时，`scripts/train.py` 使用内存映射：
+
+```python
+tokens = np.memmap(path, dtype=np.uint16, mode="r")
+```
+
+内存映射让程序像访问数组一样访问文件，采样时只需要把选中的窗口组装成批次。它不会把整个文件复制成一个普通 NumPy 数组。不过，当前的 `load_tokens()` 还会执行一次 `tokens.max()` 检查 ID 范围，因此启动时仍会扫描文件；“按需读取”并不意味着整个训练过程完全不遍历数据。
+
+`data.py` 的关键切片如下，省略了函数签名：
+
+```python
+starts = np.random.randint(0, len(dataset) - context_length, size=batch_size)
+x = np.stack([dataset[s : s + context_length] for s in starts])
+y = np.stack([dataset[s + 1 : s + 1 + context_length] for s in starts])
+return (
+    torch.from_numpy(x.astype(np.int64)).to(device),
+    torch.from_numpy(y.astype(np.int64)).to(device),
+)
+```
+
+磁盘上的 `uint16` 节省存储，进入模型前转为本实现使用的 `torch.int64` 索引。`x` 和 `y` 都是 `(B, T)`，但<strong>目标窗口的起点比输入晚一位</strong>。例如从数组 `[7, 3, 9, 2, 5]` 取长度为 4 的样本：
+
+```text
+输入 x：       7    3    9    2
+目标 y：       3    9    2    5
+位置：         0    1    2    3
+```
+
+第 0 个输出用 token `7` 预测 `3`，第 1 个输出用前缀 `[7, 3]` 预测 `9`，依次类推。因此要构造 `T` 个预测位置，原始数组至少得留出 `T+1` 个 token。模型稍后虽然一次接收整个 `x`，因果掩码会阻止每个位置看到未来。
+
+## Transformer 的外壳：先把输入输出对上
+
+先看 `TransformerLM.forward()`，略去长度检查和可选结构分支后，默认路径只有几行：
+
+```python
+x = self.token_embeddings(token_ids)
+for layer in self.layers:
+    x = layer(x)
+x = self.ln_final(x)
+return self.lm_head(x)
+```
+
+对应的形状变化如下：
+
+| 步骤 | 张量形状 | 小例子 |
+|------|----------|--------|
+| 输入 token ID | `(B, T)` | `(2, 4)` |
+| Embedding | `(B, T, D)` | `(2, 4, 8)` |
+| 每个 Transformer 块 | `(B, T, D)` | `(2, 4, 8)` |
+| 最终 RMSNorm | `(B, T, D)` | `(2, 4, 8)` |
+| LM head | `(B, T, V)` | `(2, 4, 10)` |
+
+最后一维的 `V` 个数是 <strong>logits，即尚未归一化的分数</strong>。`logits[b, t, :]` 描述第 `b` 条序列在第 `t` 个位置，对下一个 token 的打分。训练时整张 `(B, T, V)` 都参与损失计算；生成时取最后一个位置。
+
+### Embedding 与 Linear：一个查表，一个做投影
+
+Embedding 的权重形状是 `(V, D)`。它的前向实现直接按 ID 取行：
+
+```python
+return self.weight[token_ids]
+```
+
+例如 ID `7` 会取出第 7 行的 8 维向量。同一个 ID 总是取同一行；上下文相关的信息由后面的 Transformer 加入。权重由 `nn.Parameter` 注册，因此查表操作也能通过自动求导更新被访问的行。
+
+Linear 的权重则存成 `(d_out, d_in)`，前向使用 `einops.einsum`：
+
+```python
+return einsum(x, self.weight, "... d_in, d_out d_in -> ... d_out")
+```
+
+`d_in` 是被求和消去的维度，`...` 保留所有前导维度。对于 `(B, T, D)` 输入，这等价于 `x @ weight.T`，对每个 token 独立做相同的线性变换。LM head 就是把 `D` 维映射到 `V` 维；这里 Embedding 和 LM head 是两个独立的参数矩阵。
+
+## 打开一个块：注意力怎样让 token 交换信息
+
+默认的 `TransformerBlock` 使用前置归一化。下面摘出 `norm_position == "pre"` 分支：
+
+```python
+x = x + self.attn(self.ln1(x), token_positions)
+return x + self.ffn(self.ln2(x))
+```
+
+第一行让各位置通过注意力交换信息，第二行用前馈网络处理每个位置的特征。两次输出都加回输入，形状始终保持 `(B, T, D)`。注意第二行的 `x` 已经包含第一行注意力的结果；两个子层是依次执行的。
+
+### RMSNorm：沿着特征维调整尺度
+
+RMSNorm 对每个 token 的 `D` 个特征求均方根，再乘一个可学习的增益。它不减均值，也不把不同 token 混在一起。原实现的前向函数是：
+
+```python
+in_dtype = x.dtype
+x = x.to(torch.float32)
+rms = torch.sqrt(x.pow(2).mean(dim=-1, keepdim=True) + self.eps)
+return (x / rms * self.weight).to(in_dtype)
+```
+
+`dim=-1` 表示只沿特征维计算；`keepdim=True` 把均方根保留为 `(B, T, 1)`，才能广播回 `(B, T, D)`。先用 float32 计算平方和均值，可以减轻低精度下的数值问题，最后再转回输入类型。增益 `self.weight` 的形状是 `(D,)`，初始全为 1。
+
+归一化发生在子层入口，残差的直接加法路径保持畅通。默认模型在所有块之后还补一次 `ln_final`，再进入 LM head。Pre-Norm 与 Post-Norm 的结构背景可以参看[Transformer 架构文章](/blog/cs336-transformer-architecture-variants)。
+
+### 多头拆分：把特征维分给各个头
+
+`MultiHeadSelfAttention` 先用三个 Linear 分别计算 Q、K、V。每次投影的输出都是 `(B, T, D)`，然后把 `D` 拆成 `H × d_h`，再把头维移到序列维之前：
+
+```python
+def split_heads(t: torch.Tensor) -> torch.Tensor:
+    return rearrange(
+        t,
+        "... seq (heads d_head) -> ... heads seq d_head",
+        heads=self.num_heads,
+    )
+
+q = split_heads(self.q_proj(x))
+k = split_heads(self.k_proj(x))
+v = split_heads(self.v_proj(x))
+```
+
+小例子里就是 `(2, 4, 8) → (2, 2, 4, 4)`。Q、K、V 各有一套投影参数，各个头对应投影矩阵中的不同行；代码用一次投影同时算出所有头，再通过维度重排让它们并行计算。
+
+Q 表示当前位置用什么特征发起查询，K 用于与查询匹配，V 是匹配后要汇聚的内容。后面的点积只在每个头内部进行，不会把不同头的特征直接混在一起。
+
+### RoPE：在 Q、K 内部编码位置关系
+
+RoPE 把每个头的相邻特征两两分组，按 token 位置旋转。这里 `d_h=4`，就有 `(0,1)` 和 `(2,3)` 两组二维向量，不同组使用不同旋转频率。
+
+初始化时预先计算所有位置的 cos、sin 表；前向时取出对应行，再执行二维旋转。以下摘出旋转与交错还原的代码：
+
+```python
+cos = self.cos[token_positions]
+sin = self.sin[token_positions]
+x_first, x_second = x[..., 0::2], x[..., 1::2]
+rotated_first = x_first * cos - x_second * sin
+rotated_second = x_first * sin + x_second * cos
+return rearrange(
+    torch.stack([rotated_first, rotated_second], dim=-1),
+    "... half two -> ... (half two)",
+)
+```
+
+`torch.stack` 把每一对旋转后的分量放到一起，最后再展开，保持 `[第0维, 第1维, 第2维, 第3维]` 的交错顺序。不能把所有 `rotated_first` 简单接在所有 `rotated_second` 后面，否则维度配对就变了。
+
+多头注意力在调用这里之前，会把位置张量从 `(T,)` 扩成 `(1, T)`；索引出来的 cos、sin 是 `(1, T, d_h/2)`，广播到 Q、K 的 `(B, H, T, d_h/2)`。同一位置的旋转由各个头共享，<strong>只旋转 Q 和 K，V 保持不变</strong>。
+
+为什么旋转能表达相对位置？对同一组二维特征，位置 `i` 的 Q 与位置 `j` 的 K 做点积时，有：
+
+$$
+(R_i q)^{\mathsf T}(R_j k) = q^{\mathsf T} R_{j-i} k
+$$
+
+旋转后的匹配分数包含位置差 `j-i`。所以 RoPE 改变的是 Q、K 的匹配方式，整个过程不增加特征维度。
+
+cos、sin 表用 `register_buffer(..., persistent=False)` 注册：它们会跟随模块迁移设备，但不进入 `state_dict()`。因为表能由 RoPE 配置重新计算，保存模型时保留配置和可学习参数即可。
+
+### 因果注意力：一次算所有位置，同时挡住未来
+
+缩放点积注意力可以写成：
+
+$$
+A = \operatorname{softmax}\left(\frac{QK^{\mathsf T}}{\sqrt{d_h}} + M\right), \qquad O = AV
+$$
+
+其中允许关注的位置，掩码项为 0；禁止关注的位置为负无穷。下面摘录 `scaled_dot_product_attention()` 的计算主体，保持原来的 `einsum` 记法：
+
+```python
+d_k = Q.shape[-1]
+scores = einsum(Q, K, "... queries d_k, ... keys d_k -> ... queries keys") / math.sqrt(d_k)
+if mask is not None:
+    scores = scores.masked_fill(~mask, float("-inf"))
+weights = softmax(scores, dim=-1)
+return einsum(weights, V, "... queries keys, ... keys d_v -> ... queries d_v")
+```
+
+在小例子里，Q 和 K 都是 `(2, 2, 4, 4)`，分数矩阵是 `(B, H, T, T) = (2, 2, 4, 4)`。它的行是 query 位置，列是被关注的 key 位置。`softmax(dim=-1)` 沿列归一化，让每个 query 的注意力权重加起来为 1，再用这些权重对 V 做加权求和。
+
+`MultiHeadSelfAttention` 构造的因果掩码是下三角，含义是<strong>行 `i` 可以看列 `j ≤ i`，其中 True 表示允许关注</strong>：
+
+```python
+causal_mask = torch.tril(
+    torch.ones(seq_len, seq_len, dtype=torch.bool, device=x.device)
+)
+```
+
+![多头注意力的形状变化，以及行是 query、列是 key 的下三角因果掩码](/static/blog/cs336-assignment1-code-walkthrough/attention.svg)
+
+掩码在 softmax <strong>之前</strong>生效，被屏蔽分数的指数变成 0；如果 softmax 之后才直接清零，剩余权重的和就不再一定等于 1。下三角含对角线，每行至少能关注当前位置，因此这条路径不会出现整行都被屏蔽的情况。
+
+数值稳定的 softmax 还要先减去每行最大值。原函数的主体是：
+
+```python
+shifted = x - x.amax(dim=dim, keepdim=True)
+exp = torch.exp(shifted)
+return exp / exp.sum(dim=dim, keepdim=True)
+```
+
+所有有限分数同时平移不会改变 softmax 结果，但可以避免对很大的正数求指数。注意力输出的形状重新回到 `(B, H, T, d_h)`，再拼头、做输出投影：
+
+```python
+out = rearrange(out, "... heads seq d_head -> ... seq (heads d_head)")
+return self.output_proj(out)
+```
+
+至此，注意力完成了“拆头 → 位置旋转 → 因果汇聚 → 拼头”的全过程，回到残差相加需要的 `(B, T, D)`。
+
+### SwiGLU：对每个位置的特征做门控变换
+
+SwiGLU 的前向只有一行，三个 Linear 分别是 `D→F`、`F→D`、`D→F`：
+
+```python
+return self.w2(silu(self.w1(x)) * self.w3(x))
+```
+
+两条升维通路都得到 `(B, T, F)`。`w1(x)` 经过 SiLU 后，逐元素调制 `w3(x)`，再由 `w2` 投影回 `(B, T, D)`。SiLU 是 `x * sigmoid(x)`，所以这个“门”并不是只能取 0 或 1 的开关，也不局限于 0 到 1。
+
+注意力沿序列维汇聚其他位置的信息，前馈网络在每个位置内部变换特征；同一套前馈参数由所有位置共享。两者都返回 `(B, T, D)`，于是一个块可以继续接下一个块。
+
+## 从打分到更新：损失、梯度与 AdamW
+
+### 交叉熵直接接 logits
+
+模型输出是 `(B, T, V)`，目标是 `(B, T)`。对某个位置，目标 ID 为 `y`，损失等于：
+
+$$
+\ell = \log\sum_{v=0}^{V-1}\exp(z_v) - z_y
+$$
+
+下面是 `cross_entropy()` 的计算主体。它先平移 logits，再计算 log-sum-exp 和正确目标的分数：
+
+```python
+shifted = logits - logits.amax(dim=-1, keepdim=True)
+log_sum_exp = torch.log(torch.exp(shifted).sum(dim=-1))
+target_logits = shifted.gather(-1, targets.unsqueeze(-1)).squeeze(-1)
+return (log_sum_exp - target_logits).mean()
+```
+
+`targets.unsqueeze(-1)` 把目标变为 `(B, T, 1)`，`gather` 从每个位置的 `V` 个分数中选出正确 ID 的那一个，最后对 `B×T` 个预测位置取平均，得到标量。
+
+这里没有先求 softmax 再取 log。某个 token 的概率极小时，中间概率可能下溢为 0；直接使用 logits 上的表达式，可以绕过 `log(0)`。模型也不需要预先把 logits 变成概率，交叉熵负责完成这一步的数学运算。
+
+### backward 计算梯度，优化器才修改参数
+
+`loss.backward()` 沿着计算图反向传播，把每个可学习参数的梯度累加到 `.grad`。到这一步，模型权重还没有更新；`optimizer.step()` 才会根据这些梯度修改权重。
+
+AdamW 为每个参数保存一阶矩 `m`、二阶矩 `v` 和更新计数 `t`。源码中一次更新的关键语句如下，省略状态初始化和外层参数遍历：
+
+```python
+lr_t = lr * math.sqrt(1 - beta2**t) / (1 - beta1**t)
+p.mul_(1 - lr * weight_decay)
+m.mul_(beta1).add_(grad, alpha=1 - beta1)
+v.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
+p.addcdiv_(m, v.sqrt().add_(eps), value=-lr_t)
+```
+
+`m` 平滑梯度方向，`v` 平滑梯度平方，用于逐元素调整更新尺度；`lr_t` 按讲义形式补偿零初始化带来的偏差。权重衰减直接把参数乘以 `1 - lr × weight_decay`，不混入 `m`、`v`。这里衰减使用的是原始 `lr`，不是修正后的 `lr_t`。
+
+这段代码的分母是 `sqrt(v) + eps`，偏差修正放在学习率上；阅读其他实现时，要同时核对 epsilon 放置的位置，不能只凭“都叫 AdamW”就认定逐步数值完全相同。`step()` 使用 `@torch.no_grad()`，因此这些参数原地更新不会再被记录进求导图。
+
+## 训练循环：把一次更新的顺序说清楚
+
+真正把各个零件接起来的是 `scripts/train.py`。下面保留它的核心更新逻辑，省略日志、验证和检查点处理；`train_model` 默认就是 `model`，开启编译时是它的编译包装：
+
+```python
+for step in range(start_step, args.max_steps):
+    lr = get_lr_cosine_schedule(
+        step, args.lr_max, args.lr_min, args.warmup_steps, args.max_steps
+    )
+    for group in optimizer.param_groups:
+        group["lr"] = lr
+
+    optimizer.zero_grad(set_to_none=True)
+    train_loss = torch.zeros((), device=device)
+    for _ in range(accum_steps):
+        x, y = get_batch(train_tokens, args.micro_batch_size, args.context_length, device)
+        loss = cross_entropy(train_model(x), y) / accum_steps
+        loss.backward()
+        train_loss += loss.detach()
+    grad_norm = clip_gradients(model.parameters(), args.grad_clip)
+    optimizer.step()
+```
+
+![一次参数更新的顺序：设置学习率、清理旧梯度，依次累积微批梯度，统一裁剪，最后由 AdamW 更新](/static/blog/cs336-assignment1-code-walkthrough/training-step.svg)
+
+### 一个 step 是一次参数更新
+
+代码中 `batch_size` 是有效批大小，`micro_batch_size` 是一次前向实际送入的序列数，两者相除得到 `accum_steps`。例如有效批大小为 32、微批大小为 8，就做 4 次前向与反向，最后只更新一次参数。
+
+每次微批交叉熵已经是平均值，累积前还要除以 4：
+
+$$
+\mathcal L = \frac{1}{4}\sum_{k=1}^{4}\mathcal L_k, \qquad
+\nabla_\theta\mathcal L = \frac{1}{4}\sum_{k=1}^{4}\nabla_\theta\mathcal L_k
+$$
+
+这个平均成立的前提是微批包含相同数量的预测位置。当前实现固定微批大小和上下文长度，并要求有效批大小能整除微批大小，满足这个条件。对于同一批样本、相同参数、没有跨样本运算的这套模型，累积梯度与整批平均梯度在数学上对应，实际浮点计算可能有舍入差异。
+
+`zero_grad()` 放在微批循环之前：每次 `backward()` 都向 `.grad` 累加；如果每个微批都清一次梯度，之前的计算就被丢掉了。逐个微批反向后，各自的计算图可以释放，因此保存激活值所需的峰值内存主要取决于微批大小，而模型、梯度和优化器状态仍然保留。
+
+`train_loss += loss.detach()` 则只累计用于记录的数值。`detach()` 让日志变量与计算图脱开，避免记录损失时把图的引用一直挂在统计变量上。
+
+### 梯度先累积完，再统一裁剪
+
+`clip_gradients()` 把所有参数的梯度看成一个长向量，计算全局 L2 范数。超过阈值时，用同一个系数缩小所有梯度，保留整体方向。它返回裁剪前的范数，方便写入日志。
+
+顺序应当是<strong>所有微批反向传播 → 全局裁剪 → 优化器更新</strong>。裁剪是非线性的操作，逐微批裁剪后相加，通常不等于先求整个批次的梯度再裁剪。放到 `step()` 后面也来不及影响本次参数更新。
+
+### 学习率函数用当前更新索引作输入
+
+`get_lr_cosine_schedule()` 根据 `step` 计算学习率：先线性预热，再按半个余弦周期从最大值降到最小值，超过终点后保持最小值。学习率算出来以后，要写入每个 `optimizer.param_groups`，AdamW 才会在这一步读到它。
+
+这里还值得核对一个边界：循环的索引是 `0` 到 `max_steps-1`，调度终点传的是 `max_steps`。因此有预热时第 0 步的学习率为 0，最后一次实际更新的学习率会接近、但通常尚未精确等于 `lr_min`；函数在 `step == max_steps` 时才到达精确终点。看调度逻辑时，函数定义和调用它的索引范围要一起读。
+
+### 验证既要切模式，也要关闭求导
+
+`estimate_loss()` 先 `model.eval()`，在 `@torch.no_grad()` 下计算若干批次的交叉熵，结束后再 `model.train()`。两者负责不同的事情：
+
+- `eval()` 切换模块模式，影响 Dropout、BatchNorm 等具有训练与推理分支的层；当前默认模型没有这两类层，但仍遵守这个接口约定。
+- `no_grad()` 关闭这段计算的梯度记录，减少不需要的计算图与内存占用；单独调用 `eval()` 不会关闭自动求导。
+
+训练日志记录的是每次有效更新后的步数，token 计数按 `步数 × 有效批大小 × 上下文长度` 计算。理解这一点，就能区分“一次前向处理多少数据”和“一次更新利用多少数据”。
+
+## 检查点：权重之外还有训练历史
+
+保存函数把三部分写入同一个文件，下面是 `save_checkpoint()` 的主体：
+
+```python
+torch.save(
+    {"model": model.state_dict(), "optimizer": optimizer.state_dict(), "iteration": iteration},
+    out,
+)
+```
+
+只做生成，模型权重就够执行前向；继续训练还需要 AdamW 的 `m`、`v`、`t`，以及学习率调度对应的步数。模型结构则由旁边的 `config.json` 记录：生成脚本先读配置创建同样的 `TransformerLM`，再装载权重。
+
+恢复函数使用 `map_location="cpu"` 读取，再把状态装回已经创建的模型和优化器，返回保存的迭代次数。保存侧还做了一层文件处理：先写 `checkpoint.tmp`，成功后再替换 `checkpoint.pt`，减少写到一半中断时破坏旧检查点的风险。
+
+当前检查点没有保存 NumPy、PyTorch 等随机数生成器的状态。所以它支持<strong>恢复参数、优化器历史和训练进度</strong>，但不保证续训时抽到的样本序列与未中断运行逐项一致。续训也应沿用原来的模型与调度配置；只有检查点文件，不能自动还原外部命令行参数。
+
+## 生成循环：把预测出的 token 接回输入
+
+训练时，正确后继 token 已经在 `y` 中，可以并行计算所有位置的损失；生成时，后继 token 还未知，必须先预测一个，再把它接回输入，才能继续往后预测。
+
+下面是 `generate()` 的主要循环，省略了设备、输入张量和返回列表的初始化。源码外层有 `@torch.no_grad()`，并在进入循环前调用 `model.eval()`：
+
+```python
+for _ in range(max_new_tokens):
+    context = ids[-model.context_length :]
+    logits = model(context.unsqueeze(0))[0, -1]
+    next_id = sample_next_token(logits, temperature, top_p)
+    if eos_token_id is not None and next_id.item() == eos_token_id:
+        break
+    generated.append(next_id.item())
+    ids = torch.cat([ids, next_id])
+```
+
+`context.unsqueeze(0)` 给一条提示词补上批维度，模型返回 `(1, 当前长度, V)`。索引 `[0, -1]` 取唯一序列的最后一个位置，得到 `(V,)`，这正是“整个已知前缀之后，下一个 token 应该是什么”的打分。
+
+达到上下文长度以后，只保留最后一个窗口。当前实现每轮重新计算这个窗口的全部位置，没有 KV cache；默认位置也会在窗口内从 0 开始。理解这段最小循环后，再读[推理优化文章](/blog/llm-inference)里的缓存机制，会更容易看清缓存省掉了哪些重复计算。
+
+### 温度与 Top-p：如何从打分变成一个 ID
+
+`sample_next_token()` 在温度为 0 时直接 `argmax`，即贪心解码。温度大于 0 时，先计算 `softmax(logits / temperature)`；较小的温度让高分项更突出，再从这个分布里采样。
+
+Top-p 先把概率从高到低排序，保留累计概率首次达到阈值所需的最小前缀。源码中判断保留范围的关键几行是：
+
+```python
+sorted_probs, sorted_ids = torch.sort(probs, descending=True)
+before = torch.cumsum(sorted_probs, dim=-1) - sorted_probs
+sorted_probs = sorted_probs * (before < top_p)
+probs = torch.zeros_like(probs).scatter(-1, sorted_ids, sorted_probs)
+probs = probs / probs.sum()
+```
+
+假设降序概率是 `[0.50, 0.30, 0.15, 0.05]`，`top_p=0.70`。前两个 token 的累计概率是 0.80，应该都保留，尽管第二个 token 让累计值跨过了 0.70。代码比较的是<strong>当前 token 之前的累计概率</strong> `[0, 0.50, 0.80, 0.95]`，恰好留下前两个，再重新归一化。
+
+生成到 EOS 时，循环立即停止。函数返回的列表只包含新 token，不含提示词，也不含终止 EOS；调用侧再用分词器解码，按需要拼回原始提示词。
+
+## 跑一个最小闭环，检查接口是否接通
+
+读完以后，可以在 `assignment1-basics/` 下把下面的完整示例保存成 Python 文件，再用 `uv run 文件名.py` 执行。它依赖前文这套已经完成的 `cs336_basics` 模块；如果你从官方初始仓库开始，需要先实现对应接口。示例不需要下载语料，也不训练 BPE：分词器只有 256 个单字节 token，没有合并规则，目的是检查<strong>编码、采样、前向、反向、更新、保存恢复和生成</strong>这些接口能否连通。
+
+```python
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
+import numpy as np
+import torch
+
+from cs336_basics.checkpointing import load_checkpoint, save_checkpoint
+from cs336_basics.data import get_batch
+from cs336_basics.decoding import generate
+from cs336_basics.model import TransformerLM
+from cs336_basics.nn_utils import clip_gradients, cross_entropy
+from cs336_basics.optimizer import AdamW
+from cs336_basics.tokenizer import Tokenizer
+
+torch.manual_seed(0)
+np.random.seed(0)
+tokenizer = Tokenizer({i: bytes([i]) for i in range(256)}, merges=[])
+tokens = np.array(tokenizer.encode("hello world! " * 16), dtype=np.uint16)
+x, y = get_batch(tokens, batch_size=2, context_length=8, device="cpu")
+model = TransformerLM(
+    vocab_size=256, context_length=8, d_model=32,
+    num_layers=2, num_heads=4, d_ff=80, rope_theta=10_000.0,
+)
+optimizer = AdamW(model.parameters(), lr=1e-3)
+
+optimizer.zero_grad(set_to_none=True)
+logits = model(x)
+loss = cross_entropy(logits, y)
+loss.backward()
+clip_gradients(model.parameters(), max_l2_norm=1.0)
+optimizer.step()
+
+with TemporaryDirectory() as directory:
+    checkpoint = Path(directory) / "checkpoint.pt"
+    save_checkpoint(model, optimizer, 1, checkpoint)
+    restored = TransformerLM(
+        vocab_size=256, context_length=8, d_model=32,
+        num_layers=2, num_heads=4, d_ff=80, rope_theta=10_000.0,
+    )
+    restored_optimizer = AdamW(restored.parameters(), lr=1e-3)
+    assert load_checkpoint(checkpoint, restored, restored_optimizer) == 1
+    torch.testing.assert_close(restored(x), model(x))
+
+new_ids = generate(restored, tokenizer.encode("hello"), 4, temperature=0.0)
+print(tuple(x.shape), tuple(logits.shape), tuple(loss.shape), len(new_ids))
+# (2, 8) (2, 8, 256) () 4
+```
+
+这几个输出分别对应输入批次、整段预测、标量损失和新生成 token 数。刚做一次更新的模型没有学会语言，因此这里检查的是接口与形状，生成文本的质量需要靠后续训练获得。
+
+回到完整工程，阅读顺序可以固定为：`data.py` 看清预测目标，`TransformerLM.forward()` 看清整体数据流，再向内读 Transformer 块与注意力；最后回到 `scripts/train.py`，跟完一次有效更新，再读 `decoding.py`。只要能解释清楚每一步的形状，以及哪一步产生梯度、哪一步修改参数，这些文件就已经连成了同一个程序。
+
+## 参考代码与资料
+
+- 本文实现：个人练习仓库 `assignment1-basics/` 目录，代码版本 `176dc12`。正文摘录来自其中的 `cs336_basics/` 和 `scripts/`，文末自检示例依赖这套实现。
+- [Stanford CS336 · Assignment 1: Basics](https://github.com/stanford-cs336/assignment1-basics)：讲义与测试接口。
+- [PyTorch 2.11 · Autograd mechanics](https://github.com/pytorch/pytorch/blob/v2.11.0/docs/source/notes/autograd.rst)：自动求导、无梯度模式与评估模式的区别。
+- [PyTorch 2.11 · Modules](https://github.com/pytorch/pytorch/blob/v2.11.0/docs/source/notes/modules.rst)：参数、buffer 和模块状态。
+- [PyTorch 2.11 · Gradient accumulation](https://github.com/pytorch/pytorch/blob/v2.11.0/docs/source/notes/amp_examples.rst)：有效批次内的梯度累积与损失缩放。
