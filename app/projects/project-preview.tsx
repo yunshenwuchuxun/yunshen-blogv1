@@ -3,7 +3,7 @@
 import gsap from 'gsap';
 import { motion } from 'motion/react';
 import Image from 'next/image';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Project, ProjectModal } from './types';
 
 interface ProjectModalProps {
@@ -29,6 +29,9 @@ const scaleAnimation = {
 
 export default function ProjectPreview({ modal, projects }: ProjectModalProps) {
 	const { active, index } = modal;
+	const [originalImages, setOriginalImages] = useState<
+		Partial<Record<string, true>>
+	>({});
 	const modalContainer = useRef<HTMLDivElement>(null);
 	const cursor = useRef<HTMLDivElement>(null);
 	const cursorLabel = useRef<HTMLDivElement>(null);
@@ -93,7 +96,7 @@ export default function ProjectPreview({ modal, projects }: ProjectModalProps) {
 						transition: 'top 0.6s cubic-bezier(0.76, 0, 0.24, 1)',
 					}}
 				>
-					{projects.map((project) => {
+					{projects.map((project, projectIndex) => {
 						const { src, color } = project;
 						return (
 							<div
@@ -102,11 +105,20 @@ export default function ProjectPreview({ modal, projects }: ProjectModalProps) {
 								key={`modal_${src}`}
 							>
 								<Image
-									className='h-auto'
+									style={{ height: 'auto' }}
 									src={`/static/images/project/${src}`}
 									width={300}
 									height={300}
-									alt='image'
+									sizes='300px'
+									loading={active && index === projectIndex ? 'eager' : 'lazy'}
+									unoptimized={originalImages[src] === true}
+									onError={() => {
+										// Retry the local original once if the optimizer request fails.
+										setOriginalImages((previous) =>
+											previous[src] ? previous : { ...previous, [src]: true },
+										);
+									}}
+									alt={`${project.title} 项目预览`}
 								/>
 							</div>
 						);

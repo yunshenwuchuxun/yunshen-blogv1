@@ -3,7 +3,16 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import BackNavigation from '../../components/layouts/back-navigation';
+import { createPageMetadata } from '../../lib/seo';
 import { projectDetails, projects } from '../constants';
+import {
+	DesktopCompatibility,
+	DesktopGettingStarted,
+	DesktopIntroduction,
+} from '../desktop-story';
+import { ProjectDistribution } from '../project-distribution';
+import { ProjectHighlights } from '../project-showcase';
+import { projectShowcases } from '../showcase';
 
 function GithubMarkIcon() {
 	return (
@@ -54,10 +63,11 @@ export async function generateMetadata(props: {
 		return { title: 'Project Not Found' };
 	}
 
-	return {
+	return createPageMetadata({
+		path: `/projects/${encodeURIComponent(params.slug)}`,
 		title: detail.title,
 		description: detail.subtitle,
-	};
+	});
 }
 
 export default async function ProjectDetailPage(props: {
@@ -66,6 +76,8 @@ export default async function ProjectDetailPage(props: {
 	const params = await props.params;
 	const detail = projectDetails[params.slug];
 	const project = projects.find((p) => p.slug === params.slug);
+	const showcase = projectShowcases[params.slug];
+	const isDesktop = params.slug === 'ofox-desktop';
 
 	if (!detail || !project) {
 		notFound();
@@ -83,15 +95,20 @@ export default async function ProjectDetailPage(props: {
 							<div className='flex flex-wrap items-center gap-3 md:justify-end'>
 								{detail.links.map((link) => {
 									const isGithub = link.label === 'GitHub';
+									const isWebsite = link.primary || link.label === '官方网站';
 
 									return (
 										<Link
-											key={link.url}
+											key={`${link.label}-${link.url}`}
 											href={link.url}
 											target='_blank'
 											rel='noopener noreferrer'
 											aria-label={link.label}
-											className='inline-flex items-center gap-2 rounded-full border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-primary-400 hover:text-primary-500 dark:border-gray-700 dark:text-gray-300 dark:hover:border-primary-500 dark:hover:text-primary-400'
+											className={
+												isWebsite
+													? 'inline-flex items-center gap-2 rounded-full border border-primary-600 bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:border-primary-700 hover:bg-primary-700'
+													: 'inline-flex items-center gap-2 rounded-full border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-primary-400 hover:text-primary-500 dark:border-gray-700 dark:text-gray-300 dark:hover:border-primary-500 dark:hover:text-primary-400'
+											}
 										>
 											{isGithub ? <GithubMarkIcon /> : <ExternalLinkIcon />}
 											<span>{link.label}</span>
@@ -106,6 +123,10 @@ export default async function ProjectDetailPage(props: {
 					</p>
 				</header>
 
+				{isDesktop ? <DesktopIntroduction /> : null}
+
+				{showcase ? <ProjectHighlights project={showcase} /> : null}
+
 				<section className='space-y-6'>
 					<h2 className='text-2xl font-semibold'>项目简介</h2>
 					<div className='whitespace-pre-line text-gray-600 dark:text-gray-400'>
@@ -114,11 +135,33 @@ export default async function ProjectDetailPage(props: {
 					{detail.overviewSections?.map((section) => (
 						<div
 							key={section.title}
-							className='space-y-4 rounded-xl border border-gray-200 p-5 dark:border-gray-700'
+							id={section.id}
+							className='scroll-mt-28 space-y-4 rounded-xl border border-gray-200 p-5 dark:border-gray-700'
 						>
 							<h3 className='text-xl font-semibold text-gray-900 dark:text-gray-100'>
 								{section.title}
 							</h3>
+							{section.video ? (
+								<figure className='space-y-3'>
+									<video
+										controls
+										muted
+										playsInline
+										preload='none'
+										poster={section.videoPoster}
+										aria-label={section.title}
+										className='h-auto w-full rounded-lg border border-gray-200 dark:border-gray-700'
+									>
+										<source src={section.video} type='video/mp4' />
+										<a href={section.video}>观看操作演示</a>
+									</video>
+									{section.mediaCaption ? (
+										<figcaption className='text-xs text-gray-500 dark:text-gray-400'>
+											{section.mediaCaption}
+										</figcaption>
+									) : null}
+								</figure>
+							) : null}
 							{section.image ? (
 								<div className='overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700'>
 									<Image
@@ -126,19 +169,61 @@ export default async function ProjectDetailPage(props: {
 										alt={section.imageAlt ?? section.title}
 										width={1400}
 										height={900}
-										className='w-full'
+										sizes='(min-width: 1024px) 840px, 85vw'
+										style={{ width: '100%', height: 'auto' }}
 									/>
 								</div>
 							) : null}
-							<div className='whitespace-pre-line text-gray-600 dark:text-gray-400'>
+							<div
+								className={`whitespace-pre-line text-gray-600 dark:text-gray-400 ${isDesktop ? 'leading-8' : ''}`}
+							>
 								{section.body}
 							</div>
+							{section.gallery?.length ? (
+								<div
+									className={`grid gap-4 ${(section.gallery?.length ?? 0) > 1 ? 'sm:grid-cols-2' : ''}`}
+								>
+									{section.gallery.map((item) => (
+										<figure key={item.image} className='space-y-3'>
+											<a
+												href={item.image}
+												target='_blank'
+												rel='noopener noreferrer'
+												aria-label={`${item.alt}，查看原图`}
+												className='block overflow-hidden rounded-lg border border-gray-200 transition-colors hover:border-primary-400 dark:border-gray-700 dark:hover:border-primary-500'
+											>
+												<Image
+													src={item.image}
+													alt={item.alt}
+													width={1440}
+													height={900}
+													sizes={
+														(section.gallery?.length ?? 0) > 1
+															? '(min-width: 640px) 420px, 85vw'
+															: '(min-width: 1024px) 840px, 85vw'
+													}
+													style={{ width: '100%', height: 'auto' }}
+												/>
+											</a>
+											<figcaption className='text-xs leading-6 text-gray-500 dark:text-gray-400'>
+												{item.caption}
+											</figcaption>
+										</figure>
+									))}
+								</div>
+							) : null}
 						</div>
 					))}
 				</section>
 
+				<ProjectDistribution slug={params.slug} />
+
+				{isDesktop ? <DesktopCompatibility /> : null}
+
 				<section className='space-y-6'>
-					<h2 className='text-2xl font-semibold'>功能亮点</h2>
+					<h2 className='text-2xl font-semibold'>
+						{detail.featureTitle ?? '功能亮点'}
+					</h2>
 					<div className='grid gap-4 md:grid-cols-2'>
 						{detail.features.map((feature) => (
 							<div
@@ -178,6 +263,8 @@ export default async function ProjectDetailPage(props: {
 						))}
 					</div>
 				</section>
+
+				{isDesktop ? <DesktopGettingStarted /> : null}
 
 				{detail.deployedProjects?.length ? (
 					<section className='space-y-6'>

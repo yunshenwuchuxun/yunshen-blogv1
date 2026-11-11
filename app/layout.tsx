@@ -5,8 +5,10 @@ import LenisProvider from 'app/components/providers/LenisProvider';
 import ThemeProvider from 'app/components/providers/ThemeProvider';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import GoogleAnalytics from './components/analytics/google-analytics';
 import TopNav from './components/layouts/top-nav/top-nav';
 import { mukta } from './fonts';
+import { siteUrl } from './lib/site';
 import './tailwind.css';
 
 export const metadata: Metadata = {
@@ -15,7 +17,13 @@ export const metadata: Metadata = {
 		default: 'Yun Shen',
 	},
 	description: '记录思考、感悟与成长',
-	metadataBase: new URL('https://yunshen.eu.cc'),
+	metadataBase: new URL(siteUrl),
+	verification: {
+		google: process.env.GOOGLE_SITE_VERIFICATION?.trim() || undefined,
+		other: process.env.BING_SITE_VERIFICATION?.trim()
+			? { 'msvalidate.01': process.env.BING_SITE_VERIFICATION.trim() }
+			: undefined,
+	},
 };
 
 interface RootLayoutProps {
@@ -24,7 +32,7 @@ interface RootLayoutProps {
 
 export default function RootLayout({ children }: RootLayoutProps) {
 	return (
-		<html lang='en' suppressHydrationWarning className={mukta.className}>
+		<html lang='zh-Hans' suppressHydrationWarning className={mukta.className}>
 			<head>
 				<link
 					rel='apple-touch-icon'
@@ -57,7 +65,12 @@ export default function RootLayout({ children }: RootLayoutProps) {
 						<TopNav />
 						{children}
 					</LenisProvider>
-					{process.env.NODE_ENV === 'production' && <Analytics />}
+					{process.env.NODE_ENV === 'production' && (
+						<>
+							<Analytics />
+							<GoogleAnalytics />
+						</>
+					)}
 				</ThemeProvider>
 			</body>
 		</html>

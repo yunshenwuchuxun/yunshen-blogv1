@@ -18,6 +18,8 @@ public/sitemap.xml
 # production
 /build
 *.xml
+!app/feed.xml/
+!app/feed.xml/route.ts
 # rss feed
 /public/feed.xml
 
@@ -62,3 +64,6 @@ openspec/changes/
 /papers/*/nmt_data/
 
 # Lockfiles are intentionally tracked in git.
+
+# Keep search engine ownership verification in future deployments
+!public/BingSiteAuth.xml

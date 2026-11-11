@@ -2,11 +2,13 @@ import { getAllTags, getPosts } from '../blog/utils';
 import Header from '../components/header';
 import PageContainer from '../components/layouts/page-container';
 import { TagCloud } from '../components/tag-cloud';
+import { createPageMetadata } from '../lib/seo';
 
-export const metadata = {
+export const metadata = createPageMetadata({
+	path: '/tags',
 	title: 'Tags',
 	description: 'Browse articles by topic - Yun Shen',
-};
+});
 
 const TOPIC_GROUPS = [
 	{
@@ -24,7 +26,14 @@ const TOPIC_GROUPS = [
 		title: 'Model & Training',
 		description:
 			'Architecture, tokenization, training recipes, RL, and evaluation.',
-		tags: ['Transformer', 'Tokenizer', 'Training', 'RL', 'Evaluation'],
+		tags: [
+			'Transformer',
+			'Tokenizer',
+			'PyTorch',
+			'Training',
+			'RL',
+			'Evaluation',
+		],
 	},
 	{
 		title: 'Systems & Platform',

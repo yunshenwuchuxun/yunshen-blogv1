@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next';
+import { absoluteUrl, siteUrl } from './lib/site';
 
 export default function robots(): MetadataRoute.Robots {
 	return {
@@ -6,7 +7,7 @@ export default function robots(): MetadataRoute.Robots {
 			userAgent: '*',
 			allow: '/',
 		},
-		sitemap: `https://uestc.de5.net/sitemap.xml`,
-		host: `https://uestc.de5.net`,
+		sitemap: absoluteUrl('/sitemap.xml'),
+		host: siteUrl,
 	};
 }

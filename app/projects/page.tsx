@@ -1,11 +1,13 @@
 import Projects from 'app/projects/projects';
 import { Fragment } from 'react';
 import Header from '../components/header';
+import { createPageMetadata } from '../lib/seo';
 
-export const metadata = {
+export const metadata = createPageMetadata({
+	path: '/projects',
 	title: 'Projects',
 	description: '我的项目作品集 - Yun Shen',
-};
+});
 
 export default function Page() {
 	return (

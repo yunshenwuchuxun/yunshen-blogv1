@@ -14,12 +14,31 @@ interface DeployedProject {
 
 export const projects: Project[] = [
 	{
+		title: 'Ofox Desktop',
+		src: 'ofox-desktop.webp',
+		color: '#ffedd5',
+		slug: 'ofox-desktop',
+		role: 'AI Workspace',
+		summary:
+			'把 10 个 AI 工具接入同一工作台，打通原生配置、会话、资源与用量，交付 macOS / Windows 双平台应用',
+	},
+	{
+		title: 'Ofox Skills',
+		src: 'ofox-skills.svg',
+		color: '#fff7ed',
+		slug: 'ofox-skills',
+		role: 'Agent Skills Toolkit',
+		summary:
+			'20 个创作与工具技能，npm 累计 1.9k+ 下载，已被 Skills.sh、ClawHub 等平台收录',
+	},
+	{
 		title: 'Smart Drawio',
 		src: 'smart-drawio.png',
 		color: '#dbeafe',
 		slug: 'smart-drawio',
 		role: 'Full Stack Developer',
-		summary: 'AI 驱动的 Draw.io 图表生成器，用自然语言创建专业图表',
+		summary:
+			'366 GitHub Stars · 从 Web 绘图到 Agent Skill 与 MCP，生成、校验并优化可编辑的 Draw.io 图表',
 	},
 	{
 		title: 'latex-paper-skills',
@@ -28,7 +47,7 @@ export const projects: Project[] = [
 		slug: 'latex-paper-skills',
 		role: 'Research Writing Pipeline',
 		summary:
-			'面向 ML/AI 论文写作的模块化 LaTeX 技能框架，覆盖选题、写作、审计与编译全流程',
+			'275 GitHub Stars · npm 1k+ 下载，8 个科研工作流覆盖选题、证据与 LaTeX PDF，已收录 Skills.sh',
 	},
 	{
 		title: 'Dynamical System Analyzer',
@@ -130,15 +149,21 @@ export interface ProjectDetail {
 	title: string;
 	subtitle: string;
 	description: string;
+	featureTitle?: string;
 	overviewSections?: {
+		id?: string;
 		title: string;
 		body: string;
 		image?: string;
 		imageAlt?: string;
+		video?: string;
+		videoPoster?: string;
+		mediaCaption?: string;
+		gallery?: { image: string; alt: string; caption: string }[];
 	}[];
 	features: { title: string; description: string }[];
 	techStack: { category: string; items: string[] }[];
-	links: { label: string; url: string }[];
+	links: { label: string; url: string; primary?: boolean }[];
 	usage: string[];
 	targetUsers: string[];
 	license: string;
@@ -154,151 +179,400 @@ export interface ProjectDetail {
 }
 
 export const projectDetails: Record<string, ProjectDetail> = {
-	'smart-drawio': {
-		slug: 'smart-drawio',
-		title: 'Smart Drawio Next',
-		subtitle:
-			'用自然语言或参考图片，几秒钟生成可编辑的 Draw.io 图表，适用于科研、架构文档与演示场景',
-		description: `Smart Drawio Next 是一个面向科研图、系统架构图与产品说明图的 AI 绘图工具。它不是把想法直接渲染成一张不可修改的图片，而是把自然语言描述或参考图片转成结构化的 Draw.io 内容，让你得到真正可编辑、可继续优化的图表结果。
+	'ofox-desktop': {
+		slug: 'ofox-desktop',
+		title: 'Ofox Desktop',
+		subtitle: '一键接入 AI 工具，让配置、会话、资源与创作在同一工作台中衔接',
+		description: `当 Claude Code、Codex、Gemini CLI 等工具同时进入日常工作，真正耗费精力的往往是它们之间的缝隙：同一个模型服务要重复配置，上一段会话散落在不同客户端，MCP 与 Skills 需要逐处维护，用量记录也难以放在一起理解。
 
-	整个流程围绕“生成 → 编辑 → 应用 → 优化”展开：用户先输入 prompt 或上传参考图，模型流式生成 XML / JSON，结果会同步进入 Monaco 编辑器与嵌入式 Draw.io 画布；你既可以像写代码一样直接改结构，也可以像传统白板工具一样继续拖拽微调。再配合后处理工具、样式包、多模型配置与本地历史记录，它更像一套完整的图表生产工作台，而不是一次性 demo。`,
+	Ofox Desktop 从这些具体问题出发，把工具接入、会话管理、资源分发、内置助手与用量分析组织成一条完整工作流。用户可以先接入工具，再沿着项目继续之前的对话，复用同一组资源，最后回看任务消耗。它覆盖 10 个 AI 工具，并交付 macOS 与 Windows 桌面应用。
+
+	这个项目的工程重点，是适配各工具真实的原生配置与本地数据：区分安装和绑定状态，处理配置冲突，保留用户改动，并把不同来源的会话与用量整理成可理解的界面。外部工具仍直接连接各自配置的服务，关闭 Desktop 后也能继续使用已保存的接入配置。`,
+		featureTitle: '工程设计与实现',
 		overviewSections: [
 			{
-				title:
-					'从 Prompt 到可编辑图表：这是结构化图表工作流，而不是一次性截图生成',
-				body: `README 里最重要的判断，是把“AI 生成图”从一次性输出升级成可反复迭代的图表工作流。Smart Drawio Next 接收自然语言描述，也支持上传参考图片，然后把结果生成成结构化的 XML / JSON，而不是只吐出一张静态图。这样做的好处非常直接：图生成出来之后，你依然可以继续编辑、继续优化、继续应用到真实的科研、文档和汇报场景里。
+				id: 'desktop-connect',
+				title: '一键接入：把原生配置的复杂度收进清晰的操作流程',
+				body: `第一次使用时，用户先登录 Ofox，再从自动检测到的本机客户端中选择目标。点击开始绑定后，工作台为选中的工具管理专属 API Key，写入各自要求的接入配置，并逐项呈现成功、冲突或失败结果。未安装的客户端可以先走受支持的安装流程或官方下载入口。
 
-	对研究者和工程团队来说，这种可编辑性比“单次出图速度”更重要。论文结构图、系统架构图、流程图、时间线图往往都需要多轮修改，如果 AI 只能给你一张图片，你最后还是要重画；而 Smart Drawio Next 生成的是可落进 Draw.io 的内容，所以它在产品定位上更像“AI 加持的专业绘图工作台”。`,
-				image: '/static/images/project/smart-drawio-page.png',
-				imageAlt: 'Smart Drawio Next 主界面截图，展示输入区、编辑器与画布联动',
+	安装、绑定和模型选择分别记录，避免把“安装好了”和“已经可以调用模型”混为一谈。已有配置出现冲突时会明确提示，缺失配置可以显式恢复，解绑前也能先预览变更。这让多工具接入成为一个可查看、可检查的产品流程。`,
+				video: '/static/images/project/ofox-desktop-onboarding.mp4',
+				videoPoster: '/static/images/project/ofox-desktop.webp',
+				mediaCaption: '官方一键接入演示 · 无音轨 · 使用虚构演示数据',
 			},
 			{
-				title: '代码编辑器 + Draw.io 画布双栈联动，是它真正拉开差距的地方',
-				body: `项目最强的体验不是“AI 会画图”，而是“图生成之后还能像工程对象一样被继续操作”。README 把这一层讲得很清楚：左边是输入与生成控制，中间是 Monaco 编辑器，右边是嵌入式 Draw.io 画布。你可以直接在代码层修改节点、箭头、布局与文本，再一键重新应用；也可以在画布里继续拖动和微调，让生成结果真正融入既有工作流。
+				id: 'desktop-sessions',
+				title: '会话管理：沿着项目找到上下文，接着上次的工作继续',
+				body: `同一个项目可能先在一个工具中探索，再换到另一个工具中实现。会话入口把受支持工具的本地记录按项目组织起来，让用户可以搜索、阅读和导出对话，并在来源支持时继续会话或使用可恢复的回收站。
 
-	这种 code + canvas 的双栈设计非常适合复杂图表：一方面，结构化编辑让你可以精确控制图的逻辑；另一方面，Draw.io 原生的可视化交互保留了普通用户的低门槛操作方式。它不是在编辑器和白板之间二选一，而是把两者的优势拼接到了一起。`,
-				image: '/static/images/project/smart-drawio-transformer.png',
-				imageAlt: 'Smart Drawio Next 生成的 Transformer 架构图示例',
+	界面保留不同工具的能力差异：Claude Code、Codex、OpenCode 等来源支持阅读、导出与续聊；OpenClaw、WorkBuddy 提供阅读和导出；dsh 当前展示会话列表。ChatGPT 的接入范围是 Codex 模式，共用 Codex 的本地记录。把这些差异呈现清楚，才能让“跨工具管理”真正服务于日常工作。`,
+				image: '/static/images/project/ofox-desktop-sessions.webp',
+				imageAlt:
+					'Ofox Desktop 按项目浏览本地会话，展示工具来源、会话列表与对话内容',
 			},
 			{
-				title: '它不是只会一类图：科研图、视觉模型图和多模态结构图都能生成',
-				body: `README 的 Gallery 很能说明这个项目的上限。除了通用流程图和架构图，它还展示了 Transformer、Swin Transformer、CLIP、ProSST 等不同风格与内容密度的科研图表示例。这一点很重要，因为真正的图表工具不能只会“画几个盒子”，而要能适应完全不同的信息组织方式：有的图强调模块分层，有的图强调跨模态交互，有的图强调时序和数据流。
+				id: 'desktop-library',
+				title: '资源库与发现：一次整理能力，预览后分发到目标工具',
+				body: `指令、MCP 和 Skills 可以集中维护。工作台发现已有的原生配置，将内容整理为草稿，比较差异，再由用户选择需要应用的客户端。发现页提供精选 MCP 与 Skills 入口，让“找到能力”与“把能力接到工具里”能够衔接起来。
 
-	从这些示例可以看出，Smart Drawio Next 更像一个图表生成引擎：你可以显式指定图表类型，也可以让模型自动判断；你可以做学术论文里的模型图，也可以做技术文档里的系统图、汇报里的概念图，甚至偏信息可视化风格的演示图。这种跨场景通用性，正是它适合作为 portfolio 项目的原因。`,
-				image: '/static/images/project/smart-drawio-swin.png',
-				imageAlt: 'Smart Drawio Next 生成的 Swin Transformer 图表示例',
+	这里的关键是分发过程可见：保存资源、写入目标配置与连接验证是不同状态，同名冲突和部分成功需要分别处理。各客户端沿用自己的配置格式和协议规则，Codex 与 ChatGPT 的 Codex 模式共享同一个物理配置目标，减少重复写入和配置漂移。`,
+				image: '/static/images/project/ofox-desktop-library.webp',
+				imageAlt:
+					'Ofox Desktop 资源库中集中维护 MCP、Skills 和指令，并选择目标客户端',
+				gallery: [
+					{
+						image: '/static/images/project/ofox-desktop-discover.webp',
+						alt: 'Ofox Desktop 发现页中的 MCP 与 Skills 目录',
+						caption: '发现页：浏览 MCP 与 Skills，选择后先形成可编辑草稿。',
+					},
+				],
 			},
 			{
-				title: '多模态输入不是噱头，而是把“参考图改造”为可编辑内容的关键入口',
-				body: `README 强调了这个项目不仅支持文本生成，还支持图片输入。你可以上传一张已有图示、手绘草图、论文截图或参考页面，让 vision 模型先理解其结构，再转成可编辑图表内容。相比单纯的 text-to-diagram，这一步非常实用：现实工作里很多需求并不是“从零开始画”，而是“把这张已有图改成适合我汇报、文档或论文的版本”。
+				id: 'desktop-assistant',
+				title: '内置助手：从信息处理到多模态创作，在同一段对话中推进',
+				body: `助手把模型对话、文件附件、联网搜索和本地历史放在一起，支持会话分叉与导出，以及语音输入和朗读。用户可以在讨论需求的过程中继续生成图片、视频或语音，让想法、参考资料和创作结果留在同一条工作线上。
 
-	这也是 Smart Drawio Next 在实战里更有价值的原因。它把图片理解、结构重建和后续编辑串成一条链路，让参考图不再只是灵感来源，而是可转换、可重组、可二次创作的输入。对科研和工程用户来说，这类能力比“炫技式自动生成”更贴近真实工作流。`,
-				image: '/static/images/project/smart-drawio-clip.png',
-				imageAlt: 'Smart Drawio Next 生成的 CLIP 图表示例',
+	媒体操作提供对应的模型与参数选择：图片可选择尺寸、质量和数量，视频可设置时长、分辨率、画面比例与音轨选项。具体能力由所选模型与账号提供，界面中的控制项服务于实际的创作决策。`,
+				image: '/static/images/project/ofox-desktop-assistant.webp',
+				imageAlt: 'Ofox Desktop 助手界面，展示本地对话、模型选择和示例回复',
+				gallery: [
+					{
+						image: '/static/images/project/ofox-desktop-assistant-image.webp',
+						alt: 'Ofox Desktop 图片生成的模型、尺寸、质量与数量选择界面',
+						caption: '图片生成：按任务选择模型、尺寸、质量与数量。',
+					},
+					{
+						image: '/static/images/project/ofox-desktop-assistant-video.webp',
+						alt: 'Ofox Desktop 视频生成的时长、分辨率、画面比例与音轨设置界面',
+						caption: '视频生成：配置时长、分辨率、画面比例与音轨。',
+					},
+				],
 			},
 			{
-				title: '复杂科研图也能保持结构清晰，这让它更像生产工具而不是展示 Demo',
-				body: `README 里的 ProSST 示例说明，这个项目不仅能处理经典 AI 架构图，也能覆盖更复杂的科研示意场景。此类图通常包含更多层次、更复杂的关系线和更高的信息密度，如果没有后续编辑与后处理能力，很容易生成出“元素都有，但读不明白”的结果。Smart Drawio Next 的优势在于：生成只是起点，后续你还能继续整理结构、调整视觉层级、压缩冗余线条与文本噪声。
+				id: 'desktop-recovery',
+				title: '配置诊断：把出错后的下一步也纳入产品体验',
+				body: `工具无法使用时，用户可以点击“用不了？让助手看看”，进入带有工具背景的诊断对话。发送请求后，助手可检查配置、运行环境和 Ofox 接入状态，在用户所选权限范围内执行修改，再验证修复结果。
 
-	因此它适合的不只是“做一张好看的图”，而是“把复杂知识表达整理成真正能被人读懂、能放进论文和文档里的图”。这是科研绘图里很稀缺、也很有说服力的产品能力。`,
-				image: '/static/images/project/smart-drawio-prosst.png',
-				imageAlt: 'Smart Drawio Next 生成的 ProSST 图表示例',
+	这个入口把接入、诊断、修改和验证连成闭环。配置失败不再只留下一个报错；用户能够沿着当前工具的问题继续处理，未解决的部分仍然明确呈现。`,
 			},
 			{
-				title: '后处理工具链与样式系统，让图表从“能用”走向“能展示”',
-				body: `很多 AI 图表工具的问题不是“生成不出来”，而是“生成出来以后不够像最终交付物”。README 里的 Tools System 正是在解决这个问题：Drawing Tricks 负责对齐、正交连线、统一间距、箭头规范化、跳线等结构修正；Text Tools 负责文本折行、居中、面板化与紧凑排版；Style Presets 与 Style Packs 则负责把整张图一键拉到可展示、可汇报的视觉质量。
+				id: 'desktop-usage',
+				title: '用量分析：从总览下钻到请求，让每段工作都能被解释',
+				body: `用量视图按工具、项目、模型与日期整理本地记录，用户可以从总览进入请求明细，并导出 CSV 做进一步分析。这把分散在各客户端中的消耗信息放回具体项目，帮助理解一次工作主要用了哪些模型、资源消耗集中在哪个阶段。
 
-	这让 Smart Drawio Next 不只是一个生成器，更像一个能把草图打磨成展示级图表的后期系统。你可以先用模型快速起稿，再用工具链把它整理到适合论文、演讲或技术方案评审的精度。这种“生成 + 工具化 refinement”的组合，是这个项目最值得在 portfolio 里强调的地方之一。`,
-				image: '/static/images/project/smart-drawio-tools-business-clean.png',
-				imageAlt: 'Smart Drawio Next 样式包处理后的商业风格图表示例',
+	数据展示区分账户账单、历史保存金额与当前价格估算，同时呈现覆盖范围和未知价格。不同工具对 Token 与缓存的记录方式存在差异，缺失数据与已知零值也需要分别表达。这些口径设计让统计结果更容易核对，避免把一个汇总数字当成全部事实。`,
+				image: '/static/images/project/ofox-desktop-usage.webp',
+				imageAlt:
+					'Ofox Desktop 用量分析中的工具、项目、模型筛选、趋势与请求记录',
 			},
 		],
 		features: [
 			{
-				title: '流式图表生成',
+				title: '原生配置与协议适配',
 				description:
-					'支持 streaming generation 与 continue generation，长图或复杂图表也能分段生成并持续补全',
+					'适配各客户端的 JSON、JSONC、TOML、YAML 等配置形式，协调模型、服务地址与工具专属 Key，并保留无关字段。',
 			},
 			{
-				title: '多模态输入',
+				title: '配置所有权与可恢复操作',
 				description:
-					'既支持自然语言 prompt，也支持上传参考图片，把已有图示转换成可编辑 Draw.io 内容',
+					'区分接入前的值、工作台写入值和用户后续修改；变更前预览与冲突检查，让解绑和恢复具有明确边界。',
 			},
 			{
-				title: '代码 + 画布双工作流',
+				title: '多来源本地数据整理',
 				description:
-					'中间用 Monaco 编辑 XML / JSON，右侧嵌入 Draw.io 实时预览与继续编辑，兼顾精确控制与可视操作',
+					'从各工具的 JSONL、JSON 与 SQLite 等原生记录中提取会话和用量，同时保留来源能力、数据覆盖与统计口径。',
 			},
 			{
-				title: '后处理工具链',
+				title: '资源分发与结果核验',
 				description:
-					'提供布局整理、连线修复、文本格式化、样式预设与 style packs，让初稿快速提升到展示级效果',
+					'将资源定义、应用目标和执行结果分开管理；原生配置比较后再写入，处理同名冲突与部分成功。',
 			},
 			{
-				title: '20+ 图表类型',
+				title: '系统凭据与本地配置协同',
 				description:
-					'覆盖 flowchart、mind map、sequence、UML、ER、timeline、architecture diagram、network topology 等多种图表形态',
+					'正式版将登录令牌和工具密钥副本交由系统凭据库保存，接入时按各工具要求写入本机原生配置。',
 			},
 			{
-				title: '主题与样式系统',
+				title: '跨平台桌面交付',
 				description:
-					'内置 10 种颜色主题，并支持 blueprint、business clean、presentation cards 等一键视觉风格',
-			},
-			{
-				title: '配置管理与历史记录',
-				description:
-					'支持多模型配置切换、访问密码模式、本地历史回放与通知系统，适合个人或团队长期使用',
-			},
-			{
-				title: '可部署产品形态',
-				description:
-					'提供 Docker / Docker Compose 部署路径，并支持 client-side 与 server-side 两种 LLM 配置模式',
+					'基于 Tauri 2、Rust 与 React 组织桌面能力，交付 macOS / Windows 安装包，提供应用内更新检查。',
 			},
 		],
 		techStack: [
-			{ category: '前端框架', items: ['Next.js 16 (App Router)', 'React 19'] },
-			{ category: '画布渲染', items: ['Draw.io Embed'] },
-			{ category: '代码编辑器', items: ['@monaco-editor/react'] },
-			{ category: '样式方案', items: ['Tailwind CSS v4', '自定义设计系统'] },
+			{ category: '桌面框架', items: ['Tauri 2', 'Rust'] },
+			{ category: '前端界面', items: ['React 18', 'TypeScript'] },
+			{ category: '本地数据', items: ['JSONL / JSON', 'SQLite', 'CSV 导出'] },
 			{
-				category: 'LLM 接入',
-				items: [
-					'OpenAI / Anthropic 兼容接口',
-					'SSE 流式响应',
-					'Server Actions',
-					'Edge API 路由',
-				],
+				category: '原生集成',
+				items: ['JSON / JSONC / TOML / YAML', 'MCP', 'Agent Skills'],
 			},
+			{ category: '开发环境', items: ['Node.js', 'pnpm 10', 'Rust stable'] },
 			{
-				category: '状态与配置',
-				items: ['localStorage', '访问密码模式', '历史记录回放'],
-			},
-			{
-				category: '部署方式',
-				items: ['Docker', 'Docker Compose', 'Next.js standalone output'],
+				category: '产品交付',
+				items: ['macOS Apple Silicon', 'Windows x64', 'MIT'],
 			},
 		],
 		links: [
-			{ label: '在线体验', url: 'https://smart-drawio-next.vercel.app/' },
+			{ label: '官方网站', url: 'https://ofox.ai/zh/desktop' },
+			{ label: 'GitHub', url: 'https://github.com/ofoxai/ofox-desktop' },
+			{
+				label: 'GitHub Releases',
+				url: 'https://github.com/ofoxai/ofox-desktop/releases/latest',
+			},
+		],
+		usage: [
+			'从官网或 GitHub Releases 下载对应平台的安装包',
+			'打开应用并登录 Ofox，或进入受支持的本地管理功能',
+			'选择已安装的 AI 工具并一键接入，查看每个工具的配置结果',
+			'在会话、资源库和用量入口继续管理日常工作',
+		],
+		targetUsers: [
+			'AI 开发者 - 同时使用多个编程助手与命令行工具',
+			'内容创作者 - 希望在对话中完成图片、视频与语音创作',
+			'个人用户 - 需要统一整理本地会话、工具配置与用量记录',
+		],
+		license: 'MIT License – 可在保留版权声明的前提下自由使用、复制与分发',
+	},
+	'ofox-skills': {
+		slug: 'ofox-skills',
+		title: 'Ofox Skills',
+		subtitle: '把创作经验和工具能力，封装成 Agent 可以执行的工作流',
+		description: `Ofox Skills 把视频创作、图片处理与实用工具操作，组织成可以安装、组合和持续改进的 Agent 技能。用户表达目标，场景技能整理输入与创作方案，共享执行层完成校验、API 调用、任务跟踪和成果保存，让工作流一直走到实际交付。
+
+	项目通过统一仓库维护场景、脚本和参考说明，提供安装器与可见性诊断，并接入 skills.sh 等技能发现生态。它展示了从任务设计、执行引擎到开发者分发的完整工程路径，也让内容创作能力能够在不同 Agent 中复用。`,
+		overviewSections: [
+			{
+				title: '围绕真实任务设计技能',
+				body: '从短剧、广告、电商展示、动漫分镜，到产品演示、口播和音乐视频，每种场景都包含对应的输入组织和交付方式。图片技能支持局部编辑与多组产品图，hal-image、hal-vault、cloudflare-drop 则补上本地图片处理、加密密钥管理和静态发布能力，让创作与后续工具操作可以衔接起来。',
+				image: '/static/images/project/ofox-skills.svg',
+				imageAlt:
+					'Ofox Skills 的视频、图片与工具三类能力及安装到交付的工作流示意',
+			},
+			{
+				title: '共享执行引擎，可追溯的交付',
+				body: 'ofox-video-core 与 ofox-image-core 将参数校验、费用预估、提交、轮询和下载集中到共享脚本，场景技能可以专注创作逻辑。dry-run 在提交前给出估价；视频产物随附记录任务、提示词、参数与实际费用的 JSON 文件，方便后续定位和调整。这种分层设计兼顾复用、成本透明与交付可追溯性。',
+			},
+			{
+				title: '从开源代码到技能生态',
+				body: 'npx ofox-skills 负责安装完整技能集，doctor 检查 Agent 实际能看到哪些技能，也支持按技能、Agent 和项目范围选择。skills.sh 提供公开目录和安装入口，部分技能也进入 ClawHub、Skills Directory 等发现渠道。统一分发和依赖组织，让一套工作流能够更顺畅地进入用户已有的 Agent 环境。',
+			},
+		],
+		features: [
+			{
+				title: '从场景到成片',
+				description:
+					'按广告、短剧、产品展示、动画与口播等任务组织创作输入、镜头计划和视频交付',
+			},
+			{
+				title: '图片编辑与产品创作',
+				description:
+					'针对已有图片执行具体修改，围绕同一产品生成多种风格与背景的候选素材',
+			},
+			{
+				title: '先估价，再执行',
+				description:
+					'dry-run 先校验参数和估算费用，生成后保留任务记录与实际用量，便于追踪创作成本',
+			},
+			{
+				title: '创作之外的实用能力',
+				description:
+					'把 ImageMagick、hal-vault 与静态发布能力封装成技能，衔接素材处理、凭据使用和成果发布',
+			},
+			{
+				title: '安装与可见性诊断',
+				description:
+					'提供完整安装和按需分发，用 doctor 核对 Agent 的实际可见性，减少环境与依赖断点',
+			},
+			{
+				title: '开放分发，多生态发现',
+				description:
+					'通过 skills.sh 分发，部分技能可在 ClawHub 与 Skills Directory 发现，共享脚本保持统一维护',
+			},
+		],
+		techStack: [
+			{ category: '技能规范', items: ['SKILL.md', 'Markdown', 'skills.sh'] },
+			{ category: '执行脚本', items: ['Shell', 'curl', 'jq'] },
+			{ category: '创作能力', items: ['Ofox Video API', 'Ofox Image API'] },
+			{
+				category: '工具集成',
+				items: ['ImageMagick', 'hal-vault', 'Cloudflare'],
+			},
+		],
+		links: [
+			{
+				label: '官方网站',
+				url: 'https://ofox.ai/docs/integrations/claude-code/skills',
+			},
+			{ label: 'GitHub', url: 'https://github.com/ofoxai/skills' },
+			{ label: '技能目录', url: 'https://skills.sh/ofoxai/skills' },
+		],
+		usage: [
+			'安装完整技能集：npx ofox-skills',
+			'检查 Agent 可见性：npx ofox-skills doctor',
+			'按需选择 Agent 或项目范围，安装后重启 Agent 以加载技能',
+			'使用图片或视频生成前配置 OFOX_API_KEY，并先通过 dry-run 查看预估费用',
+		],
+		targetUsers: [
+			'Agent 用户 - 希望让编程助手执行创作与实用工具任务',
+			'内容创作者 - 需要可复用的图片与视频生产工作流',
+			'技能开发者 - 需要参考场景技能与共享执行层的组织方式',
+		],
+		license: 'MIT License – 可在保留版权声明的前提下自由使用、复制与分发',
+	},
+	'smart-drawio': {
+		slug: 'smart-drawio',
+		title: 'Smart Drawio Next',
+		subtitle:
+			'从 Web 工作台到 Agent Skill 与 MCP，把想法和参考图转成可编辑、可检查、可继续打磨的 Draw.io 图表',
+		description: `Smart Drawio Next 把图表生成、结构编辑与后处理连接成一条工作流。自然语言或参考图片进入模型后，结果以 Draw.io XML / JSON 呈现在 Monaco 编辑器和嵌入式画布中，用户可以继续修改节点、关系与布局，再应用到论文、技术文档和演示中。
+
+	项目已从浏览器产品延伸到独立 Agent Skill 和 local stdio MCP。三种入口围绕同一套图表能力工作：在 Web 中交互编辑，在 Agent 中沿着文档任务生成图表，再通过本地工具校验结构、修复受支持的问题并应用样式。Skill 与 MCP v0.1.0 已发布，MCP 同时进入官方 Registry。`,
+		overviewSections: [
+			{
+				id: 'drawio-workspace',
+				title: '生成、代码与画布，在同一个工作台里迭代',
+				body: `左侧组织描述、参考图片与生成控制，中间通过 Monaco 检查和修改 XML / JSON，右侧用 Draw.io 继续拖拽与微调。流式生成和续写把复杂图表逐步展开，结构化输出让节点、连线与文本能够继续编辑。
+
+	这个设计把模型起稿和人工精修连接起来。一次修改可以落到具体的节点或样式上，也能回到可视化画布中检查阅读效果，适合需要多轮调整的架构图、方法图与流程图。`,
+				image: '/static/images/project/smart-drawio-page.png',
+				imageAlt:
+					'Smart Drawio 工作台，展示输入区、Monaco 编辑器与 Draw.io 画布',
+			},
+			{
+				id: 'drawio-agents',
+				title: '把绘图能力带进 Agent：独立 Skill 与 MCP',
+				body: `独立 smart-drawio Skill 提供绘图约定、工作流程和离线校验，复用 Agent 已有的模型能力。MCP 则以 5 个工具暴露生成、校验、保守修复、样式处理与选项发现，供支持 local stdio 的客户端调用。
+
+	MCP 返回可由客户端保存的未压缩 Draw.io XML。校验、修复、样式与选项查询在本地执行，只有 generate_drawio 需要模型 API 配置。下方两张图来自仓库的 Skill 与 MCP 实际生成示例，展示两种接入方式的交付结果。`,
+				gallery: [
+					{
+						image: '/static/images/project/smart-drawio-skill.png',
+						alt: '通过 Smart Drawio Skill 生成的 Transformer 图表示例',
+						caption: 'Skill 示例：Agent 按绘图约定生成可编辑 XML。',
+					},
+					{
+						image: '/static/images/project/smart-drawio-mcp.png',
+						alt: '通过 Smart Drawio MCP 生成的 Transformer 图表示例',
+						caption: 'MCP 示例：由工具生成 XML，后续仍可人工调整布局与连线。',
+					},
+				],
+			},
+			{
+				id: 'drawio-refinement',
+				title: '让生成结果进入可检查、可优化的工具链',
+				body: `结构校验检查 XML、ID、parent 和引用关系，保守修复处理受支持的缺失闭合标签。Drawing Tricks、Text Tools、Style Presets 与 Style Packs 进一步整理对齐、间距、正交连线、文本和视觉层级。
+
+	这些能力把结构正确性与视觉打磨分开处理：先发现可定位的问题，再按任务选择修复或样式工具，最后回到 Draw.io 检查细节。图片和 PDF 导出仍由 Draw.io renderer 完成，MCP 交付的是可编辑源文件。`,
+				image: '/static/images/project/smart-drawio-tools-business-clean.png',
+				imageAlt: 'Smart Drawio 应用 Business Clean 样式后的图表示例',
+			},
+			{
+				id: 'drawio-research',
+				title: '从系统架构到科研方法图，保留结构表达能力',
+				body: `项目提供 20+ 图表类型和 10 种颜色主题，覆盖 Flowchart、UML、ER、Sequence、Architecture Diagram 等场景。公开示例包含 Transformer、Swin Transformer、CLIP 与 ProSST，呈现分层模块、跨模态交互与数据流等不同组织方式。
+
+	Web 的参考图片输入也支持从已有图示开始重建结构。用户可以根据实际任务补充节点含义、调整信息层级，并将最终 XML 带回自己的文档和研究流程。`,
+				gallery: [
+					{
+						image: '/static/images/project/smart-drawio-transformer.png',
+						alt: 'Smart Drawio 的 Transformer 架构图示例',
+						caption: 'Transformer：编码器、解码器与信息流。',
+					},
+					{
+						image: '/static/images/project/smart-drawio-clip.png',
+						alt: 'Smart Drawio 的 CLIP 图表示例',
+						caption: 'CLIP：图像与文本分支的结构表达。',
+					},
+				],
+			},
+		],
+		features: [
+			{
+				title: '流式生成与续写',
+				description:
+					'逐步生成复杂图表，并通过 continue generation 接着补全内容。',
+			},
+			{
+				title: '参考图到可编辑结构',
+				description:
+					'Web 支持自然语言与图片输入，将参考信息转成可继续编辑的 Draw.io 内容。',
+			},
+			{
+				title: '代码与可视化协作',
+				description:
+					'Monaco 中精确修改 XML / JSON，在 Draw.io 画布中应用并继续微调。',
+			},
+			{
+				title: '5 个 MCP Tools',
+				description:
+					'生成、结构校验、保守修复、样式处理与选项发现，可组合进 Agent 工作流。',
+			},
+			{
+				title: '布局与样式后处理',
+				description:
+					'以 drawing tricks、文本工具、presets 与 style packs 整理图表的结构和视觉层级。',
+			},
+			{
+				title: '可安装、可自部署',
+				description:
+					'Skill 通过 Skills CLI 安装，MCP 通过 npm 分发，Web 提供 Docker / Docker Compose 部署。',
+			},
+		],
+		techStack: [
+			{
+				category: 'Web 应用',
+				items: ['Next.js 16', 'React 19', 'Tailwind CSS v4'],
+			},
+			{
+				category: '图表与编辑',
+				items: ['Draw.io Embed', 'Monaco Editor', 'XML / JSON'],
+			},
+			{
+				category: 'Agent Skill',
+				items: ['SKILL.md', 'Python 3 离线校验', '复用 Agent 模型'],
+			},
+			{
+				category: 'MCP Server',
+				items: ['Node.js 20.9+', 'local stdio', '5 个 MCP Tools'],
+			},
+			{
+				category: '模型与状态',
+				items: ['OpenAI / Anthropic 兼容 API', 'SSE', 'localStorage'],
+			},
+			{
+				category: '分发与部署',
+				items: ['npm', 'MCP Registry', 'Docker / Docker Compose'],
+			},
+		],
+		links: [
+			{
+				label: '在线体验',
+				url: 'https://smart-drawio-next.vercel.app/',
+				primary: true,
+			},
 			{
 				label: 'GitHub',
 				url: 'https://github.com/yunshenwuchuxun/smart-drawio-next',
 			},
+			{
+				label: '安装 Skill',
+				url: 'https://github.com/yunshenwuchuxun/smart-drawio-next/blob/main/docs/skill-installation.md',
+			},
+			{
+				label: '接入 MCP',
+				url: 'https://github.com/yunshenwuchuxun/smart-drawio-next/blob/main/packages/mcp/README.md',
+			},
 		],
 		usage: [
-			'克隆仓库：git clone https://github.com/yunshenwuchuxun/smart-drawio-next.git',
-			'安装依赖：pnpm install',
-			'本地开发：pnpm dev',
-			'访问 http://localhost:3000',
-			'Docker 启动：docker compose up -d --build',
-			'按需选择浏览器本地配置模式或服务端 Access Password 模式',
+			'在线打开 Web，在浏览器中配置模型服务，输入描述或上传参考图片。',
+			'通过 Skills CLI 安装 smart-drawio Skill，使用 $smart-drawio 调用。',
+			'MCP 客户端通过 npx 启动 @yunshenwuchuxun/smart-drawio-mcp@0.1.0。',
+			'如需自行托管 Web，使用 Docker / Docker Compose；当前模型配置保存在浏览器本地。',
 		],
 		targetUsers: [
-			'科研工作者 - 快速生成论文中的模型图、方法流程图与实验结构图',
-			'产品与设计团队 - 用自然语言快速起草流程图、概念图与汇报图示',
-			'开发人员 - 创建系统架构图、数据流图、网络拓扑图与技术文档图表',
-			'教育工作者 - 制作教学演示图、课程讲义图与可修改示意图',
-			'内部工具团队 - 部署为组织内共享的 AI 绘图工作台',
+			'研究者：生成并持续修改论文模型图与方法图。',
+			'开发者：将架构图、数据流图与技术文档组织进同一个 Agent 任务。',
+			'产品与教学团队：用自然语言起稿，再通过画布完成演示细节。',
 		],
 		license: 'MIT License – 可在保留版权声明的前提下自由使用、复制与分发',
 	},
@@ -610,107 +884,142 @@ export const projectDetails: Record<string, ProjectDetail> = {
 		slug: 'latex-paper-skills',
 		title: 'latex-paper-skills',
 		subtitle:
-			'科研 skills：想法、写作、实验、文献、排版一条龙服务，一条 prompt 即可生成有证据、排版好的论文',
-		description: `latex-paper-skills 是一个面向 ML/AI 学术写作的科研 skills 系统。它把想法形成、文献检索、研究规划、章节写作、实验设计、结果回填、引用核验和 LaTeX 排版串成一条完整流水线，让“写论文”第一次像搭建软件工作流一样可组织、可追踪、可复用。
+			'把选题、证据、真实结果与 LaTeX PDF 串成 8 个科研工作流，完整 Skill 一次安装到 Codex 或 Claude Code',
+		description: `latex-paper-skills 面向 ML/AI 论文写作，把研究规划、文献检索、综述与实证写作、结果回填、引用核验和 LaTeX 编译组织成可执行的 Agent 工作流。任务从贡献和证据开始，沿着计划与 Issues CSV 推进，最终交付论文源码、BibTeX、图表和可编译的 PDF。
 
-	它最强的地方不只是会生成正文，而是能把一条自然语言 prompt 路由成真正可交付的论文流程：先规划、再写作、强制核验证据、自动维护 BibTeX、最后编译成版式规范的 PDF。相比单纯的 prompt 模板，这是一套能稳定产出“有证据、排版好、可复现”论文的研究生产系统。`,
+	分发层将 8 个源工作流、_shared、脚本与模板打包为一个 latex-paper-skills 入口，支持 npm 安装器与 Skills CLI，也已上架 Skills.sh、ClawHub 和 LobeHub。这个完整 bundle 保留工作流之间的共享依赖，让科研工具链能够在不同 Agent 中复用。`,
 		overviewSections: [
 			{
-				title: '一条 prompt 到论文 PDF：完整 pipeline 是这个项目的核心竞争力',
-				body: `latex-paper-skills 的定位不是“论文润色工具”，而是科研写作全流程的 skills 系统。README 里把它定义为从 topic 到 compiled PDF 的可移植 AI agent skill bundle，核心路由 skill 会把一个研究想法继续拆成文献搜索、创新 framing、贡献地图、证据矩阵，再根据任务类型分流到综述论文或实证论文写作器。
+				id: 'paper-pipeline',
+				title: '从研究问题到论文工程，每一步都有明确产物',
+				body: `paper-from-zero 组织研究起点，将主题继续拆为文献检索、创新 framing、贡献地图与证据矩阵，再分流到综述或实证路线。计划经确认后，Issues CSV 作为任务执行契约，记录研究、写作、核验与编译进度。
 
-	这意味着用户输入的不再只是一个 prompt，而是一次完整科研流程的起点。系统会把想法、文献、实验、写作、引用、排版组织成可执行工序，最终交付的也不只是文字草稿，而是带证据约束、带 BibTeX、带 LaTeX 排版、可直接编译成 PDF 的论文工程。`,
+	交付围绕完整论文工程展开：文献笔记解释依据，BibTeX 管理核实后的引用，LaTeX 源码承载正文和图表，编译结果用于检查版式与 warning。研究者可以从中间产物继续修改和审阅。`,
 				image: '/static/images/project/latex-paper-skills-pipeline.svg',
-				imageAlt: 'latex-paper-skills 从选题到论文 PDF 的总流程图',
+				imageAlt: 'latex-paper-skills 从选题、证据规划到 LaTeX PDF 的工作流',
 			},
 			{
-				title: 'Skill 体系不是一句“AI 写论文”，而是可分工、可组合的科研工作台',
-				body: `这个仓库最值得单独介绍的，是它把论文生产拆成了一组职责明确的 skills。paper-from-zero 负责总路由；arxiv-paper-writer 负责综述论文；empirical-paper-writer 负责实验论文；latex-rhythm-refiner 负责在不破坏引用位置的前提下优化表达；results-backfill 负责把真实实验结果回填进草稿并生成图表。
+				id: 'paper-bundle',
+				title: '一个安装入口，保留 8 个工作流与共享资源',
+				body: `完整 bundle 包含总路由 paper-from-zero、综述写作 arxiv-paper-writer、实证写作 empirical-paper-writer、表达优化 latex-rhythm-refiner 和真实结果回填 results-backfill。Gemini / Claude 协作与 check-collaborators 补充文献扩展、深度审查和 CLI 健康检查，共 8 个源工作流。
 
-	在协作层上，collaborating-with-gemini 更偏广度扩展，适合做文献扩写、替代框架与关键词分组；collaborating-with-claude 更偏深度审查，适合做 claim stress-test、证据审计与关键判断；check-collaborators 则负责检查 CLI、认证与接口可用性。换句话说，这不是一个单点功能，而是一个覆盖“想法—文献—写作—实验—排版”的科研工作台。`,
-				image: '/static/blog/latex-paper-skills/review-paper-preview.png',
-				imageAlt: 'latex-paper-skills 综述论文示例预览',
+	安装时一并保留 _shared、脚本和模板，避免把源目录拆开后遗漏依赖。npm 安装器提供 Codex 与 Claude Code 目标选择，Skills CLI、ClawHub、LobeHub 和 Release ZIP 则为不同使用环境提供分发入口。`,
 			},
 			{
-				title: '它为什么强：不是写得快，而是把证据、流程和排版同时做对',
-				body: `很多 AI 写作工具只能快速吐出一篇“像论文的文字”，但 latex-paper-skills 追求的是更难的目标：让结果既有研究证据，又符合论文生产流程，还能在 LaTeX 层面直接交付。README 里反复强调 no prose before approval、Issues CSV is the contract、citations must be verified、never fabricate citations/results/significance claims——这些不是营销词，而是系统设计原则。
+				id: 'paper-showcases',
+				title: '两套完整 Showcase，把交付过程公开出来',
+				body: `PEFT 综述示例包含研究计划、Issues、文献笔记、BibTeX 与论文 PDF。入流预测实证示例进一步公开实验代码、真实 CSV / JSON 结果、图表和论文，呈现从实验到正文的衔接过程。
 
-	配合门禁流程图可以看到，项目把 Kickoff、用户审批、Issues 合同、research/write/verify 循环、节奏润色、citation audit、source scoring、compile 和 warning review 串成了完整状态机。它的强大之处就在这里：一条 prompt 不是换来一篇“看起来像论文”的草稿，而是换来一条能够稳定生成“有证据、排版好、可审计、可编译”论文的科研生产线。`,
-				image: '/static/blog/latex-paper-skills/empirical-paper-preview.png',
-				imageAlt: 'latex-paper-skills 实证论文示例预览',
+	这些案例让读者可以顺着源码和产物检查工作流。实证示例的原始 ResOpsUS v2 数据因体积没有保留在仓库，完整复现需要按项目说明另行下载数据。`,
+				gallery: [
+					{
+						image: '/static/blog/latex-paper-skills/review-paper-preview.png',
+						alt: 'latex-paper-skills 的 PEFT 综述论文 PDF 预览',
+						caption: 'PEFT 综述：文献与证据组织后的论文产物。',
+					},
+					{
+						image:
+							'/static/blog/latex-paper-skills/empirical-paper-preview.png',
+						alt: 'latex-paper-skills 的入流预测实证论文 PDF 预览',
+						caption: '入流预测实证：真实实验结果回填到论文工程。',
+					},
+				],
+			},
+			{
+				id: 'paper-evidence',
+				title: '用证据与结果状态约束写作',
+				body: `工作流通过引用核验、claim-evidence 对应与 planned / placeholder / verified 状态，明确区分计划、占位内容和经过核实的实验结果。results-backfill 将真实结果与图表回填到既有草稿，再继续进行引用审计、来源检查和编译。
+
+	这些机制为研究协作提供可检查的约束。真实实验、证据判断和最终论文审阅仍需要研究者完成；可选的 Gemini / Claude 协作也需要相应 CLI 已安装并完成认证。`,
+				image: '/static/images/project/latex-paper-skills-gated-workflow.svg',
+				imageAlt:
+					'latex-paper-skills 的计划审批、任务执行、引用审计与编译检查流程',
 			},
 		],
 		features: [
 			{
-				title: '一条 Prompt 到论文 PDF',
+				title: '综述与实证双路线',
 				description:
-					'从主题输入开始，自动路由到文献搜索、规划、写作、引用核验与 LaTeX 编译，最终交付可读可编译的论文工程',
+					'根据任务进入 review paper 或 empirical paper，共享规划、引用核验与论文工程结构。',
 			},
 			{
-				title: '科研 Skills 全链路',
+				title: '完整 Skill 分发',
 				description:
-					'覆盖想法形成、文献检索、综述写作、实验论文、结果回填、文本润色与排版交付，不是单点工具而是完整科研工作台',
+					'1 个入口保留 8 个源工作流、共享脚本和模板，支持 npm 与 Skills CLI 安装。',
 			},
 			{
-				title: '综述 / 实证双论文模式',
+				title: '证据与引用管理',
 				description:
-					'同时支持 review paper 与 empirical paper，两类论文共享同一套工程化约束与交付标准',
+					'以文献笔记、证据矩阵、BibTeX 和引用审计连接论文中的主要判断。',
 			},
 			{
-				title: '证据优先写作',
+				title: '真实结果回填',
 				description:
-					'每条引用先核验再进入 BibTeX，明确禁止伪造 citation、results 或 significance claims，让生成结果更可信',
+					'将实验结果和图表带回已有草稿，以明确状态区分 planned、placeholder 与 verified。',
 			},
 			{
-				title: '门禁式工作流',
+				title: '可检查的执行过程',
 				description:
-					'通过审批门禁、Issues CSV 合同与 research/write/verify/compile 循环约束 Agent，减少失控写作与结构漂移',
+					'用计划审批、Issues CSV 与 research / write / verify / compile 循环组织任务。',
 			},
 			{
-				title: '多模型协作与结果回填',
+				title: '源码到 PDF 的交付',
 				description:
-					'利用 Claude / Gemini 做深度审查与广度扩展，并支持把真实实验结果和图表回填进已有论文草稿',
+					'汇集正文、BibTeX 与图表，执行 LaTeX 编译和 warning review，保留后续修改入口。',
 			},
 		],
 		techStack: [
-			{ category: '核心语言', items: ['Python 3.8+', 'TeX'] },
 			{
-				category: '论文工具链',
-				items: ['LaTeX', 'BibTeX', 'latexmk / pdflatex'],
+				category: '脚本与排版',
+				items: ['Python 3.10+', 'LaTeX / BibTeX', 'latexmk / pdflatex'],
+			},
+			{
+				category: '安装与分发',
+				items: ['Node.js 22.20.0+', 'npm / Skills CLI', '完整 Skill bundle'],
 			},
 			{
 				category: 'Agent Runtime',
-				items: ['Claude Code', 'Codex CLI 兼容 Skill 工作流'],
+				items: ['Codex', 'Claude Code', '可选 Gemini / Claude CLI 协作'],
 			},
-			{ category: '数据与状态', items: ['SQLite', 'arXiv registry / cache'] },
 			{
-				category: '辅助脚本',
-				items: ['引用审计', '来源排序', '风格检查', '编译验证'],
+				category: '数据与状态',
+				items: ['Issues CSV', 'SQLite', 'arXiv registry / cache'],
+			},
+			{
+				category: '科研核验',
+				items: ['引用审计', 'claim-evidence 对应', '编译与 warning review'],
+			},
+			{
+				category: '公开案例',
+				items: ['PEFT 综述', '入流预测实证', 'LaTeX 源码 / 结果 / PDF'],
 			},
 		],
 		links: [
 			{
+				label: '安装完整 Skill',
+				url: 'https://www.npmjs.com/package/latex-paper-skills',
+				primary: true,
+			},
+			{
+				label: 'Skills.sh',
+				url: 'https://skills.sh/yunshenwuchuxun/latex-paper-skills/latex-paper-skills',
+			},
+			{
 				label: 'GitHub',
 				url: 'https://github.com/yunshenwuchuxun/latex-paper-skills',
 			},
-			{
-				label: '原理介绍',
-				url: '/blog/latex-paper-skills',
-			},
+			{ label: '原理介绍', url: '/blog/latex-paper-skills' },
 		],
 		usage: [
-			'克隆仓库：git clone https://github.com/yunshenwuchuxun/latex-paper-skills.git',
-			'准备 Python 3.8+ 与 LaTeX 环境（pdflatex / bibtex 或 latexmk）',
-			'在支持 SKILL.md 的 agent runtime 中打开项目',
-			'使用 paper-from-zero、arxiv-paper-writer 或 empirical-paper-writer 启动写作流程',
-			'如为实证论文，可在实验完成后通过 results-backfill 回填结果并重新编译',
+			'用 npm 安装器或 Skills CLI 安装完整 latex-paper-skills 入口，并选择 Codex 或 Claude Code。',
+			'准备 Python 3.10+；需要 PDF 时安装 pdflatex / bibtex 或 latexmk。',
+			'从研究问题、贡献与证据开始，确认计划后按 Issues CSV 逐项推进。',
+			'实验完成后回填真实结果，核验引用，再编译和审阅论文。',
 		],
 		targetUsers: [
-			'AI / ML 研究者 - 需要更系统的论文写作工作流',
-			'研究生与博士生 - 需要从选题到成稿的结构化支持',
-			'综述论文作者 - 需要更稳定的文献梳理与引用审计流程',
-			'实证研究作者 - 希望先搭建论文骨架、后补实验结果',
-			'研究团队 - 需要可审计、可复用的 AI 协作写作流程',
+			'AI / ML 研究者：组织选题、实验、文献与论文工程。',
+			'综述作者：建立可追踪的文献与证据结构。',
+			'研究团队：共享可检查、可复用的 Agent 写作工作流。',
 		],
 		license: 'MIT License – 可在保留版权声明的前提下自由使用、复制与分发',
 	},

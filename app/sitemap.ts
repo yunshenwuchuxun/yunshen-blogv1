@@ -1,17 +1,24 @@
-import { getPosts } from './blog/utils';
+import type { MetadataRoute } from 'next';
+import { getAllTags, getPosts } from './blog/utils';
+import { absoluteUrl } from './lib/site';
+import { projectDetails, projects } from './projects/constants';
 
-export const baseUrl = 'https://uestc.de5.net';
+export default function sitemap(): MetadataRoute.Sitemap {
+	const routes = ['/', '/blog', '/projects', '/about', '/tags'];
+	const projectPages = projects.flatMap((project) =>
+		project.slug && projectDetails[project.slug]
+			? [`/projects/${encodeURIComponent(project.slug)}`]
+			: [],
+	);
+	const tagPages = getAllTags().map(
+		({ tag }) => `/tags/${encodeURIComponent(tag)}`,
+	);
+	const blogPages = getPosts().map(
+		(post) => `/blog/${encodeURIComponent(post.slug)}`,
+	);
 
-export default async function sitemap() {
-	const blogs = getPosts().map((post) => ({
-		url: `${baseUrl}/blog/${post.slug}`,
-		lastModified: post.metadata.publishedAt,
-	}));
-
-	const routes = ['', 'blog', 'projects', 'about', 'tags'].map((route) => ({
-		url: `${baseUrl}/${route}`,
-		lastModified: new Date().toISOString().split('T')[0],
-	}));
-
-	return [...routes, ...blogs];
+	// Omit lastModified until a reliable content-update date is maintained.
+	return [
+		...new Set([...routes, ...projectPages, ...tagPages, ...blogPages]),
+	].map((path) => ({ url: absoluteUrl(path) }));
 }

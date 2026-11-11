@@ -5,29 +5,44 @@ import Header from '../../components/header';
 import BackNavigation from '../../components/layouts/back-navigation';
 import PageContainer from '../../components/layouts/page-container';
 import { Thoughts } from '../../components/thoughts';
+import { createPageMetadata } from '../../lib/seo';
+
+export const dynamicParams = false;
+
+function decodeTag(value: string): string {
+	try {
+		return decodeURIComponent(value);
+	} catch {
+		notFound();
+	}
+}
 
 export function generateStaticParams() {
 	const tags = getAllTags();
-	return tags.map(({ tag }) => ({ tag: encodeURIComponent(tag) }));
+	return tags.map(({ tag }) => ({ tag }));
 }
 
 export async function generateMetadata(props: {
 	params: Promise<{ tag: string }>;
 }): Promise<Metadata> {
 	const params = await props.params;
-	const tag = decodeURIComponent(params.tag);
+	const tag = decodeTag(params.tag);
+	if (getPostsByTag(tag).length === 0) {
+		notFound();
+	}
 
-	return {
+	return createPageMetadata({
+		path: `/tags/${encodeURIComponent(tag)}`,
 		title: `${tag} - Tags`,
 		description: `Articles tagged with ${tag} - Yun Shen`,
-	};
+	});
 }
 
 export default async function TagPage(props: {
 	params: Promise<{ tag: string }>;
 }) {
 	const params = await props.params;
-	const tag = decodeURIComponent(params.tag);
+	const tag = decodeTag(params.tag);
 	const posts = getPostsByTag(tag);
 
 	if (posts.length === 0) {
