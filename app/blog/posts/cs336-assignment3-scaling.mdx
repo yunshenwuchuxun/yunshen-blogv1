@@ -1,0 +1,657 @@
+---
+title: 'CS336 作业 3 实验复盘：给定算力，该训练多大的模型？'
+publishedAt: '2026-11-18'
+summary: '从 72 条合成记录拟合 IsoFLOPs 缩放规律，再用 Mac 上的 24 次训练检验外推。预算从 4×10¹¹ 增至 9.6×10¹² FLOPs，四个候选中表现最好的模型从 13.2 万参数变为 38.2 万。'
+draft: false
+image: '/static/blog/cs336-assignment3-scaling/budget-loss.png'
+tags: [DL, LLM, Training, Tech Blog]
+---
+
+在 Mac 上给四个 Transformer 各分配 4×10¹¹ FLOPs，13.2 万参数的 `tiny` 取得了最低验证损失。把每个模型的预算提高到 24 倍，胜出的是 38.2 万参数的 `small`。<strong>能不能只看小预算的实验，就提前选对大预算下的模型？</strong> 这是第三次作业要学会回答的问题。
+
+上图每个格子都是一次训练。横着读一行，可以比较<strong>同一预算怎样花</strong>。沿着方框向下读，可以看出<strong>预算增加时，最佳模型怎样变化</strong>。最后一行专门留到预测之后，才用来检验结果。
+
+## 固定一档预算，为什么还要换模型
+
+用 $N$ 表示参数量，$D$ 表示训练期间处理的 token 总数，$C$ 表示训练计算量。对这次作业里的稠密 Transformer，可以用下面的关系估算预算。
+
+$$
+C \approx 6ND
+$$
+
+固定 $C$，参数量翻倍，可处理的 token 数就大致减半。小模型能多读数据，却可能受容量限制。大模型每一步更贵，可能来不及训练充分。<strong>IsoFLOPs</strong> 就是在相同 FLOPs 下训练几种大小的模型，用最终损失比较这两种取舍。
+
+以本地最低预算为例，每步处理 2,048 个 token。`tiny` 能训练 247 步，最终验证损失为 1.9188。参数更多的 `medium` 只能训练 38 步，损失为 2.4421。换一档预算再做同样的比较，就能为每档预算收集一个最佳参数量。
+
+### 两套实验怎样拟合
+
+| 步骤 | 第一题 · 72 条合成记录 | 本地实验 · 24 次训练 |
+| --- | --- | --- |
+| 固定一档预算 | 8 个模型比训练损失，直接选最低的那次 | 4 个模型给出 4 个点，用验证损失对 $\ln N$ 拟合抛物线 |
+| 合并各档预算 | 9 个胜者，分别拟合最优参数量和 token 数随预算变化的幂律 | 前 5 档共 20 次训练，分别用抛物线顶点拟合参数量、用各档实测最低值拟合验证损失 |
+| 检验外推 | 预测 10²³、10²⁴ FLOPs 的配置，两档都超出已有数据范围 | 先预测第 6 档，再跑留出的 4 次训练，核对选型和损失 |
+
+## 第一题：从 72 条训练记录外推到大预算
+
+讲义给了 72 条合成训练记录，每条记录有预算、参数量和最终<strong>训练损失</strong>。先横向比较同一预算下的 8 个模型，再纵向比较 9 档预算的胜者。
+
+### 看一档预算怎样产生一个点
+
+固定在 6×10¹⁸ FLOPs，按参数量从小到大看，靠近最低损失的三条记录如下。
+
+| 参数量 N | 最终训练损失 | 组内比较 |
+| ---: | ---: | --- |
+| 483,988,649 | 5.9034 | 增大模型还能稍微降损失 |
+| 762,093,419 | 5.8999 | 八个候选中最低 |
+| 1,200,000,000 | 5.9779 | 继续增大，损失回升 |
+
+于是这一档选出约 7.62 亿参数。把它代入 $D=C/(6N)$，得到约 13.12 亿个训练 token。用同样的方法处理另外八档预算。下面是 `choose_minima()` 的核心逻辑，`runs` 代表那 72 条记录。
+
+```python
+from collections import defaultdict
+
+by_budget = defaultdict(list)
+for run in runs:
+    by_budget[run["compute_budget"]].append(run)
+
+points = []
+for C, candidates in sorted(by_budget.items()):
+    best = min(candidates, key=lambda run: run["final_loss"])
+    N = best["parameters"]
+    points.append((C, N, C / (6 * N)))
+```
+
+损失在每个预算内决定哪条记录胜出。进入下一步拟合的，是九组「预算、最佳参数量、对应 token 数」。
+
+<details className="my-4 rounded-lg border border-neutral-300 px-4 py-3 dark:border-neutral-700">
+<summary className="cursor-pointer font-semibold">展开九档预算各自选中的记录</summary>
+
+| 预算 C（FLOPs） | 最佳参数量 N | 推算 token 数 D（取整） | 训练损失 |
+| --- | --- | --- | --- |
+| 6e+18 | 762,093,419 | 1,312,175,089 | 5.8999 |
+| 1e+19 | 806,647,749 | 2,066,164,157 | 5.6179 |
+| 3e+19 | 1,536,852,354 | 3,253,402,962 | 5.1072 |
+| 6e+19 | 1,952,041,776 | 5,122,841,182 | 4.8306 |
+| 1e+20 | 3,253,402,960 | 5,122,841,182 | 4.6529 |
+| 3e+20 | 5,903,836,027 | 8,469,069,902 | 4.3112 |
+| 6e+20 | 6,971,055,968 | 14,345,028,997 | 4.1212 |
+| 1e+21 | 6,859,328,563 | 24,297,810,658 | 4.0028 |
+| 3e+21 | 12,148,905,329 | 41,155,971,378 | 3.7732 |
+
+</details>
+
+### 用九个点预测两个新预算
+
+假设最优参数量满足幂律 $N_\star=kC^a$。两边取常用对数，乘法和乘方就变成了一条直线。横坐标是 $x=\log_{10}C$，纵坐标是 $y=\log_{10}N_\star$。
+
+$$
+\underbrace{\log_{10}N_\star}_{y}
+= a\,\underbrace{\log_{10}C}_{x}+\underbrace{\log_{10}k}_{b}
+$$
+
+图里每个黑点代表一档预算下选出的模型。同一个 $x_i$ 上，点的高度是观测值 $y_i$，直线的高度是预测值 $ax_i+b$，两者相减就是**残差**。例如预算为 3×10²⁰ FLOPs 时，观测高度约为 9.771，直线预测约为 9.663，图中橙色线段就长约 0.108。
+
+![九个预算的胜者在对数坐标上排成近似直线。橙色竖线标出一档预算下观测点到拟合直线的纵向残差。](/static/blog/cs336-assignment3-scaling/least-squares-residuals.png)
+
+**最小二乘法**选出斜率 $a$ 和截距 $b$，使九条竖向残差的平方和最小。平方让直线上下两侧的偏差都计入误差。这里最小化的是对数参数量的拟合误差，训练损失已经在上一步用于选点。
+
+$$
+\min_{a,b}\ \sum_{i=1}^{9}\big[y_i-(ax_i+b)\big]^2
+$$
+
+这次得到 $a=0.46868$、$b=0.06573$。还原到参数量的原始单位，系数为 $k=10^b\approx1.16341$。把纵坐标换成 $y_i=\log_{10}D_i$，保留同样的九个横坐标，再拟合一次。两条幂律分别为
+
+$$
+N_\star\approx1.16341\,C^{0.46868},\qquad
+D_\star\approx0.143257\,C^{0.53132}
+$$
+
+这里 $C$ 用 FLOPs 的原始数值。以 10²³ 为例，代入左式得约 700.5 亿个参数，代入右式得约 2,379 亿个 token。预算增加 10 倍时，两者分别增至约 2.94 倍和 3.40 倍。指数相加为 1，因为每一行的 $D$ 都由 $C/(6N)$ 算出。
+
+![合成实验的九档预算给出九对圆点。橙色为训练 token 数，绿色为参数量，虚线和叉号表示更大预算下的外推。](/static/blog/cs336-assignment3-scaling/isoflops.png)
+
+| 目标预算 | 预测最优参数量 | 对应训练 token 数 |
+| --- | ---: | ---: |
+| 10²³ FLOPs | 约 700.5 亿 | 约 2,379 亿 |
+| 10²⁴ FLOPs | 约 2,061 亿 | 约 8,086 亿 |
+
+最右边的观测点只有 3×10²¹ FLOPs。图上最后一个叉号对应的预算是它的约 333 倍。每次删掉一档预算再拟合，10²⁴ FLOPs 下的参数量预测会在 1,853 亿到 2,431 亿之间变动。这说明少数观测点的选择会影响远处的预测。
+
+<details className="my-4 rounded-lg border border-neutral-300 px-4 py-3 dark:border-neutral-700">
+<summary className="cursor-pointer font-semibold">展开第一题的完整计算示例（含 72 条数据）</summary>
+
+这段 Python 3.10+ 示例内置全部观测，使用标准库的直线回归复现两条幂律。末尾两行输出依次是：10²³ FLOPs 对应 7.005×10¹⁰ 个参数、2.379×10¹¹ 个 token；10²⁴ FLOPs 对应 2.061×10¹¹ 个参数、8.086×10¹¹ 个 token。
+
+```python
+from math import log10
+from statistics import linear_regression
+
+# 每个键是一档 FLOPs 预算。每个元组是 (参数量, 最终训练损失)。
+groups = {
+    6e+18: [
+        (49999999, 7.192784500319437),
+        (78730505, 6.750171320661809),
+        (123969849, 6.406639752150447),
+        (195204177, 6.154368665155925),
+        (307370470, 5.987783393573661),
+        (483988649, 5.903434642394701),
+        (762093419, 5.899930270214304),
+        (1200000000, 5.977918696411691),
+    ],
+    1e+19: [
+        (83333333, 6.575071254529126),
+        (131217508, 6.220815025174462),
+        (206616415, 5.9530019364135125),
+        (325340296, 5.765618650051031),
+        (512284118, 5.654639707131759),
+        (806647749, 5.617943423092358),
+        (1270155698, 5.655275367192594),
+        (2000000000, 5.768258932728475),
+    ],
+    3e+19: [
+        (249999999, 5.559968737386354),
+        (393652526, 5.350911535688679),
+        (619849246, 5.207528382521117),
+        (976020888, 5.126776725320434),
+        (1536852354, 5.107176953205009),
+        (2419943249, 5.148789074677523),
+        (3810467096, 5.253228285344907),
+        (6000000000, 5.423720175774838),
+    ],
+    6e+19: [
+        (499999999, 5.089329704378221),
+        (787305053, 4.947592136723572),
+        (1239698493, 4.861899299140854),
+        (1952041776, 4.830586005050577),
+        (3073704708, 4.853352992802183),
+        (4839886498, 4.931271784413071),
+        (7620934193, 5.0668244033437695),
+        (12000000000, 5.263979278015171),
+    ],
+    1e+20: [
+        (833333333, 4.806980275158798),
+        (1312175088, 4.705629625958023),
+        (2066164155, 4.6545468112048125),
+        (3253402960, 4.6528929644335255),
+        (5122841181, 4.701076948284828),
+        (8066477497, 4.80077711983122),
+        (12701556988, 4.9549955366411735),
+        (20000000000, 5.168146276198128),
+    ],
+    3e+20: [
+        (249999999, 5.205881194823879),
+        (423453495, 4.895475889166138),
+        (717251449, 4.657360013937843),
+        (1214890532, 4.48413963602612),
+        (2057798568, 4.370566350456171),
+        (3485527984, 4.313380158267966),
+        (5903836027, 4.311218819265305),
+        (10000000000, 4.364591277621534),
+    ],
+    6e+20: [
+        (499999999, 4.735242161815744),
+        (846906990, 4.502040337947893),
+        (1434502899, 4.328463509172736),
+        (2429781065, 4.209195212443264),
+        (4115597137, 4.140723725301801),
+        (6971055968, 4.121240846441071),
+        (11807672055, 4.150597980878527),
+        (20000000000, 4.230318632014712),
+    ],
+    1e+21: [
+        (833333333, 4.452892732596323),
+        (1411511650, 4.2660074219972515),
+        (2390838165, 4.131149359942182),
+        (4049635109, 4.044248415384168),
+        (6859328563, 4.002834749948777),
+        (11618426614, 4.005971136068369),
+        (19679453425, 4.054237078236464),
+        (33333333333, 4.149764742116224),
+    ],
+    3e+21: [
+        (2499999999, 3.9889013607620307),
+        (4234534950, 3.8781290516645894),
+        (7172514497, 3.806898437824491),
+        (12148905329, 3.773187514504335),
+        (20577985689, 3.776238595631232),
+        (34855279842, 3.8165457450037117),
+        (59038360277, 3.8958849698872884),
+        (100000000000, 4.017388664771504),
+    ],
+}
+points = []
+for C, candidates in sorted(groups.items()):
+    N, loss = min(candidates, key=lambda item: item[1])
+    D = C / (6 * N)
+    points.append((C, N, D))
+
+def fit(values):
+    x = [log10(C) for C, N, D in points]
+    slope, intercept = linear_regression(x, [log10(v) for v in values])
+    return 10**intercept, slope
+
+k_N, a = fit([N for C, N, D in points])
+k_D, b = fit([D for C, N, D in points])
+for C in (10**23, 10**24):
+    print(f"{C:.0e} FLOPs: N={k_N*C**a:.3e}, D={k_D*C**b:.3e}")
+```
+
+</details>
+
+## 第二题：用小实验为一次大训练选配置
+
+课程给学生共 <strong>12 B200 小时</strong>做探索，再要求他们为一次 <strong>48 B200 小时</strong>的训练提交模型结构、训练 token 数、学习率等超参数，以及预期的最终验证损失。这里按 GPU 实际运行时间计预算，相同 FLOPs 的配置也可能有不同的耗时。
+
+学生负责选择实验，课程服务器负责在单张 B200 上训练。一次实验从提交到取得结果，要经过下面几步。
+
+| 学生的操作 | 服务器返回什么 | 接下来怎么用 |
+| --- | --- | --- |
+| 用 `GET /budget` 查预算 | 已用或已预留、剩余和总秒数 | 12 小时共 43,200 秒，由全部探索实验共享 |
+| 用 `POST /submit` 提交结构、学习率、批大小、训练 token 数及最长运行时间 | 实验 ID，任务进入队列 | 记下 ID，与提交的配置放在一起 |
+| 用 `GET /experiment/{experiment_id}` 查询进度 | 状态及分阶段的验证损失 | 状态为 `completed` 时，取 `val_losses[-1]` 作为最终观测 |
+| 用 `POST /final_submission` 提交预测 | 保存配置和 `predicted_final_loss` | 另交拟合代码和可复现报告，解释实验选择、拟合质量与外推依据 |
+
+例如预留 30 分钟、实际用 12 分钟，完成后退回 18 分钟。超时则按预留上限计费。由此要做两种估计：一次探索能否在时间内完成，以及不同配置在同一时间预算下能达到怎样的验证损失。
+
+我自学时用 M2 Pro 上的 PyTorch MPS 做了一个可以检验的替代实验。课程服务器使用 DCLM 和 32K 词表，本地使用 TinyStories 字节数据。下面的数字描述本地条件，课程的 48 B200 小时配置与排行榜不在这次实测范围内。
+
+## 本地实验：用 20 次训练拟合，留下 4 次检验
+
+每个实验都用作业 1 的 Transformer 从头训练。六档预算分别是 0.4、0.8、1.6、3.2、6.4 和 9.6 万亿 FLOPs。每档预算都分给下面四个模型<strong>各一份</strong>。前五档共 20 次训练用于拟合，第六档的四次训练检验同一个预测。
+
+| 模型 | 层数 / 注意力头数 | 隐藏维度 / 前馈维度 | 总参数量 N |
+| --- | --- | --- | ---: |
+| micro | 1 / 3 | 48 / 128 | 52,368 |
+| tiny | 2 / 4 | 64 / 172 | 131,904 |
+| small | 3 / 6 | 96 / 256 | 381,600 |
+| medium | 4 / 8 | 128 / 344 | 857,216 |
+
+### 一次训练怎样得到一个格子
+
+以第六档的 `small` 为例。上下文长度是 128，批大小是 16，所以每次参数更新要处理 2,048 个 token。它能更新多少次，取决于预算和模型大小。
+
+```python
+budget = 9.6e12
+parameters = 381_600
+tokens_per_step = 16 * 128
+steps = round(budget / (6 * parameters * tokens_per_step))  # 2,047
+train_tokens = steps * tokens_per_step                     # 4,192,256
+```
+
+每一步，从 TinyStories 训练文件的前 16 MiB 随机抽取 16 段文本。输入是一串字节，目标是把同一串字节向后移一位。模型预测每个位置的下一个字节，计算平均交叉熵，反向传播，再用 AdamW 更新参数。$D$ 统计处理的 token 总量，重复采到的文本也计入其中。
+
+训练完，在独立验证文件前 1 MiB 中取固定的 65,536 个字节 token，计算平均交叉熵。所有模型都在这段文本上打分，数值越低越好。`small` 在第六档的结果是 <strong>1.0507</strong>。这里有两次保留：验证文本用于给每个模型打分，第六档预算用于检验缩放规律能否提前选对模型。
+
+<details className="my-4 rounded-lg border border-neutral-300 px-4 py-3 dark:border-neutral-700">
+<summary className="cursor-pointer font-semibold">展开 24 次训练的步数、token 数和验证损失</summary>
+
+预算单位为万亿 FLOPs。每四行使用同一预算，加粗的损失是该档最低值。
+
+| 预算 | 模型 | 更新步数 | 训练 token 数 | 验证损失 |
+| --- | --- | --- | --- | --- |
+| 0.4 | micro | 622 | 1,273,856 | 1.9517 |
+| 0.4 | tiny | 247 | 505,856 | <strong>1.9188</strong> |
+| 0.4 | small | 85 | 174,080 | 2.2408 |
+| 0.4 | medium | 38 | 77,824 | 2.4421 |
+| 0.8 | micro | 1,243 | 2,545,664 | 1.7303 |
+| 0.8 | tiny | 494 | 1,011,712 | <strong>1.6073</strong> |
+| 0.8 | small | 171 | 350,208 | 1.9237 |
+| 0.8 | medium | 76 | 155,648 | 2.1797 |
+| 1.6 | micro | 2,486 | 5,091,328 | 1.5211 |
+| 1.6 | tiny | 987 | 2,021,376 | <strong>1.4017</strong> |
+| 1.6 | small | 341 | 698,368 | 1.5301 |
+| 1.6 | medium | 152 | 311,296 | 1.7916 |
+| 3.2 | micro | 4,973 | 10,184,704 | 1.3590 |
+| 3.2 | tiny | 1,974 | 4,042,752 | <strong>1.2595</strong> |
+| 3.2 | small | 682 | 1,396,736 | 1.2851 |
+| 3.2 | medium | 304 | 622,592 | 1.4032 |
+| 6.4 | micro | 9,946 | 20,369,408 | 1.2541 |
+| 6.4 | tiny | 3,949 | 8,087,552 | 1.1538 |
+| 6.4 | small | 1,365 | 2,795,520 | <strong>1.1239</strong> |
+| 6.4 | medium | 608 | 1,245,184 | 1.1805 |
+| 9.6 | micro | 14,918 | 30,552,064 | 1.2120 |
+| 9.6 | tiny | 5,923 | 12,130,304 | 1.1016 |
+| 9.6 | small | 2,047 | 4,192,256 | <strong>1.0507</strong> |
+| 9.6 | medium | 911 | 1,865,728 | 1.0850 |
+
+</details>
+
+<details className="my-4 rounded-lg border border-neutral-300 px-4 py-3 dark:border-neutral-700">
+<summary className="cursor-pointer font-semibold">展开训练调度脚本的六个函数与完整实现</summary>
+
+| 函数 | 输入怎样变成输出 |
+| --- | --- |
+| prepare_bytes | 分别读出训练文件前 16 MiB 和验证文件前 1 MiB。一个字节对应 0～255 中的一个 token，存成 uint16。已有文件大小正确时直接复用。 |
+| parameter_count | 按宽度、层数和头数在 CPU 建立模型，用 numel() 累加全部参数。该数值进入预算公式。 |
+| plan_runs | 外层遍历六档预算，内层遍历四个模型。为每个组合算步数、token 数和取整后的估算 FLOPs，并分配实验 ID。 |
+| completed_result | 读每次实验的最后一条日志，核对完成标记、无发散、计划步数、验证 token 数和最终损失，供跳过或汇总使用。 |
+| train_one | 把一个配置交给训练器，在 MPS 上运行至指定步数。未完成的旧目录先备份，训练日志逐次保存。 |
+| main | 准备两份数据、写下 24 份计划、按 fit 或 holdout 阶段串行启动尚未完成的实验，最后汇总已完成结果。 |
+
+每档按 medium、small、tiny、micro 的顺序串行运行。默认阶段为 fit，可用 --max-runs 限制本次新启动的数量。保存前五档的预测后，再用 holdout 阶段训练最后四组。共用种子 42，峰值学习率 0.0015，预热约占总步数 5%（至少五步），余弦降至 0.00015。
+
+```python
+"""Run a small, local IsoFLOPs teaching experiment using the A1 trainer.
+
+Run from assignment1-basics/ so this uses its PyTorch environment:
+    uv run ../assignment3-scaling/scripts/run_local_scaling.py --max-runs 1
+    uv run ../assignment3-scaling/scripts/run_local_scaling.py
+    uv run ../assignment3-scaling/scripts/run_local_scaling.py --stage holdout
+
+The last budget is held out from fitting. Completed runs are reused.
+"""
+
+import argparse
+import json
+import subprocess
+import sys
+from datetime import datetime
+from pathlib import Path
+
+import numpy as np
+
+from cs336_basics.model import TransformerLM
+
+
+ROOT = Path(__file__).resolve().parents[1]
+A1 = ROOT.parent / "assignment1-basics"
+LOCAL_DATA = ROOT / "data/local"
+RUNS = ROOT / "runs"
+EXPERIMENTS = ROOT / "experiments"
+VOCAB_SIZE = 256
+CONTEXT_LENGTH = 128
+BATCH_SIZE = 16
+TOKENS_PER_STEP = CONTEXT_LENGTH * BATCH_SIZE
+TRAIN_SOURCE_BYTES = 16 * 2**20
+VALID_SOURCE_BYTES = 1 * 2**20
+FINAL_EVAL_TOKENS = 65_536
+BUDGETS = (
+    ("c0", 4e11, "fit"),
+    ("c1", 8e11, "fit"),
+    ("c1_6", 1.6e12, "fit"),
+    ("c2", 3.2e12, "fit"),
+    ("c6_4", 6.4e12, "fit"),
+    ("c9_6", 9.6e12, "holdout"),
+)
+MODELS = (
+    ("medium", 128, 344, 4, 8),
+    ("small", 96, 256, 3, 6),
+    ("tiny", 64, 172, 2, 4),
+    ("micro", 48, 128, 1, 3),
+)
+
+
+def prepare_bytes(source: Path, output: Path, count: int) -> None:
+    if output.exists() and output.stat().st_size == 2 * count:
+        return
+    with source.open("rb") as file:
+        raw = file.read(count)
+    if len(raw) != count:
+        raise ValueError(f"Expected {count} bytes from {source}, got {len(raw)}")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    np.frombuffer(raw, dtype=np.uint8).astype(np.uint16).tofile(output)
+
+
+def parameter_count(width: int, ff_width: int, layers: int, heads: int) -> int:
+    model = TransformerLM(
+        VOCAB_SIZE,
+        CONTEXT_LENGTH,
+        width,
+        layers,
+        heads,
+        ff_width,
+        10_000.0,
+        device="cpu",
+    )
+    return sum(parameter.numel() for parameter in model.parameters())
+
+
+def plan_runs() -> list[dict]:
+    rows = []
+    for budget_id, budget, split in BUDGETS:
+        for model_name, width, ff_width, layers, heads in MODELS:
+            parameters = parameter_count(width, ff_width, layers, heads)
+            steps = round(budget / (6 * parameters * TOKENS_PER_STEP))
+            if steps < 30:
+                raise ValueError(f"Too few steps for {model_name} at budget {budget}")
+            row = {
+                "run_id": f"{budget_id}_{model_name}",
+                "split": split,
+                "target_flops": budget,
+                "estimated_flops": 6 * parameters * steps * TOKENS_PER_STEP,
+                "parameters": parameters,
+                "train_tokens": steps * TOKENS_PER_STEP,
+                "steps": steps,
+                "model": model_name,
+                "d_model": width,
+                "d_ff": ff_width,
+                "layers": layers,
+                "heads": heads,
+            }
+            rows.append(row)
+    return rows
+
+
+def completed_result(row: dict) -> dict | None:
+    metrics_path = RUNS / row["run_id"] / "metrics.jsonl"
+    if not metrics_path.exists():
+        return None
+    lines = metrics_path.read_text().splitlines()
+    if not lines:
+        return None
+    last = json.loads(lines[-1])
+    if (
+        not last.get("finished")
+        or last.get("diverged")
+        or last.get("step") != row["steps"]
+        or last.get("final_eval_tokens") != FINAL_EVAL_TOKENS
+        or "final_val_loss" not in last
+    ):
+        return None
+    wallclock = max(
+        (json.loads(line).get("wallclock", 0.0) for line in lines), default=0.0
+    )
+    return {
+        **row,
+        "final_val_loss": last["final_val_loss"],
+        "wallclock_seconds": wallclock,
+    }
+
+
+def train_one(row: dict, device: str) -> None:
+    steps = row["steps"]
+    run_dir = RUNS / row["run_id"]
+    if run_dir.exists():
+        backup = run_dir.with_name(
+            f"{run_dir.name}-incomplete-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        )
+        run_dir.rename(backup)
+        print(f"Preserved incomplete run at {backup}", flush=True)
+    command = [
+        sys.executable,
+        "scripts/train.py",
+        "--train-data",
+        str(LOCAL_DATA / "train_bytes.bin"),
+        "--valid-data",
+        str(LOCAL_DATA / "valid_bytes.bin"),
+        "--out-dir",
+        str(run_dir),
+        "--vocab-size",
+        str(VOCAB_SIZE),
+        "--context-length",
+        str(CONTEXT_LENGTH),
+        "--d-model",
+        str(row["d_model"]),
+        "--d-ff",
+        str(row["d_ff"]),
+        "--num-layers",
+        str(row["layers"]),
+        "--num-heads",
+        str(row["heads"]),
+        "--batch-size",
+        str(BATCH_SIZE),
+        "--max-steps",
+        str(steps),
+        "--lr-max",
+        "0.0015",
+        "--lr-min",
+        "0.00015",
+        "--warmup-steps",
+        str(max(5, round(steps * 0.05))),
+        "--log-interval",
+        str(max(10, round(steps / 5))),
+        "--eval-interval",
+        str(steps),
+        "--eval-batches",
+        "8",
+        "--final-eval-tokens",
+        str(FINAL_EVAL_TOKENS),
+        "--no-checkpoint",
+        "--device",
+        device,
+        "--seed",
+        "42",
+    ]
+    print(
+        f"Starting {row['run_id']} ({steps} steps, {row['train_tokens']:,} tokens)",
+        flush=True,
+    )
+    subprocess.run(command, cwd=A1, check=True)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--device", default="mps")
+    parser.add_argument("--stage", choices=("fit", "holdout"), default="fit")
+    parser.add_argument(
+        "--max-runs",
+        type=int,
+        default=20,
+        help="Maximum new runs to start this invocation",
+    )
+    args = parser.parse_args()
+    prepare_bytes(
+        A1 / "data/TinyStoriesV2-GPT4-train.txt",
+        LOCAL_DATA / "train_bytes.bin",
+        TRAIN_SOURCE_BYTES,
+    )
+    prepare_bytes(
+        A1 / "data/TinyStoriesV2-GPT4-valid.txt",
+        LOCAL_DATA / "valid_bytes.bin",
+        VALID_SOURCE_BYTES,
+    )
+    plan = plan_runs()
+    EXPERIMENTS.mkdir(parents=True, exist_ok=True)
+    (EXPERIMENTS / "local_scaling_manifest.json").write_text(
+        json.dumps(plan, indent=2) + "\n"
+    )
+    started = 0
+    for row in plan:
+        if row["split"] != args.stage:
+            continue
+        if completed_result(row):
+            continue
+        if started >= args.max_runs:
+            break
+        train_one(row, args.device)
+        started += 1
+    results = [result for row in plan if (result := completed_result(row)) is not None]
+    (EXPERIMENTS / "local_scaling_results.json").write_text(
+        json.dumps(results, indent=2) + "\n"
+    )
+    print(f"Completed {len(results)}/{len(plan)} runs")
+
+
+if __name__ == "__main__":
+    main()
+```
+
+</details>
+
+## 保留检验：模型选对了，损失估低了多少
+
+### 第一层 · 同一预算下，用四个模型拟合抛物线
+
+每档预算有四对数据 $(N_j,L_j)$。**只对横轴取自然对数**，令 $z_j=\ln N_j$，纵轴 $L_j$ 保留实测验证损失的原值。用最小二乘法选择 $a,b,c$，把抛物线 $q(z)=az^2+bz+c$ 拟合到四个点上。
+
+$$
+\min_{a,b,c}\ \sum_{j=1}^{4}\big[L_j-q(z_j)\big]^2
+$$
+
+![在 6.4 万亿 FLOPs 下，四个实测验证损失拟合出一条抛物线。菱形是连续顶点，右侧黑点是实测损失最低的 small 模型。](/static/blog/cs336-assignment3-scaling/local-quadratic-fit.png)
+
+以 6.4 万亿 FLOPs 为例，这条曲线开口向上，顶点也落在测试范围内。顶点的横坐标是 $z_\star=-b/(2a)$，还原得到 $N_\star=e^{z_\star}\approx284{,}903$。四个实际训练过的模型中，`small`（381,600 参数）取得最低验证损失 **1.1239**。这一档给下一层送去两个数，分别取自**拟合顶点的参数量**和**四次实测的最低损失**。
+
+### 第二层 · 跨五档预算，分别拟合参数量和损失
+
+把预算换算为万亿 FLOPs，记作 $x=C/10^{12}$。这次**横纵轴都取自然对数**。两条直线都用前五档预算做最小二乘拟合，但纵轴的数据来源不同。
+
+| 拟合目标 | 横坐标 | 纵坐标（每档一个点） | 拟合斜率 |
+| --- | --- | --- | ---: |
+| 最优参数量 | $\ln x$ | $\ln N_\star$，来自抛物线顶点 | 0.5195 |
+| 最低验证损失 | $\ln x$ | $\ln L_{\min}$，来自实测最低损失 | −0.1895 |
+
+![同一组五档预算上，两幅对数坐标图分别拟合参数量和验证损失。橙色虚线和空心菱形表示第六档预算的外推。](/static/blog/cs336-assignment3-scaling/local-log-regressions.png)
+
+两幅图中的黑点来自前 20 次训练，橙色菱形是打开第六档结果前做出的预测。把直线 $\ln Y=m\ln x+b$ 还原为 $Y=e^b x^m$，得到
+
+$$
+N_\star \approx 107596\,x^{0.5195}
+$$
+
+$$
+L_{\min} \approx 1.5705\,x^{-0.1895}
+$$
+
+把第六档的 $x=9.6$ 代入，并选择在对数尺度上与预测参数量最接近的候选模型。下表对照训练前保存的预测和训练后的观测。
+
+| 检验项 | 训练前的预测 | 第六档实测 |
+| --- | --- | --- |
+| 应选哪一个模型 | 连续最优约 34.84 万参数，选 `small` | `small`（38.16 万参数）在四个候选中损失最低 |
+| 对应训练量 | 连续最优规模约需 459 万 token | 取整到候选 `small`，训练 4,192,256 个 token |
+| 最低验证损失 | 1.0230 | 1.0507，比预测高 0.0277 |
+
+这次预测足以指导四选一。若关心损失究竟能降到多少，就要看误差。用前五档拟合最低损失时，对数空间的 R² 达到 0.9887，对第六档最低损失的估计仍偏低 0.0277。这里只有四种模型、一个种子，也只检验了从 6.4 到 9.6 万亿 FLOPs 的一次近距离外推。
+
+<details className="my-4 rounded-lg border border-neutral-300 px-4 py-3 dark:border-neutral-700">
+<summary className="cursor-pointer font-semibold">展开本地预测的完整计算示例（内含前五档实测值）</summary>
+
+数组每一行都是一次固定预算的比较。最后三行只用预测值和候选参数量，就能在看到第六档实测损失之前选出模型。
+
+```python
+import numpy as np
+
+# 列依次是 micro、tiny、small、medium。只用前五档预算拟合。
+N = np.array([52368, 131904, 381600, 857216])
+x = np.array([0.4, 0.8, 1.6, 3.2, 6.4])  # 单位：万亿 FLOPs
+loss = np.array([
+    [1.9516626372933388, 1.9188300929963589, 2.2408428713679314, 2.442082040011883],
+    [1.7303109019994736, 1.6073291450738907, 1.9236783981323242, 2.1796652004122734],
+    [1.5211376883089542, 1.4016786254942417, 1.5301054194569588, 1.7915685437619686],
+    [1.3590317890048027, 1.2595232725143433, 1.2851195149123669, 1.403247993439436],
+    [1.2540652453899384, 1.153779523447156, 1.1239169370383024, 1.180495496839285],
+])
+optima = []
+for row in loss:
+    a, b, c = np.polyfit(np.log(N), row, 2)
+    optima.append(np.exp(-b / (2 * a)))
+
+def extrapolate(values, target):
+    slope, intercept = np.polyfit(np.log(x), np.log(values), 1)
+    return np.exp(intercept) * target**slope
+
+pred_N = extrapolate(optima, 9.6)
+pred_L = extrapolate(loss.min(axis=1), 9.6)
+choice = np.argmin(np.abs(np.log(N / pred_N)))
+print(round(pred_N), N[choice], round(pred_L, 4))  # 348439 381600 1.0230
+```
+
+</details>
+
+## 合上笔记前的三道自检
+
+| 自检 | 答案 |
+| --- | --- |
+| 同一档预算把模型参数翻倍，每步仍处理 2,048 个 token，应该怎样改训练计划？ | 每步约贵一倍，所以步数与训练 token 总数都约减半。 |
+| 为什么第一题拟合用 9 个点，本地预测只用 5 档？ | 第一题每组 8 条记录选出一个最低点。本地每档 4 个点估计一个最优规模，第六档留给检验。 |
+| 能用 1.0507 回答课程的 48 B200 小时题吗？ | 1.0507 是 Mac 上字节级 TinyStories 的验证损失。课程在 DCLM 上训练，token、评估集、硬件吞吐和时间预算都不同，需要课程条件下的测量才能拟合。 |
